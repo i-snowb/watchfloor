@@ -389,7 +389,7 @@ test("investigation plans attach one available finding in deterministic order", 
 
   const nextStep = getDerivedNextStep(fixture, state);
   assert.equal(nextStep.recommendedTool, "run_investigation_query");
-  assert.equal(nextStep.objective, "Static-analysis fixture");
+  assert.equal(nextStep.objective, "Static file analysis");
 
   const repeated = execute(
     fixture,

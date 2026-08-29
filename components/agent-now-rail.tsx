@@ -1,5 +1,5 @@
+import type { CSSProperties } from "react";
 import {
-  getCollaborationHandoff,
   getDerivedNextStep,
   getInvestigationPlans,
   getResponseBundles,
@@ -38,6 +38,17 @@ export function AgentNowRail({
       <span>{content.label}</span>
       <strong>{content.headline}</strong>
       <small>{content.detail}</small>
+      {activity.status === "running" ? (
+        <i
+          aria-hidden="true"
+          className="agent-now-progress"
+          style={
+            {
+              "--agent-progress": activity.progress,
+            } as CSSProperties
+          }
+        />
+      ) : null}
     </div>
   );
 }
@@ -63,7 +74,8 @@ function getAgentNowContent(
     };
   }
   const next = getDerivedNextStep(fixture, state);
-  const handoff = getCollaborationHandoff(fixture, state);
+  const readyQuery = getReadyInvestigationQuery(fixture, state);
+  const nextObjective = readyQuery?.title ?? next.objective;
   if (activity.status === "running") {
     const planProgress =
       activity.toolName === "run_investigation_plan"
@@ -72,15 +84,11 @@ function getAgentNowContent(
     return {
       state: "running",
       label:
-        activity.actor === "agent"
-          ? "Copilot · Running"
-          : "Analyst · Requested",
-      headline: planProgress
-        ? `Query ${planProgress.position}/${planProgress.total} · ${planProgress.currentQuery.title}`
-        : operationLabel(activity.toolName),
+        activity.actor === "agent" ? "Copilot · Running" : "Analyst · Running",
+      headline: runningPhaseLabel(activity.phase),
       detail: planProgress
-        ? `${formatCount(planProgress.recordCount)} records · ${planProgress.currentQuery.sourceScopes.length} sources · r${activity.baseRevision}`
-        : `Case revision r${activity.baseRevision}`,
+        ? `${planProgress.currentQuery.title} · ${planProgress.currentQuery.sourceScopes.length} sources · ${Math.round(activity.progress * 100)}%`
+        : `${operationLabel(activity.toolName)} · ${Math.round(activity.progress * 100)}%`,
     };
   }
   if (state.responseBundle) {
@@ -146,9 +154,9 @@ function getAgentNowContent(
         : aggregate
           ? formatReceiptDetail(
               result.receipt,
-              `${aggregate.evidenceAttached} results · next: ${next.objective}`,
+              `${aggregate.evidenceAttached} results · next: ${nextObjective}`,
             )
-          : formatReceiptDetail(result.receipt, `Next: ${next.objective}`),
+          : formatReceiptDetail(result.receipt, `Next: ${nextObjective}`),
     };
   }
   if (
@@ -162,29 +170,26 @@ function getAgentNowContent(
           ? "Copilot · Result added"
           : "Analyst · Result added",
       headline: latestReceipt.title,
-      detail: `Next: ${next.objective}`,
+      detail: `Next: ${nextObjective}`,
     };
   }
   return {
     state: "idle",
     label: "Copilot · Ready",
-    headline: next.objective,
-    detail: capabilityDetail(activity, `Why now · ${handoff.whyNow}`),
+    headline: "Next step ready",
+    detail: `${requiredEvidenceProgress(fixture, state)} · Run the card or select another item to pivot`,
   };
 }
 
-function capabilityDetail(
-  activity: InvestigationActivity,
-  fallback: string,
-): string {
-  if (
-    activity.status === "idle" &&
-    typeof activity.availableToolCount === "number" &&
-    typeof activity.totalToolCount === "number"
-  ) {
-    return `${activity.availableToolCount}/${activity.totalToolCount} case capabilities available · ${fallback}`;
-  }
-  return fallback;
+function getReadyInvestigationQuery(fixture: CaseFixture, state: CaseState) {
+  return (
+    fixture.investigationQueries.find(
+      (query) =>
+        !state.attachedEnrichmentIds.includes(query.resultArtifactId) &&
+        (query.requiresStageId === null ||
+          state.releasedStreamStageIds.includes(query.requiresStageId)),
+    ) ?? null
+  );
 }
 
 function formatReceiptDetail(
@@ -197,18 +202,27 @@ function formatReceiptDetail(
     receipt.syntheticRecordCount === null
       ? null
       : `${formatCount(receipt.matchedRecordCount ?? 0)}/${formatCount(receipt.syntheticRecordCount)} matched`;
-  const target = receipt.targetEntityId ? `→ ${receipt.targetEntityId}` : null;
-  return [
-    actor,
-    receipt.toolName,
-    duration,
-    recordSummary,
-    `r${receipt.baseRevision}→r${receipt.resultRevision}`,
-    target,
-    next,
-  ]
+  return [actor, duration, recordSummary, next]
     .filter((value): value is string => value !== null)
     .join(" · ");
+}
+
+function runningPhaseLabel(
+  phase: Extract<InvestigationActivity, { status: "running" }>["phase"],
+): string {
+  if (phase === "scope") return "Selecting data sources";
+  if (phase === "search") return "Searching case records";
+  return "Reviewing matches";
+}
+
+function requiredEvidenceProgress(
+  fixture: CaseFixture,
+  state: CaseState,
+): string {
+  const attached = fixture.decision.requiresEnrichmentIds.filter((id) =>
+    state.attachedEnrichmentIds.includes(id),
+  ).length;
+  return `${attached}/${fixture.decision.requiresEnrichmentIds.length} required checks complete`;
 }
 
 function resultHeadline(

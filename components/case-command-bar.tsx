@@ -15,7 +15,10 @@ import type {
   ResponseActionState,
 } from "@/domain/types";
 import type { AgentStatus } from "./platform-shell";
-import type { TraceSelection } from "./trace-interaction";
+import {
+  selectionContainsEntity,
+  type TraceSelection,
+} from "./trace-interaction";
 
 interface CaseCommandBarProps {
   fixture: CaseFixture;
@@ -87,18 +90,24 @@ export function CaseCommandBar({
         (entity) => entity.id === nextStep.targetEntityId,
       ) ?? null)
     : null;
-  const selectedQuery =
-    nextStep.recommendedTool === "run_investigation_plan"
-      ? null
-      : findSelectedInvestigationQuery(fixture, state, selection);
-  const nextQuery =
-    selectedQuery ??
-    findNextInvestigationQuery(
-      fixture,
-      state,
-      nextStep.recommendedTool,
-      derivedTarget?.id ?? null,
-    );
+  const selectedQuery = findSelectedInvestigationQuery(
+    fixture,
+    state,
+    selection,
+  );
+  const recommendedQuery = findNextInvestigationQuery(
+    fixture,
+    state,
+    nextStep.recommendedTool,
+    derivedTarget?.id ?? null,
+  );
+  const investigationOpen =
+    state.decision.status === "pending" && !decisionReady;
+  const nextQuery = investigationOpen
+    ? (selectedQuery ?? recommendedQuery)
+    : null;
+  const analystPivot =
+    selectedQuery !== null && selectedQuery.id !== recommendedQuery?.id;
   const nextTarget = nextQuery
     ? (getAllEntities(fixture).find(
         (entity) => entity.id === nextQuery.targetEntityId,
@@ -117,10 +126,6 @@ export function CaseCommandBar({
   );
 
   if (nextQuery) {
-    const nextReturn = Math.min(
-      requiredContextCount + 1,
-      fixture.decision.requiresEnrichmentIds.length,
-    );
     return (
       <section
         className="case-command-bar case-command-query-gate command-owner-agent"
@@ -128,36 +133,43 @@ export function CaseCommandBar({
       >
         <div className="case-command-next">
           <div className="case-command-label">
-            <span>Recommended next step</span>
+            <span>{analystPivot ? "Selected investigation" : "Next step"}</span>
             <small>
-              {nextReturn} of {fixture.decision.requiresEnrichmentIds.length}{" "}
-              evidence checks
+              {requiredContextCount}/
+              {fixture.decision.requiresEnrichmentIds.length} required checks
+              complete
             </small>
           </div>
           <div className="case-command-copy">
             <h2 id="case-command-heading">{nextQuery.title}</h2>
             <p>
-              Run this query to assess {nextTarget?.label ?? "this target"}
-              before deciding.
+              {nextTarget?.label ?? "Selected item"} ·{" "}
+              {nextQuery.sourceScopes.length} data source
+              {nextQuery.sourceScopes.length === 1 ? "" : "s"} · shared
+              investigation query
             </p>
           </div>
           <div className="case-command-control">
-            {nextQueryTargetFocused ? (
-              <span className="case-command-ready">
-                Ready in Active question
-              </span>
-            ) : (
-              <button
-                className="case-command-secondary"
-                disabled={busy || !nextTarget}
-                onClick={() =>
-                  nextTarget && onSelect({ kind: "entity", id: nextTarget.id })
+            <button
+              className="case-command-primary"
+              disabled={busy || !nextTarget}
+              onClick={() => {
+                if (nextTarget && !nextQueryTargetFocused) {
+                  onSelect({ kind: "entity", id: nextTarget.id });
                 }
-                type="button"
-              >
-                {nextTarget ? `Focus ${nextTarget.label}` : "Focus next lead"}
-              </button>
-            )}
+                void onExecute("run_investigation_query", {
+                  expectedRevision: state.revision,
+                  queryId: nextQuery.id,
+                });
+              }}
+              type="button"
+            >
+              {busy
+                ? "Running investigation"
+                : analystPivot
+                  ? "Run selected query"
+                  : "Run investigation"}
+            </button>
           </div>
         </div>
       </section>
@@ -474,13 +486,17 @@ function CommandControls({
         <button
           className="case-command-primary"
           disabled={busy || !plan}
-          onClick={() => {
-            const entityId = plan?.targetEntityIds[0];
-            if (entityId) onSelect({ kind: "entity", id: entityId });
-          }}
+          onClick={() =>
+            plan
+              ? void onExecute("run_investigation_plan", {
+                  expectedRevision: state.revision,
+                  planId: plan.id,
+                })
+              : undefined
+          }
           type="button"
         >
-          Review first question
+          Run next Tier 1 check
         </button>
       );
     }
@@ -515,7 +531,7 @@ function CommandControls({
           }
           type="button"
         >
-          Ask for next observation
+          Request new telemetry
         </button>
       );
     }
@@ -631,7 +647,18 @@ function findNextInvestigationQuery(
   nextTool: CaseToolName | null,
   targetEntityId: string | null,
 ) {
-  if (!nextTool || !targetEntityId) return null;
+  if (!nextTool) return null;
+  if (nextTool === "run_investigation_plan") {
+    return (
+      fixture.investigationQueries.find(
+        (query) =>
+          !state.attachedEnrichmentIds.includes(query.resultArtifactId) &&
+          (query.requiresStageId === null ||
+            state.releasedStreamStageIds.includes(query.requiresStageId)),
+      ) ?? null
+    );
+  }
+  if (!targetEntityId) return null;
   return (
     fixture.investigationQueries.find(
       (query) =>
@@ -657,36 +684,6 @@ function findSelectedInvestigationQuery(
           state.releasedStreamStageIds.includes(query.requiresStageId)) &&
         selectionContainsEntity(fixture, selection, query.targetEntityId),
     ) ?? null
-  );
-}
-
-function selectionContainsEntity(
-  fixture: CaseFixture,
-  selection: TraceSelection,
-  entityId: string,
-): boolean {
-  if (selection.kind === "entity") return selection.id === entityId;
-  if (selection.kind === "event") {
-    return (
-      [
-        ...fixture.events,
-        ...fixture.stream.stages.flatMap((stage) => stage.events),
-      ]
-        .find((event) => event.id === selection.id)
-        ?.entityIds.includes(entityId) ?? false
-    );
-  }
-  if (selection.kind === "join") {
-    const join = [
-      ...fixture.joins,
-      ...fixture.stream.stages.flatMap((stage) => stage.joins),
-    ].find((candidate) => candidate.id === selection.id);
-    return join?.fromEntityId === entityId || join?.toEntityId === entityId;
-  }
-  return (
-    fixture.reachability.paths
-      .find((path) => path.id === selection.id)
-      ?.entityIds.includes(entityId) ?? false
   );
 }
 
@@ -937,10 +934,10 @@ function authorizationLabel(action: ResponseActionDefinition): string {
 }
 
 function commandOwnerLabel(owner: CommandOwner): string {
-  if (owner === "analyst") return "Analyst decision";
-  if (owner === "evidence") return "Live evidence";
-  if (owner === "complete") return "Resolved";
-  return "Tier 1 assessment";
+  if (owner === "analyst") return "Analyst approval required";
+  if (owner === "evidence") return "Telemetry update";
+  if (owner === "complete") return "Case complete";
+  return "Next step";
 }
 
 function commandSequenceLabel(fixture: CaseFixture, state: CaseState): string {

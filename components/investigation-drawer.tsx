@@ -17,26 +17,22 @@ import { QueryReturnedRecords } from "./query-returned-records";
 import type { TraceSelection } from "./trace-interaction";
 
 interface InvestigationDrawerProps {
-  commandBar?: ReactNode;
   fixture: CaseFixture;
   findingsSectionId: string;
   onSelect: (selection: TraceSelection) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
-  queryControls?: ReactNode;
   receipts: readonly OperationReceipt[];
   selectionDetails?: ReactNode;
   state: CaseState;
 }
 
 export function InvestigationDrawer({
-  commandBar,
   fixture,
   findingsSectionId,
   onSelect,
   onOpenChange,
   open,
-  queryControls,
   receipts,
   selectionDetails,
   state,
@@ -106,14 +102,18 @@ export function InvestigationDrawer({
       open={open}
     >
       <summary>
-        <span className="drawer-summary-label">Investigation results</span>
+        <span className="drawer-summary-label">Results &amp; notes</span>
         <strong>
           {findings.length === 0
-            ? "No query results yet"
+            ? "No results yet"
             : `${findings.length} ${findings.length === 1 ? "result" : "results"}`}
         </strong>
         <span className="drawer-summary-state" aria-live="polite">
-          Case revision r{state.revision}
+          {decisionRecorded
+            ? "Decision recorded"
+            : evidenceReady
+              ? "Decision ready"
+              : "Investigation active"}
         </span>
         <em aria-hidden="true" />
       </summary>
@@ -165,15 +165,15 @@ export function InvestigationDrawer({
         >
           <header className="drawer-section-heading">
             <div>
-              <span>Query results</span>
+              <span>Evidence added by investigation</span>
               <h2 id="attached-findings-heading" tabIndex={-1}>
-                Findings
+                Query results
               </h2>
             </div>
             <small>
               {findings.length === 0
                 ? "Run a query to add evidence"
-                : `Case revision r${state.revision}`}
+                : "Exact returned records available"}
             </small>
           </header>
           {findings.length > 0 ? (
@@ -205,6 +205,47 @@ export function InvestigationDrawer({
           )}
         </section>
 
+        <section className="drawer-section drawer-activity-notes">
+          <header className="drawer-section-heading">
+            <div>
+              <span>Shared case history</span>
+              <h2>Activity notes</h2>
+            </div>
+            <small>{receipts.length} recorded updates</small>
+          </header>
+          {receipts.length > 0 ? (
+            <ol className="drawer-activity-list">
+              {receipts.slice(-12).map((receipt) => (
+                <li key={receipt.id}>
+                  <span>
+                    {receipt.reportedSurface === "webmcp_callback"
+                      ? "Copilot"
+                      : "Analyst"}
+                  </span>
+                  <div>
+                    <strong>{receipt.title}</strong>
+                    <p>{receipt.resultSummary}</p>
+                  </div>
+                  <time dateTime={receipt.occurredAt}>
+                    {formatUtcTime(receipt.occurredAt)}
+                  </time>
+                  <details>
+                    <summary>Technical details</summary>
+                    <code>
+                      {receipt.toolName} · r{receipt.baseRevision}→r
+                      {receipt.resultRevision}
+                    </code>
+                  </details>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="drawer-empty-state">
+              Copilot work and analyst approvals will appear here.
+            </p>
+          )}
+        </section>
+
         {state.report.status !== "unavailable" ? (
           <section className="drawer-section findings-tray-report">
             <header className="drawer-section-heading">
@@ -218,32 +259,11 @@ export function InvestigationDrawer({
           </section>
         ) : null}
 
-        <section
-          aria-labelledby="investigation-controls-heading"
-          className="drawer-section findings-tray-controls"
-        >
-          <header className="drawer-section-heading">
-            <div>
-              <span>Shared investigation</span>
-              <h2 id="investigation-controls-heading">Work with copilot</h2>
-            </div>
-            <small>Selected item</small>
-          </header>
-          {commandBar ? (
-            <div className="findings-tray-next">{commandBar}</div>
-          ) : null}
-          {queryControls ? (
-            <div className="drawer-query-controls findings-tray-query">
-              {queryControls}
-            </div>
-          ) : null}
-        </section>
-
         {selectionDetails ? (
           <details className="findings-context-disclosure">
             <summary>
-              <span>Selected item</span>
-              <strong>View technical details</strong>
+              <span>Selected item details</span>
+              <strong>Inspect technical record</strong>
               <em aria-hidden="true" />
             </summary>
             <div>{selectionDetails}</div>

@@ -2,6 +2,8 @@ import type { CaseToolName } from "@/domain/operations";
 
 export type InvestigationActor = "agent" | "analyst";
 
+export type InvestigationRunPhase = "scope" | "search" | "review";
+
 interface InvestigationActivityBase {
   actor: InvestigationActor;
   toolName: CaseToolName;
@@ -16,7 +18,13 @@ export type InvestigationActivity =
       availableToolCount?: number;
       totalToolCount?: number;
     }
-  | (InvestigationActivityBase & { status: "running" })
+  | (InvestigationActivityBase & {
+      status: "running";
+      startedAt: number;
+      expectedDurationMs: number;
+      phase: InvestigationRunPhase;
+      progress: number;
+    })
   | (InvestigationActivityBase & {
       status: "completed" | "rejected";
       resultRevision: number;

@@ -26,7 +26,11 @@ import type {
   OperationReceipt,
 } from "@/domain/types";
 import { formatUtcTime, humanizeEntityKind } from "@/lib/format";
-import { useTraceCamera, type TraceSelection } from "./trace-interaction";
+import {
+  selectionContainsEntity,
+  useTraceCamera,
+  type TraceSelection,
+} from "./trace-interaction";
 import { EntityGlyph } from "./entity-glyph";
 import type {
   InvestigationActivity,
@@ -58,8 +62,6 @@ interface EvidenceMapProps {
   latestReceipt?: OperationReceipt | null;
   latestAuthorizationReceipt?: OperationReceipt | null;
   receipts?: readonly OperationReceipt[];
-  commandBar?: ReactNode;
-  investigationDock?: ReactNode;
   syntheticExpansion?: {
     stageId: string;
     revision: number;
@@ -94,8 +96,6 @@ export function EvidenceMap({
   latestReceipt = null,
   latestAuthorizationReceipt = null,
   receipts = [],
-  commandBar,
-  investigationDock,
   syntheticExpansion = null,
   children,
 }: EvidenceMapProps) {
@@ -110,6 +110,7 @@ export function EvidenceMap({
   const [replayPlaying, setReplayPlaying] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [modelRevealHop, setModelRevealHop] = useState(0);
   const [replayPulseJoinId, setReplayPulseJoinId] = useState<string | null>(
     null,
   );
@@ -336,6 +337,35 @@ export function EvidenceMap({
       : tracePositions;
   const phasePlanes = useMemo(() => buildCausalPhasePlanes(fixture), [fixture]);
   const impactEnvelope = buildDirectionalImpactEnvelope(impactLayout);
+  const maxImpactHop = impactEnvelope.at(-1)?.hop ?? 0;
+
+  useEffect(() => {
+    let interval: number | null = null;
+    const kickoff = window.setTimeout(() => {
+      if (!state.reachabilityAttached) {
+        setModelRevealHop(0);
+        return;
+      }
+      if (reducedMotion) {
+        setModelRevealHop(maxImpactHop);
+        return;
+      }
+      setModelRevealHop(0);
+      interval = window.setInterval(() => {
+        setModelRevealHop((current) => {
+          if (current >= maxImpactHop) {
+            if (interval !== null) window.clearInterval(interval);
+            return current;
+          }
+          return current + 1;
+        });
+      }, 320);
+    }, 0);
+    return () => {
+      window.clearTimeout(kickoff);
+      if (interval !== null) window.clearInterval(interval);
+    };
+  }, [maxImpactHop, reducedMotion, state.reachabilityAttached]);
   const selectionFocus =
     view === "impact" &&
     selection.kind === "entity" &&
@@ -405,20 +435,14 @@ export function EvidenceMap({
     mapEntityIds.has(query.targetEntityId),
   );
   const attachedFindingCount = allAttachedQueries.length;
+  const requiredAttachedCount = fixture.decision.requiresEnrichmentIds.filter(
+    (artifactId) => state.attachedEnrichmentIds.includes(artifactId),
+  ).length;
   const visibleEnrichmentById = new Map(
     getVisibleEnrichments(fixture, state).map((artifact) => [
       artifact.id,
       artifact,
     ]),
-  );
-  const findingStatusCounts = allAttachedQueries.reduce(
-    (counts, query) => {
-      const status = visibleEnrichmentById.get(query.resultArtifactId)?.status;
-      if (status === "supporting") counts.supporting += 1;
-      if (status === "disputed") counts.disputed += 1;
-      return counts;
-    },
-    { supporting: 0, disputed: 0 },
   );
   const attachedQueriesByTarget = new Map<string, typeof attachedQueries>();
   for (const query of attachedQueries) {
@@ -444,13 +468,23 @@ export function EvidenceMap({
     });
   }, []);
   const activeWorkQuery =
-    selection.kind === "entity"
+    state.decision.status === "pending" &&
+    fixture.decision.requiresEnrichmentIds.some(
+      (artifactId) => !state.attachedEnrichmentIds.includes(artifactId),
+    )
       ? (fixture.investigationQueries.find(
           (query) =>
-            query.targetEntityId === selection.id &&
+            selectionContainsEntity(fixture, selection, query.targetEntityId) &&
             !state.attachedEnrichmentIds.includes(query.resultArtifactId) &&
             (query.requiresStageId === null ||
               state.releasedStreamStageIds.includes(query.requiresStageId)),
+        ) ?? null)
+      : null;
+  const activeInvestigationQuery =
+    investigationActivity.status === "running" &&
+    investigationActivity.queryId !== null
+      ? (fixture.investigationQueries.find(
+          (query) => query.id === investigationActivity.queryId,
         ) ?? null)
       : null;
   const impactHeadline =
@@ -557,6 +591,7 @@ export function EvidenceMap({
         setReplayPulseJoinId(null);
       }}
       onSelect={selectEvidence}
+      onOpenResults={openFindings}
       onStep={(step) => {
         setReplayPlaying(false);
         setReplayCursor(step);
@@ -607,12 +642,11 @@ export function EvidenceMap({
           onClick={openFindings}
           type="button"
         >
-          <span>Evidence</span>
+          <span>Findings</span>
           <strong>{attachedFindingCount}</strong>
           <small>
-            {attachedFindingCount === 0
-              ? `No query results yet · r${state.revision}`
-              : `${findingStatusCounts.supporting} supporting · ${findingStatusCounts.disputed} disputed · r${state.revision}`}
+            {requiredAttachedCount}/
+            {fixture.decision.requiresEnrichmentIds.length} checks complete
           </small>
         </button>
         <div className="evidence-view-switch" aria-label="Evidence view">
@@ -621,7 +655,7 @@ export function EvidenceMap({
             onClick={() => setView("trace")}
             type="button"
           >
-            Evidence path
+            Incident path
           </button>
           <button
             aria-pressed={view === "impact"}
@@ -631,29 +665,6 @@ export function EvidenceMap({
             Exposure map
           </button>
         </div>
-        <div className="evidence-line-legend" aria-label="Path truth legend">
-          <span>
-            <i className="line-correlated" /> Observed link
-          </span>
-          {state.reachabilityAttached ? (
-            <span>
-              <i className="line-modeled" /> Modeled path
-            </span>
-          ) : null}
-          {state.counterfactualAttached ? (
-            <span>
-              <i className="line-predicted" /> Simulated control
-            </span>
-          ) : null}
-          {severedPathIds.size > 0 ? (
-            <span>
-              <i className="line-severed" /> Blocked in demo
-            </span>
-          ) : null}
-        </div>
-        <span className="evidence-line-key-compact">
-          Solid = observed evidence · dashed = modeled or simulated
-        </span>
         <div className="trace-camera-tools" aria-label="Graph view controls">
           <span>{Math.round(camera.scale * 100)}%</span>
           <button
@@ -680,17 +691,33 @@ export function EvidenceMap({
         {actionDock ? (
           <div className="map-command-dock">{actionDock}</div>
         ) : null}
-        {investigationDock &&
-        (activeWorkQuery || investigationActivity.status === "running") ? (
-          <div className="map-investigation-dock">{investigationDock}</div>
+        {latestReceipt ? (
+          <button
+            className={`map-moment map-moment-${latestReceipt.reportedSurface}`}
+            key={latestReceipt.id}
+            onClick={openFindings}
+            type="button"
+          >
+            <span>
+              {latestReceipt.reportedSurface === "webmcp_callback"
+                ? "Copilot update"
+                : "Analyst update"}
+            </span>
+            <strong>{latestReceipt.resultSummary}</strong>
+            <small>
+              {isQueryExecutionReceipt(latestReceipt)
+                ? "Open returned records"
+                : latestReceipt.title}
+            </small>
+          </button>
         ) : null}
         <button className="map-skip-link" onClick={openFindings} type="button">
-          Skip graph to results
+          Open results and notes
         </button>
         <div
           aria-describedby="evidence-map-help"
           aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - 0 Escape"
-          aria-label="Interactive evidence path and exposure map"
+          aria-label="Interactive incident path and exposure map"
           className={`trace-scroll trace-viewport evidence-map-viewport ${dragging ? "trace-viewport-dragging" : ""} ${focusing ? "trace-viewport-focusing" : ""}`}
           onKeyDown={onKeyDown}
           onLostPointerCapture={onLostPointerCapture}
@@ -722,6 +749,12 @@ export function EvidenceMap({
               <div>
                 <span>Exposure</span>
                 <strong>{impactHeadline}</strong>
+                {state.reachabilityAttached && modelRevealHop < maxImpactHop ? (
+                  <small className="model-reveal-status">
+                    Copilot mapping hop {Math.max(1, modelRevealHop + 1)} of{" "}
+                    {maxImpactHop}
+                  </small>
+                ) : null}
                 {authorizedActionCount > 0 ? (
                   <small className="containment-status">
                     {severedPathIds.size} modeled path
@@ -789,7 +822,9 @@ export function EvidenceMap({
               <ImpactEnvelope
                 contained={severedPathIds.size > 0}
                 height={activeGraphHeight}
-                segments={impactEnvelope}
+                segments={impactEnvelope.filter(
+                  (segment) => segment.hop <= modelRevealHop,
+                )}
                 width={fixture.presentation.graphWidth}
               />
             ) : null}
@@ -870,6 +905,12 @@ export function EvidenceMap({
                   selection.kind === "join" && selection.id === edge.id;
                 const related = selectionFocus.edgeIds.has(edge.id);
                 const dimmed = selectionFocus.active && !related;
+                const impactHop =
+                  impactLayout.positions.get(edge.toEntityId)?.hop ?? 0;
+                const modelPending =
+                  view === "impact" &&
+                  edge.truth === "modeled" &&
+                  impactHop > modelRevealHop;
                 const geometry = edgeGeometry(
                   from.x,
                   from.y,
@@ -887,7 +928,7 @@ export function EvidenceMap({
                 return (
                   <path
                     aria-label={`${edge.label}: ${edge.fromEntityId} to ${edge.toEntityId}`}
-                    className={`evidence-line evidence-line-${edge.truth} ${edge.blocked ? "evidence-line-blocked" : ""} ${predicted ? "evidence-line-predicted" : ""} ${severed ? "evidence-line-severed" : ""} ${severing ? "evidence-line-severing" : ""} ${expanding ? "evidence-line-expanding" : ""} ${replaying ? "evidence-line-replaying" : ""} ${selected ? "evidence-line-selected" : ""} ${related ? "evidence-line-related" : ""} ${dimmed ? "evidence-line-dimmed" : ""}`}
+                    className={`evidence-line evidence-line-${edge.truth} ${edge.blocked ? "evidence-line-blocked" : ""} ${predicted ? "evidence-line-predicted" : ""} ${severed ? "evidence-line-severed" : ""} ${severing ? "evidence-line-severing" : ""} ${expanding ? "evidence-line-expanding" : ""} ${replaying ? "evidence-line-replaying" : ""} ${selected ? "evidence-line-selected" : ""} ${related ? "evidence-line-related" : ""} ${dimmed ? "evidence-line-dimmed" : ""} ${modelPending ? "evidence-line-model-pending" : ""}`}
                     d={geometry.path}
                     data-trace-join-id={edge.join?.id}
                     key={edge.id}
@@ -936,6 +977,10 @@ export function EvidenceMap({
                 edge.pathIds.every((id) => predictedPathIds.has(id));
               const related = selectionFocus.edgeIds.has(edge.id);
               const dimmed = selectionFocus.active && !related;
+              const impactHop =
+                impactLayout.positions.get(edge.toEntityId)?.hop ?? 0;
+              const modelPending =
+                showImpactLabel && impactHop > modelRevealHop;
               const geometry = edgeGeometry(
                 from.x,
                 from.y,
@@ -961,7 +1006,7 @@ export function EvidenceMap({
                       : selection.kind === "join" &&
                         selection.id === edge.join?.id
                   }
-                  className={`evidence-edge-label ${edge.blocked ? "evidence-edge-label-blocked" : ""} ${showImpactLabel ? "evidence-edge-label-impact" : ""} ${predicted ? "evidence-edge-label-predicted" : ""} ${severed ? "evidence-edge-label-severed" : ""} ${related ? "evidence-edge-label-related" : ""} ${dimmed ? "evidence-edge-label-dimmed" : ""}`}
+                  className={`evidence-edge-label ${edge.blocked ? "evidence-edge-label-blocked" : ""} ${showImpactLabel ? "evidence-edge-label-impact" : ""} ${predicted ? "evidence-edge-label-predicted" : ""} ${severed ? "evidence-edge-label-severed" : ""} ${related ? "evidence-edge-label-related" : ""} ${dimmed ? "evidence-edge-label-dimmed" : ""} ${modelPending ? "evidence-edge-label-model-pending" : ""}`}
                   data-trace-join-id={
                     showTraceLabel ? edge.join?.id : undefined
                   }
@@ -1056,11 +1101,15 @@ export function EvidenceMap({
                 investigationActivity.status === "running" &&
                 investigationActivity.targetEntityId === entity.id;
               const nextGap = nextGapEntityId === entity.id;
+              const modelPending =
+                view === "impact" &&
+                modeledOnly &&
+                (impactPosition?.hop ?? 0) > modelRevealHop;
               return (
                 <button
                   aria-label={`${containedLabel ?? (modeledOnly ? "Modeled, not observed" : "Observed")} ${humanizeEntityKind(entity.kind)} ${entity.label}${impactPosition?.hop === null || view !== "impact" ? "" : `, modeled hop ${impactPosition?.hop}`}`}
                   aria-pressed={selected}
-                  className={`evidence-entity evidence-entity-${position.lane} evidence-kind-${entity.kind} causal-state-${causalState} ${observed ? "evidence-entity-observed" : ""} ${atRisk ? "evidence-entity-at-risk" : ""} ${contained ? "evidence-entity-contained" : ""} ${containmentEntering ? "evidence-entity-containment-enter" : ""} ${modeledOnly ? "evidence-entity-modeled-only" : ""} ${expanding ? "evidence-entity-expanding" : ""} ${agentFocusEntityId === entity.id ? "evidence-entity-agent" : ""} ${investigationRunning ? `evidence-entity-query-running evidence-entity-query-${investigationActivity.actor}` : ""} ${nextGap ? "evidence-entity-next-gap" : ""} ${selected ? "evidence-entity-active-pivot" : ""} ${related ? "evidence-entity-related" : ""} ${dimmed ? "evidence-entity-dimmed" : ""}`}
+                  className={`evidence-entity evidence-entity-${position.lane} evidence-kind-${entity.kind} causal-state-${causalState} ${observed ? "evidence-entity-observed" : ""} ${atRisk ? "evidence-entity-at-risk" : ""} ${contained ? "evidence-entity-contained" : ""} ${containmentEntering ? "evidence-entity-containment-enter" : ""} ${modeledOnly ? "evidence-entity-modeled-only" : ""} ${modelPending ? "evidence-entity-model-pending" : ""} ${expanding ? "evidence-entity-expanding" : ""} ${agentFocusEntityId === entity.id ? "evidence-entity-agent" : ""} ${investigationRunning ? `evidence-entity-query-running evidence-entity-query-${investigationActivity.actor}` : ""} ${nextGap ? "evidence-entity-next-gap" : ""} ${selected ? "evidence-entity-active-pivot" : ""} ${related ? "evidence-entity-related" : ""} ${dimmed ? "evidence-entity-dimmed" : ""}`}
                   data-control-state={containedAction?.id}
                   data-entity-kind={entity.kind}
                   data-impact-hop={
@@ -1111,8 +1160,8 @@ export function EvidenceMap({
                   {investigationRunning ? (
                     <b>
                       {investigationActivity.actor === "agent"
-                        ? "Copilot querying"
-                        : "Analyst query"}
+                        ? `Copilot ${investigationPhaseVerb(investigationActivity.phase)}`
+                        : `Analyst ${investigationPhaseVerb(investigationActivity.phase)}`}
                     </b>
                   ) : agentFocusEntityId === entity.id ? (
                     <b>Copilot focus</b>
@@ -1192,8 +1241,8 @@ export function EvidenceMap({
                       <strong>{artifact?.title ?? query.title}</strong>
                       <small>
                         {targetQueries.length > 1
-                          ? `${targetQueries.length} results added · r${receipt?.resultRevision ?? state.revision}`
-                          : `${query.matchedRecordCount} matched · ${query.returnedRecordCount} returned · r${receipt?.resultRevision ?? state.revision}`}
+                          ? `${targetQueries.length} findings added`
+                          : `${query.matchedRecordCount} matched · ${query.returnedRecordCount} returned`}
                       </small>
                     </button>
                   </div>
@@ -1202,8 +1251,7 @@ export function EvidenceMap({
             )}
 
             {agentTargetPosition &&
-            investigationActivity.status !== "idle" &&
-            investigationActivity.status !== "completed" ? (
+            investigationActivity.status === "running" ? (
               <div
                 className={`agent-target-callout agent-target-${investigationActivity.status}`}
                 style={{
@@ -1216,11 +1264,12 @@ export function EvidenceMap({
                     ? "Copilot"
                     : "Analyst"}
                 </span>
-                <code>{investigationActivity.toolName}</code>
+                <strong>
+                  {investigationPhaseLabel(investigationActivity.phase)}
+                </strong>
                 <small>
-                  {investigationActivity.status === "running"
-                    ? `Querying r${investigationActivity.baseRevision}`
-                    : "Rejected · no state change"}
+                  {activeInvestigationQuery?.title ??
+                    "Running investigation operation"}
                 </small>
               </div>
             ) : null}
@@ -1247,8 +1296,7 @@ export function EvidenceMap({
               <strong>{activeExpansionStage.title}</strong>
               <small>
                 {activeExpansion?.joinIds.size ?? 0} observed link
-                {(activeExpansion?.joinIds.size ?? 0) === 1 ? "" : "s"} added ·
-                r{syntheticExpansion?.revision}
+                {(activeExpansion?.joinIds.size ?? 0) === 1 ? "" : "s"} added
               </small>
             </div>
           ) : null}
@@ -1387,13 +1435,11 @@ export function EvidenceMap({
       </div>
 
       <InvestigationDrawer
-        commandBar={commandBar}
         fixture={fixture}
         findingsSectionId={findingsSectionId}
         onSelect={focusFromDrawer}
         onOpenChange={setDrawerOpen}
         open={drawerOpen}
-        queryControls={investigationDock}
         receipts={receipts}
         selectionDetails={children}
         state={state}
@@ -1441,6 +1487,7 @@ function TraceSequenceRail({
   entities,
   selection,
   onSelect,
+  onOpenResults,
   cursor,
   playing,
   onToggle,
@@ -1457,6 +1504,7 @@ function TraceSequenceRail({
   entities: readonly Entity[];
   selection: TraceSelection;
   onSelect: (selection: TraceSelection) => void;
+  onOpenResults: () => void;
   cursor: number;
   playing: boolean;
   onToggle: () => void;
@@ -1487,26 +1535,32 @@ function TraceSequenceRail({
         receipt.toolName === "simulate_control" ||
         receipt.toolName === "prepare_response_bundle" ||
         receipt.toolName === "authorize_response_bundle" ||
+        receipt.toolName === "propose_response_action" ||
+        receipt.toolName === "simulate_response_action" ||
+        receipt.toolName === "authorize_response_action" ||
+        receipt.toolName === "record_evidence_decision" ||
+        receipt.toolName === "generate_case_report" ||
+        receipt.toolName === "approve_case_report" ||
         receipt.toolName.startsWith("enrich_")),
   );
 
   return (
     <section
       className="evidence-replay investigation-timeline"
-      aria-label="Incident timeline"
+      aria-label="Case activity"
     >
       <header className="evidence-replay-controls timeline-controls">
         <div>
-          <span>Incident timeline</span>
+          <span>Activity</span>
           <strong>
             {String(cursor).padStart(2, "0")} /{" "}
             {String(orderedJoins.length).padStart(2, "0")}
           </strong>
-          <small>Recorded activity and investigation actions</small>
+          <small>Observed activity and investigation work</small>
         </div>
         <div className="replay-buttons">
           <button
-            aria-label="Restart incident timeline"
+            aria-label="Restart activity replay"
             onClick={onRestart}
             type="button"
           >
@@ -1522,7 +1576,7 @@ function TraceSequenceRail({
           </button>
           <button
             aria-label={
-              playing ? "Pause incident timeline" : "Play incident timeline"
+              playing ? "Pause activity replay" : "Play activity replay"
             }
             aria-pressed={playing}
             className="replay-toggle"
@@ -1548,8 +1602,8 @@ function TraceSequenceRail({
 
       <div className="timeline-tracks">
         <div className="timeline-track-labels" aria-hidden="true">
-          <span>Activity</span>
-          <span>Investigation</span>
+          <span>Observed</span>
+          <span>Analyst + copilot</span>
         </div>
         <ol
           className="trace-sequence-rail timeline-observed-track"
@@ -1602,11 +1656,12 @@ function TraceSequenceRail({
               <li key={receipt.id}>
                 <button
                   aria-label={`${receipt.reportedSurface === "webmcp_callback" ? "Copilot" : "Analyst"} investigation: ${receipt.title}. Completed ${formatUtcTime(receipt.occurredAt)}.`}
-                  disabled={!targetEntityId}
-                  onClick={() =>
-                    targetEntityId &&
-                    onSelect({ kind: "entity", id: targetEntityId })
-                  }
+                  onClick={() => {
+                    if (targetEntityId) {
+                      onSelect({ kind: "entity", id: targetEntityId });
+                    }
+                    onOpenResults();
+                  }}
                   type="button"
                 >
                   <span>
@@ -1616,8 +1671,8 @@ function TraceSequenceRail({
                   </span>
                   <strong>{receipt.title}</strong>
                   <small>
-                    {formatUtcTime(receipt.occurredAt)} · r
-                    {receipt.baseRevision}→r{receipt.resultRevision}
+                    {formatUtcTime(receipt.occurredAt)} ·{" "}
+                    {activityCategory(receipt.toolName)}
                   </small>
                 </button>
               </li>
@@ -1644,8 +1699,8 @@ function TraceSequenceRail({
                 <small>
                   {activity.status === "running" &&
                   activity.queryId === activeQuery.id
-                    ? `${activeQuery.sourceScopes.length} sources selected`
-                    : "Result unknown until execution"}
+                    ? `${investigationPhaseLabel(activity.phase)} · ${Math.round(activity.progress * 100)}%`
+                    : "Run to retrieve evidence"}
                 </small>
               </button>
             </li>
@@ -1660,7 +1715,7 @@ function TraceSequenceRail({
       <p aria-live="polite" className="sr-only">
         {currentJoin
           ? `Activity step ${cursor} of ${orderedJoins.length}: ${currentJoin.label}.`
-          : `Incident timeline ready. ${orderedJoins.length} recorded activities.`}
+          : `Activity replay ready. ${orderedJoins.length} recorded activities.`}
       </p>
     </section>
   );
@@ -1785,6 +1840,30 @@ function humanizeRelation(value: string): string {
   return value.replaceAll("_", " ");
 }
 
+function activityCategory(toolName: string): string {
+  if (toolName.includes("report")) return "Closure";
+  if (
+    toolName.includes("authorize") ||
+    toolName === "record_evidence_decision"
+  ) {
+    return "Approval";
+  }
+  if (
+    toolName.includes("response") ||
+    toolName === "simulate_control" ||
+    toolName === "calculate_reachability"
+  ) {
+    return "Response model";
+  }
+  if (
+    toolName === "request_next_observation" ||
+    toolName === "release_next_synthetic_signal"
+  ) {
+    return "Telemetry";
+  }
+  return "Evidence";
+}
+
 function authorizedEntityStateLabel(actionId: string): string {
   if (actionId === "contain_endpoint") return "Isolation approved";
   if (actionId === "block_network_indicator") return "Block approved";
@@ -1792,6 +1871,22 @@ function authorizedEntityStateLabel(actionId: string): string {
   if (actionId === "rotate_deployment_credential") return "Rotation approved";
   if (actionId === "rollback_workload_image") return "Rollback approved";
   return "Control approved";
+}
+
+function investigationPhaseLabel(
+  phase: Extract<InvestigationActivity, { status: "running" }>["phase"],
+): string {
+  if (phase === "scope") return "Selecting data sources";
+  if (phase === "search") return "Searching case records";
+  return "Reviewing matches";
+}
+
+function investigationPhaseVerb(
+  phase: Extract<InvestigationActivity, { status: "running" }>["phase"],
+): string {
+  if (phase === "scope") return "selecting scope";
+  if (phase === "search") return "searching";
+  return "reviewing";
 }
 
 function formatLifecycle(lifecycle: CaseState["lifecycle"]): string {

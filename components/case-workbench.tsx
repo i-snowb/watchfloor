@@ -18,7 +18,6 @@ import {
   type ToolRegistrationOutcome,
 } from "@/webmcp/tools";
 import { AgentDrawer } from "./agent-drawer";
-import { AnalystActionDock } from "./analyst-action-dock";
 import {
   createInvestigationReceiptView,
   isInvestigationTool,
@@ -29,7 +28,6 @@ import { CaseCommandBar } from "./case-command-bar";
 import type { TraceSelection } from "./trace-interaction";
 import { CaseInspector } from "./case-inspector";
 import { EvidenceMap } from "./evidence-map";
-import { InvestigationDeck } from "./investigation-deck";
 import { PlatformShell, type AgentStatus } from "./platform-shell";
 
 export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
@@ -73,7 +71,43 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     token: number;
   } | null>(null);
   const expansionSequence = useRef(0);
+  const agentRunSequence = useRef(0);
   const releasedStageCount = snapshot.state.releasedStreamStageIds.length;
+  const runningStartedAt =
+    investigationActivity.status === "running"
+      ? investigationActivity.startedAt
+      : null;
+  const runningDurationMs =
+    investigationActivity.status === "running"
+      ? investigationActivity.expectedDurationMs
+      : null;
+
+  useEffect(() => {
+    if (runningStartedAt === null || runningDurationMs === null) return;
+    const timer = window.setInterval(() => {
+      setInvestigationActivity((current) => {
+        if (
+          current.status !== "running" ||
+          current.startedAt !== runningStartedAt
+        ) {
+          return current;
+        }
+        const progress = Math.min(
+          0.96,
+          Math.max(
+            0,
+            (performance.now() - runningStartedAt) / runningDurationMs,
+          ),
+        );
+        const phase =
+          progress < 0.22 ? "scope" : progress < 0.72 ? "search" : "review";
+        return current.progress === progress && current.phase === phase
+          ? current
+          : { ...current, phase, progress };
+      });
+    }, 180);
+    return () => window.clearInterval(timer);
+  }, [runningDurationMs, runningStartedAt]);
 
   useEffect(() => {
     let active = true;
@@ -161,6 +195,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         typeof input.expectedRevision === "number"
           ? input.expectedRevision
           : snapshotRef.current.state.revision;
+      const runSequence = ++agentRunSequence.current;
       setInvestigationActivity({
         status: "running",
         actor: "agent",
@@ -168,6 +203,10 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         queryId: requestedExecution?.queryId ?? readQueryId(input),
         targetEntityId: requestedFocusEntityId,
         baseRevision,
+        expectedDurationMs: operationLatencyMs(toolName),
+        phase: "scope",
+        progress: 0,
+        startedAt: performance.now(),
       });
       if (requestedFocusEntityId) {
         setAgentFocusEntityId(requestedFocusEntityId);
@@ -184,9 +223,17 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
           requestId,
           signal,
         );
-        setSnapshot(response.snapshot);
+        setSnapshot((current) =>
+          response.snapshot.state.revision > current.state.revision ||
+          (response.snapshot.state.revision === current.state.revision &&
+            response.snapshot.receipts.length >= current.receipts.length)
+            ? response.snapshot
+            : current,
+        );
         setBackendReady(true);
-        setError(response.result.ok ? null : response.result.error.message);
+        if (agentRunSequence.current === runSequence) {
+          setError(response.result.ok ? null : response.result.error.message);
+        }
         const receipt = response.snapshot.receipts.at(-1);
         const completedExecution =
           readResponseInvestigationExecution(response) ?? requestedExecution;
@@ -206,19 +253,25 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
           summary,
           data: response.result.ok ? response.result.data : null,
         });
-        setInvestigationActivity({
-          status: response.result.ok ? "completed" : "rejected",
-          actor: "agent",
-          toolName,
-          queryId: completedExecution?.queryId ?? readQueryId(input),
-          targetEntityId:
-            completedExecution?.targetEntityId ?? requestedFocusEntityId,
-          baseRevision,
-          resultRevision: response.snapshot.state.revision,
-          summary,
-          receipt: receiptView,
-        });
-        if (response.result.ok && isInvestigationTool(toolName)) {
+        if (agentRunSequence.current === runSequence) {
+          setInvestigationActivity({
+            status: response.result.ok ? "completed" : "rejected",
+            actor: "agent",
+            toolName,
+            queryId: completedExecution?.queryId ?? readQueryId(input),
+            targetEntityId:
+              completedExecution?.targetEntityId ?? requestedFocusEntityId,
+            baseRevision,
+            resultRevision: response.snapshot.state.revision,
+            summary,
+            receipt: receiptView,
+          });
+        }
+        if (
+          agentRunSequence.current === runSequence &&
+          response.result.ok &&
+          isInvestigationTool(toolName)
+        ) {
           setInvestigationResult({
             actor: "agent",
             toolName,
@@ -233,7 +286,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
           });
         }
         const focusEntityId = readFocusEntityId(response);
-        if (focusEntityId) {
+        if (focusEntityId && agentRunSequence.current === runSequence) {
           setAgentFocusEntityId(focusEntityId);
           setSelection({ kind: "entity", id: focusEntityId });
         }
@@ -247,24 +300,28 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
           signal.aborted ||
           (toolError instanceof Error && toolError.name === "AbortError")
         ) {
-          setInvestigationActivity({ status: "idle" });
+          if (agentRunSequence.current === runSequence) {
+            setInvestigationActivity({ status: "idle" });
+          }
           throw toolError;
         }
         const message =
           toolError instanceof Error
             ? toolError.message
             : "Copilot operation failed.";
-        setError(message);
-        setInvestigationActivity({
-          status: "rejected",
-          actor: "agent",
-          toolName,
-          queryId: readQueryId(input),
-          targetEntityId: requestedFocusEntityId,
-          baseRevision,
-          resultRevision: baseRevision,
-          summary: message,
-        });
+        if (agentRunSequence.current === runSequence) {
+          setError(message);
+          setInvestigationActivity({
+            status: "rejected",
+            actor: "agent",
+            toolName,
+            queryId: readQueryId(input),
+            targetEntityId: requestedFocusEntityId,
+            baseRevision,
+            resultRevision: baseRevision,
+            summary: message,
+          });
+        }
         return {
           ok: false,
           error: { code: "OPERATION_UNAVAILABLE", message, retryable: true },
@@ -340,6 +397,10 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
           queryId: requestedExecution?.queryId ?? readQueryId(input),
           targetEntityId: requestedFocusEntityId,
           baseRevision,
+          expectedDurationMs: operationLatencyMs(toolName),
+          phase: "scope",
+          progress: 0,
+          startedAt: performance.now(),
         });
         if (requestedFocusEntityId) {
           setAgentFocusEntityId(null);
@@ -552,19 +613,6 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
           <div className="workbench-grid">
             <EvidenceMap
               actionDock={
-                <AnalystActionDock
-                  busy={operationBusy}
-                  fixture={fixture}
-                  onExecute={runManualTool}
-                  onReleaseSignal={() => setStreamPlaying(true)}
-                  state={snapshot.state}
-                  streamPlaying={streamPlaying}
-                />
-              }
-              investigationActivity={displayedInvestigationActivity}
-              investigationResult={investigationResult}
-              agentFocusEntityId={agentFocusEntityId}
-              commandBar={
                 <CaseCommandBar
                   agentStatus={agentStatus}
                   busy={operationBusy}
@@ -578,20 +626,10 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
                   streamPlaying={streamPlaying}
                 />
               }
+              investigationActivity={displayedInvestigationActivity}
+              investigationResult={investigationResult}
+              agentFocusEntityId={agentFocusEntityId}
               fixture={fixture}
-              investigationDock={
-                <InvestigationDeck
-                  activity={displayedInvestigationActivity}
-                  busy={operationBusy}
-                  fixture={fixture}
-                  onExecute={runManualTool}
-                  onSelect={selectAsAnalyst}
-                  receipts={snapshot.receipts}
-                  result={investigationResult}
-                  selection={selection}
-                  state={snapshot.state}
-                />
-              }
               key={`${fixture.id}-workbench-${workbenchEpoch}`}
               latestAuthorizationReceipt={latestAuthorizationReceipt}
               latestReceipt={latestReceipt}
@@ -813,20 +851,20 @@ function waitForOperation(
 }
 
 function operationLatencyMs(toolName: CaseToolName): number {
-  if (toolName === "run_investigation_plan") return 1_700;
-  if (toolName === "run_investigation_query") return 1_250;
-  if (toolName === "request_next_observation") return 520;
-  if (toolName === "calculate_reachability") return 1_100;
-  if (toolName === "prepare_response_bundle") return 760;
+  if (toolName === "run_investigation_plan") return 2_800;
+  if (toolName === "run_investigation_query") return 2_400;
+  if (toolName === "request_next_observation") return 900;
+  if (toolName === "calculate_reachability") return 1_800;
+  if (toolName === "prepare_response_bundle") return 1_400;
   if (
     toolName === "query_related_activity" ||
     toolName === "find_first_occurrence" ||
     toolName === "compare_timepoints" ||
     toolName === "search_events"
   ) {
-    return 720;
+    return 1_100;
   }
-  if (toolName.startsWith("enrich_")) return 1_050;
+  if (toolName.startsWith("enrich_")) return 1_800;
   return 0;
 }
 

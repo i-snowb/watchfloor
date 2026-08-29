@@ -752,7 +752,7 @@ export const endpointLateralScenario = {
     },
     {
       id: "QRY-ENDPOINT-STATIC-08",
-      title: "Static-analysis fixture",
+      title: "Static file analysis",
       question: "Which bounded static characteristics warrant follow-up?",
       objective:
         "Attach a deterministic file-format and API-reference summary without exposing executable content.",
@@ -814,7 +814,7 @@ export const endpointLateralScenario = {
     },
     {
       id: "QRY-ENDPOINT-SANDBOX-09",
-      title: "Sandbox behavior fixture",
+      title: "Sandbox detonation",
       question: "Which behaviors appear in the bounded fixture run?",
       objective:
         "Attach a deterministic behavior summary and preserve the boundary between fixture analysis and observed telemetry.",

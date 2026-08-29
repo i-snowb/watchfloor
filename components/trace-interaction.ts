@@ -18,12 +18,43 @@ import {
   type TracePoint,
   type TraceSize,
 } from "@/lib/trace-camera";
+import type { CaseFixture } from "@/domain/types";
 
 export type TraceSelection =
   | { kind: "event"; id: string }
   | { kind: "join"; id: string }
   | { kind: "entity"; id: string }
   | { kind: "model"; id: string };
+
+export function selectionContainsEntity(
+  fixture: CaseFixture,
+  selection: TraceSelection,
+  entityId: string,
+): boolean {
+  if (selection.kind === "entity") return selection.id === entityId;
+  if (selection.kind === "event") {
+    return (
+      [
+        ...fixture.events,
+        ...fixture.stream.stages.flatMap((stage) => stage.events),
+      ]
+        .find((event) => event.id === selection.id)
+        ?.entityIds.includes(entityId) ?? false
+    );
+  }
+  if (selection.kind === "join") {
+    const join = [
+      ...fixture.joins,
+      ...fixture.stream.stages.flatMap((stage) => stage.joins),
+    ].find((candidate) => candidate.id === selection.id);
+    return join?.fromEntityId === entityId || join?.toEntityId === entityId;
+  }
+  return (
+    fixture.reachability.paths
+      .find((path) => path.id === selection.id)
+      ?.entityIds.includes(entityId) ?? false
+  );
+}
 
 interface TraceMoveSample extends TracePoint {
   time: number;
