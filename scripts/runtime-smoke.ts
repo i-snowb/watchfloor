@@ -20,8 +20,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...init.headers,
     },
   });
-  const setCookie = response.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";", 1)[0] ?? cookie;
+  const sessionCookie = response.headers
+    .getSetCookie()
+    .find((value) => value.startsWith("trace_demo_session="));
+  if (sessionCookie) cookie = sessionCookie.split(";", 1)[0] ?? cookie;
   const body: unknown = await response.json();
   assert.equal(response.ok, true, JSON.stringify(body));
   return body as T;
