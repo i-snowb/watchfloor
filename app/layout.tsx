@@ -5,7 +5,8 @@ import "./convergence.css";
 import "./causal-field.css";
 
 const metadataBase = new URL(
-  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  process.env.NEXT_PUBLIC_SITE_URL ??
+    "https://tracelab-webmcp.keegansnowbarger.chatgpt.site",
 );
 
 export const metadata: Metadata = {

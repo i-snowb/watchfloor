@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import type { CaseApiResponse, ToolApiResponse } from "../domain/api";
 
 const baseUrl = process.env.TRACE_BASE_URL ?? "http://localhost:3000";
+const sitesAuthorization = process.env.TRACE_SITES_AUTHORIZATION;
 const cloud = "case-cloud-0421";
 const endpoint = "case-endpoint-0448";
 let cookie = "";
@@ -12,6 +13,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
     headers: {
       accept: "application/json",
+      ...(sitesAuthorization
+        ? { "OAI-Sites-Authorization": sitesAuthorization }
+        : {}),
       ...(cookie ? { cookie } : {}),
       ...init.headers,
     },
@@ -68,6 +72,9 @@ async function forgedEnvelope(): Promise<void> {
     headers: {
       accept: "application/json",
       "content-type": "application/json",
+      ...(sitesAuthorization
+        ? { "OAI-Sites-Authorization": sitesAuthorization }
+        : {}),
       ...(cookie ? { cookie } : {}),
     },
     body: JSON.stringify({
