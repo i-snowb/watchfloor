@@ -1818,12 +1818,24 @@ body {
 .queue-workspace .incident-severity,
 .queue-workspace .queue-causal-node small,
 .queue-workspace .incident-decision-edge > span {
-  font-size: 9.5px;
+  font-size: 10px;
 }
 
 .queue-workspace .queue-causal-node strong,
 .queue-workspace .incident-decision-edge > strong {
   font-size: 10.5px;
+}
+
+.queue-workspace .queue-causal-node {
+  padding-right: 8px;
+}
+
+.queue-workspace .queue-causal-node strong {
+  line-height: 1.3;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .case-view .case-timeline-dock .timeline-query-track {
