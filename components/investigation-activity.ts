@@ -136,6 +136,7 @@ const investigationTools = new Set<CaseToolName>([
   "enrich_endpoint",
   "enrich_file",
   "calculate_reachability",
+  "attach_discovery_stage",
   "request_next_observation",
   "prepare_response_bundle",
   "generate_case_report",

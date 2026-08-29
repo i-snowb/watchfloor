@@ -19,6 +19,7 @@ import {
   createCaseToolDefinitions,
   registerCaseTools,
   type ToolRegistrationOutcome,
+  type WebMcpHandler,
 } from "@/webmcp/tools";
 import { AgentDrawer } from "./agent-drawer";
 import {
@@ -33,6 +34,31 @@ import { CaseInspector } from "./case-inspector";
 import { EvidenceMap } from "./evidence-map";
 import { PlatformShell, type AgentStatus } from "./platform-shell";
 
+interface AgentToolDispatcher {
+  run: WebMcpHandler;
+  setHandler: (handler: WebMcpHandler | null) => void;
+}
+
+function createAgentToolDispatcher(): AgentToolDispatcher {
+  let handler: WebMcpHandler | null = null;
+  return {
+    run: (toolName, input, signal) => {
+      if (handler) return handler(toolName, input, signal);
+      return Promise.resolve({
+        ok: false,
+        error: {
+          code: "COPILOT_INITIALIZING",
+          message: "The investigation workbench is still initializing.",
+          retryable: true,
+        },
+      });
+    },
+    setHandler: (nextHandler) => {
+      handler = nextHandler;
+    },
+  };
+}
+
 export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
   const initialSelection = useMemo(
     () => getInitialSelection(fixture),
@@ -43,11 +69,10 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     receipts: [],
   });
   const snapshotRef = useRef(snapshot);
-  snapshotRef.current = snapshot;
   const [selection, setSelection] = useState<TraceSelection>(initialSelection);
   const [analystSelectionActive, setAnalystSelectionActive] = useState(false);
   const selectionRef = useRef(selection);
-  selectionRef.current = selection;
+  const [agentToolDispatcher] = useState(createAgentToolDispatcher);
   const mainRef = useRef<HTMLElement>(null);
   const [workbenchEpoch, setWorkbenchEpoch] = useState(0);
   const [agentStatus, setAgentStatus] = useState<AgentStatus>({
@@ -61,7 +86,6 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
   const [backendReady, setBackendReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [streamPlaying, setStreamPlaying] = useState(false);
   const [agentFocusEntityId, setAgentFocusEntityId] = useState<string | null>(
     null,
   );
@@ -73,15 +97,8 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
   const [liveReceipt, setLiveReceipt] = useState<
     CaseSnapshot["receipts"][number] | null
   >(null);
-  const [syntheticExpansion, setSyntheticExpansion] = useState<{
-    stageId: string;
-    revision: number;
-    token: number;
-  } | null>(null);
-  const expansionSequence = useRef(0);
   const agentRunSequence = useRef(0);
   const preparedFocusRevision = useRef<number | null>(null);
-  const releasedStageCount = snapshot.state.releasedStreamStageIds.length;
   const runningStartedAt =
     investigationActivity.status === "running"
       ? investigationActivity.startedAt
@@ -90,6 +107,11 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     investigationActivity.status === "running"
       ? investigationActivity.expectedDurationMs
       : null;
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+    selectionRef.current = selection;
+  }, [selection, snapshot]);
 
   useEffect(() => {
     if (runningStartedAt === null || runningDurationMs === null) return;
@@ -269,7 +291,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         const summary =
           receipt?.resultSummary ??
           (response.result.ok
-            ? "Copilot result added to the case."
+            ? "Copilot finding attached to the case."
             : response.result.error.message);
         const receiptView = createInvestigationReceiptView({
           actor: "agent",
@@ -361,9 +383,14 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     [fixture],
   );
 
+  useEffect(() => {
+    agentToolDispatcher.setHandler(runAgentTool);
+    return () => agentToolDispatcher.setHandler(null);
+  }, [agentToolDispatcher, runAgentTool]);
+
   const caseDefinitions = useMemo(
-    () => createCaseToolDefinitions(fixture, runAgentTool),
-    [fixture, runAgentTool],
+    () => createCaseToolDefinitions(fixture, agentToolDispatcher.run),
+    [agentToolDispatcher, fixture],
   );
 
   useEffect(() => {
@@ -449,27 +476,6 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         if (response.result.ok && receipt?.status === "completed") {
           setLiveReceipt(receipt);
         }
-        if (
-          toolName === "release_next_synthetic_signal" &&
-          response.result.ok
-        ) {
-          const releasedCount =
-            response.snapshot.state.releasedStreamStageIds.length;
-          const stage = fixture.stream.stages[releasedCount - 1];
-          const event = stage?.events.at(-1);
-          if (stage) {
-            expansionSequence.current += 1;
-            setSyntheticExpansion({
-              stageId: stage.id,
-              revision: response.snapshot.state.revision,
-              token: expansionSequence.current,
-            });
-          }
-          if (event) {
-            setAgentFocusEntityId(null);
-            setSelection({ kind: "event", id: event.id });
-          }
-        }
         if (!response.result.ok) setError(operationErrorMessage(response));
         if (investigation) {
           const completedExecution =
@@ -541,13 +547,11 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
   );
 
   const handleReset = useCallback(async () => {
-    setStreamPlaying(false);
     setBusy(true);
     setError(null);
     setInvestigationActivity({ status: "idle" });
     setInvestigationResult(null);
     setLiveReceipt(null);
-    setSyntheticExpansion(null);
     setAgentDrawerOpen(false);
     setAnalystSelectionActive(false);
     try {
@@ -571,32 +575,6 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     }
   }, [fixture.id, initialSelection]);
 
-  const releaseNextSignal = useCallback(async () => {
-    try {
-      await runManualTool("release_next_synthetic_signal", {
-        expectedRevision: snapshotRef.current.state.revision,
-      });
-    } finally {
-      setStreamPlaying(false);
-    }
-  }, [runManualTool]);
-
-  useEffect(() => {
-    if (!streamPlaying) return;
-    if (releasedStageCount >= fixture.stream.stages.length) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      void releaseNextSignal();
-    }, 1_200);
-    return () => window.clearTimeout(timer);
-  }, [
-    fixture.stream.stages.length,
-    releasedStageCount,
-    releaseNextSignal,
-    streamPlaying,
-  ]);
-
   const selectAsAnalyst = useCallback((next: TraceSelection) => {
     setAgentFocusEntityId(null);
     setAnalystSelectionActive(true);
@@ -610,10 +588,6 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       liveReceipt.toolName === "authorize_response_bundle")
       ? liveReceipt
       : null;
-  const latestStage = fixture.stream.stages[releasedStageCount - 1] ?? null;
-  const liveAnnouncement = latestStage
-    ? `New telemetry: ${latestStage.title}.`
-    : "";
   const operationBusy =
     busy || !backendReady || investigationActivity.status === "running";
   const displayedInvestigationActivity =
@@ -634,21 +608,17 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       onReset={() => void handleReset()}
     >
       <div className="case-view">
-        <p className="sr-only" aria-live="polite">
-          {liveAnnouncement}
-        </p>
-
         <div className="investigation-cockpit">
           <div className="workbench-grid">
             <EvidenceMap
               busy={operationBusy}
+              hydrated={backendReady}
               actionDock={
                 <CaseCommandBar
                   agentStatus={agentStatus}
                   busy={operationBusy}
                   fixture={fixture}
                   onExecute={runManualTool}
-                  onReleaseSignal={() => setStreamPlaying(true)}
                   onReset={() => void handleReset()}
                   onSelect={selectAsAnalyst}
                   selection={selection}
@@ -658,7 +628,6 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
                     setReportReviewRequestToken((current) => current + 1)
                   }
                   state={snapshot.state}
-                  streamPlaying={streamPlaying}
                 />
               }
               investigationActivity={displayedInvestigationActivity}
@@ -682,7 +651,6 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
               showInvestigationActions={analystSelectionActive}
               state={snapshot.state}
               reportReviewRequestToken={reportReviewRequestToken}
-              syntheticExpansion={syntheticExpansion}
             >
               <CaseInspector
                 investigationActivity={displayedInvestigationActivity}
@@ -905,6 +873,7 @@ function operationLatencyMs(toolName: CaseToolName): number {
   if (toolName === "run_investigation_plan") return 2_800;
   if (toolName === "run_investigation_query") return 2_400;
   if (toolName === "request_next_observation") return 900;
+  if (toolName === "attach_discovery_stage") return 1_100;
   if (toolName === "calculate_reachability") return 1_800;
   if (toolName === "prepare_response_bundle") return 1_400;
   if (

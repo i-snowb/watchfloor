@@ -244,6 +244,27 @@ export function eventFields(event: TelemetryEvent): DisplayField[] {
         { label: "knownGoodImage", value: payload.knownGoodImage },
         { label: "outcome", value: payload.outcome },
       ];
+    case "asset_device_assignment":
+      return [
+        { label: "account", value: payload.accountName },
+        { label: "hostname", value: payload.hostname },
+        { label: "deviceId", value: payload.deviceId },
+        { label: "outcome", value: payload.outcome },
+      ];
+    case "cloud_role_policy_snapshot":
+      return [
+        { label: "observedRole", value: payload.observedRoleArn },
+        { label: "approvedRole", value: payload.approvedRoleArn },
+        { label: "effectivePrivilege", value: payload.effectivePrivilege },
+        { label: "outcome", value: payload.outcome },
+      ];
+    case "service_identity_scope_snapshot":
+      return [
+        { label: "account", value: payload.accountName },
+        { label: "expectedHost", value: payload.expectedHostname },
+        { label: "observedTarget", value: payload.observedTargetHostname },
+        { label: "outcome", value: payload.outcome },
+      ];
   }
 }
 

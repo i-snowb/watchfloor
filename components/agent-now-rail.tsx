@@ -134,9 +134,9 @@ function getAgentNowContent(
     );
     return {
       state: "waiting",
-      label: "Analyst · Action required",
-      headline: `Waiting for ${stage?.title ?? "next observation"}`,
-      detail: `Analyst release required · r${state.revision}`,
+      label: "Telemetry request pending",
+      headline: stage?.title ?? "Waiting for the next observation",
+      detail: `Request recorded · r${state.revision}`,
     };
   }
   if (state.report.status === "drafted") {
@@ -168,14 +168,14 @@ function getAgentNowContent(
           ? "Copilot · Evidence attached"
           : "Analyst · Evidence attached",
       headline: planProgress
-        ? `${planProgress.completed}/${planProgress.total} attached · ${planProgress.currentQuery.title}`
+        ? `${planProgress.completed} findings attached · ${planProgress.currentQuery.title}`
         : resultHeadline(fixture, result, aggregate),
       detail: planProgress
         ? formatReceiptDetail(
             result.receipt,
             planProgress.nextQuery
-              ? `Next planned: ${planProgress.nextQuery.title}`
-              : "Investigation plan complete",
+              ? `Next investigation: ${planProgress.nextQuery.title}`
+              : "Suggested investigations complete",
           )
         : aggregate
           ? formatReceiptDetail(
@@ -219,7 +219,7 @@ function getAgentNowContent(
       state.preparedQuery.preparedAtRevision === state.revision;
     return {
       state: "idle",
-      label: queryPrepared ? "Query prepared" : "Evidence question",
+      label: queryPrepared ? "Query prepared" : "Selected evidence",
       headline: `${target?.label ?? "Entity"} selected`,
       detail: queryPrepared
         ? `${selectedQuery.title} · approved KQL ready to run`
@@ -317,11 +317,12 @@ function readPlanAggregate(data: unknown): {
 function operationLabel(toolName: string): string {
   const labels: Record<string, string> = {
     prepare_investigation_query: "Preparing investigation query",
-    run_investigation_plan: "Running recommended checks",
+    run_investigation_plan: "Running suggested investigation",
     run_investigation_query: "Running evidence query",
     calculate_reachability: "Mapping blast radius",
     simulate_control: "Testing containment",
     request_next_observation: "Requesting new telemetry",
+    attach_discovery_stage: "Adding verified discovery",
     prepare_response_bundle: "Preparing response package",
     generate_case_report: "Drafting evidence report",
   };

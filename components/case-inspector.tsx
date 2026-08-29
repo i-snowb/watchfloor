@@ -167,12 +167,12 @@ export function CaseInspector({
                 : "Analyst-requested query running"
               : investigationActivity.status === "completed"
                 ? investigationActivity.actor === "agent"
-                  ? "Copilot result added"
-                  : "Analyst result added"
+                  ? "Copilot finding attached"
+                  : "Analyst finding attached"
                 : investigationActivity.status === "rejected"
                   ? "Investigation request rejected"
                   : agentReceipt
-                    ? "Copilot result added"
+                    ? "Copilot finding attached"
                     : state.proposal
                       ? "Copilot recommendation"
                       : agentAvailable
@@ -256,7 +256,7 @@ export function CaseInspector({
               </>
             ) : (
               <div className="shelf-query-status">
-                <p>Available from Active question.</p>
+                <p>Available investigation for this item.</p>
                 <code>
                   {agentAvailable ? "Copilot + analyst" : "Analyst"} ·{" "}
                   {investigationQuery?.id ?? enrichment.toolName}
@@ -327,9 +327,9 @@ function getSelectionContent(
           label: "Control state",
           value: state.counterfactualAttached
             ? fixture.counterfactual.severedPathIds.includes(path.id)
-              ? "Predicted severance · simulation only"
-              : "Remains after simulated control"
-            : "No control simulation attached",
+              ? "Modeled path interruption"
+              : "Remains in the impact model"
+            : "No modeled control effect available",
         },
         {
           label: "Authorization",

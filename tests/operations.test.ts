@@ -109,6 +109,26 @@ function runPreparedPlan(
   );
 }
 
+function attachDiscovery(
+  fixture: CaseFixture,
+  state: CaseState,
+  stageId: string,
+  reportedSurface: ToolSurface = "webmcp_callback",
+): ToolOutcome {
+  return execute(
+    fixture,
+    state,
+    "attach_discovery_stage",
+    {
+      expectedRevision: state.revision,
+      stageId,
+      rationale:
+        "The required bounded query evidence is attached and supports adding this verified discovery.",
+    },
+    reportedSurface,
+  );
+}
+
 const completeReportReview = {
   acknowledgement: "APPROVE_SYNTHETIC_REPORT",
   analystClosureNote:
@@ -148,7 +168,7 @@ function completeInvestigationPlan(
       );
       return (
         query !== undefined &&
-        !current.attachedEnrichmentIds.includes(query.resultArtifactId)
+        !current.executedInvestigationQueryIds.includes(query.id)
       );
     });
     assert.ok(queryId, `No unresolved query exists for ${planId}`);
@@ -221,7 +241,7 @@ test("both fixtures satisfy the shared deterministic scenario contract", () => {
     assert.equal(fixture.investigationQueries.length >= 4, true);
   }
   assert.equal(cloudIdentityScenario.events.length, 7);
-  assert.equal(cloudIdentityScenario.stream.stages.length, 0);
+  assert.equal(cloudIdentityScenario.stream.stages.length, 2);
   assert.equal(cloudIdentityScenario.responseActions.length, 0);
   assert.equal(endpointLateralScenario.events.length, 9);
   assert.equal(endpointLateralScenario.joins.length, 5);
@@ -656,15 +676,27 @@ test("an investigation plan clears a prepared query only when it executes it", (
 test("every catalog query executes through the shared WebMCP operation", () => {
   for (const fixture of [cloudIdentityScenario, endpointLateralScenario]) {
     let state = createInitialCaseState(fixture);
-    for (let index = 0; index < fixture.stream.stages.length; index += 1) {
-      state = succeed(
-        execute(fixture, state, "release_next_synthetic_signal", {
-          expectedRevision: state.revision,
-        }),
+    const pendingQueryIds = new Set(
+      fixture.investigationQueries.map((query) => query.id),
+    );
+    while (pendingQueryIds.size > 0) {
+      const query = fixture.investigationQueries.find(
+        (candidate) =>
+          pendingQueryIds.has(candidate.id) &&
+          (candidate.requiresStageId === null ||
+            state.releasedStreamStageIds.includes(candidate.requiresStageId)),
       );
-    }
-
-    for (const query of fixture.investigationQueries) {
+      if (!query) {
+        const nextStage = fixture.stream.stages.find(
+          (stage) => !state.releasedStreamStageIds.includes(stage.id),
+        );
+        assert.ok(
+          nextStage,
+          "A pending query must have an attachable discovery",
+        );
+        state = succeed(attachDiscovery(fixture, state, nextStage.id));
+        continue;
+      }
       const outcome = runPreparedQuery(fixture, state, query.id);
       assert.equal(
         outcome.ok,
@@ -692,6 +724,7 @@ test("every catalog query executes through the shared WebMCP operation", () => {
         query.returnedRecordCount,
       );
       assert.equal(data.returnedRecords.length, query.returnedRecordCount);
+      pendingQueryIds.delete(query.id);
     }
   }
 });
@@ -820,10 +853,10 @@ test("investigation plans attach one available finding in deterministic order", 
   ]);
 
   const nextStep = getDerivedNextStep(fixture, state);
-  assert.equal(nextStep.recommendedTool, "request_next_observation");
+  assert.equal(nextStep.recommendedTool, "attach_discovery_stage");
   assert.equal(
     nextStep.objective,
-    "Request the next bounded observation required for disposition.",
+    "Add remote service start blocked to the shared case.",
   );
 
   const repeated = execute(
@@ -923,50 +956,104 @@ test("endpoint forensic pivot attaches bounded static and sandbox fixtures", () 
   );
 });
 
-test("an agent can request but cannot release the next observation", () => {
+test("an agent can attach only the next discovery after its required evidence is attached", () => {
   const fixture = endpointLateralScenario;
   const initial = createInitialCaseState(fixture);
-  const requested = execute(
+  const blocked = attachDiscovery(fixture, initial, "STREAM-LAT-01");
+  assert.equal(blocked.ok, false);
+  if (!blocked.ok) {
+    assert.equal(blocked.error.code, "DISCOVERY_EVIDENCE_REQUIRED");
+    assert.equal(blocked.state.revision, initial.revision);
+  }
+
+  const withIdentityEvidence = enrich(
     fixture,
     initial,
-    "request_next_observation",
+    "enrich_identity",
+    "identity:svc-fin-reports",
+  );
+  const wrongOrder = attachDiscovery(
+    fixture,
+    withIdentityEvidence,
+    "STREAM-LAT-02",
+  );
+  assert.equal(wrongOrder.ok, false);
+  if (!wrongOrder.ok)
+    assert.equal(wrongOrder.error.code, "DISCOVERY_NOT_AVAILABLE");
+
+  const missingQuery = attachDiscovery(
+    fixture,
+    withIdentityEvidence,
+    "STREAM-LAT-01",
+  );
+  assert.equal(missingQuery.ok, false);
+  if (!missingQuery.ok)
+    assert.equal(missingQuery.error.code, "DISCOVERY_QUERY_REQUIRED");
+
+  const queried = succeed(
+    runPreparedQuery(fixture, withIdentityEvidence, "QRY-ENDPOINT-IDENTITY-03"),
+  );
+  const attached = attachDiscovery(fixture, queried, "STREAM-LAT-01");
+  assert.equal(attached.ok, true);
+  if (!attached.ok) return;
+  assert.deepEqual(attached.state.releasedStreamStageIds, ["STREAM-LAT-01"]);
+  const data = attached.data as {
+    added: {
+      entityIds: readonly string[];
+      eventIds: readonly string[];
+      relationshipIds: readonly string[];
+    };
+    provenance: {
+      sourceQueryIds: readonly string[];
+      sourceRecordIds: readonly string[];
+    };
+  };
+  assert.deepEqual(data.added.entityIds, ["endpoint:fin-reports-srv-010"]);
+  assert.deepEqual(data.added.eventIds, [
+    "EVT-EDR-0448-10",
+    "EVT-DIRECTORY-0448-13",
+  ]);
+  assert.deepEqual(data.added.relationshipIds, ["JOIN-LAT-06", "JOIN-LAT-08"]);
+  assert.deepEqual(data.provenance.sourceQueryIds, [
+    "QRY-ENDPOINT-IDENTITY-03",
+  ]);
+  assert.equal(attached.receipt.title, "Verified discovery added");
+
+  const responseProposal = execute(
+    fixture,
+    attached.state,
+    "propose_response_action",
     {
-      expectedRevision: initial.revision,
-      stageId: "STREAM-LAT-01",
-      rationale:
-        "Request the target-host prevention result before a containment decision.",
+      expectedRevision: attached.state.revision,
+      actionId: "contain_endpoint",
+      reasoning:
+        fixture.responseActions.find(
+          (action) => action.id === "contain_endpoint",
+        )?.proposalReasoning ?? "Contain the endpoint after evidence review.",
     },
     "webmcp_callback",
   );
-  assert.equal(requested.ok, true);
-  if (!requested.ok) return;
-  assert.equal(requested.state.observationRequest?.status, "pending");
-  assert.deepEqual(requested.state.releasedStreamStageIds, []);
+  assert.equal(responseProposal.ok, false);
+  if (!responseProposal.ok)
+    assert.equal(responseProposal.error.code, "DECISION_REQUIRED");
 
-  const agentRelease = execute(
+  const agentAuthorization = execute(
     fixture,
-    requested.state,
-    "release_next_synthetic_signal",
-    { expectedRevision: requested.state.revision },
+    attached.state,
+    "authorize_response_action",
+    {
+      expectedRevision: attached.state.revision,
+      actionId: "contain_endpoint",
+      proposalId: "PROPOSAL-NOT-AVAILABLE",
+      acknowledgement: "AUTHORIZE_SYNTHETIC_RESPONSE",
+    },
     "webmcp_callback",
   );
-  assert.equal(agentRelease.ok, false);
-  if (!agentRelease.ok) {
-    assert.equal(agentRelease.error.code, "SURFACE_NOT_ALLOWED");
+  assert.equal(agentAuthorization.ok, false);
+  if (!agentAuthorization.ok) {
+    assert.equal(agentAuthorization.error.code, "SURFACE_NOT_ALLOWED");
+    assert.equal(agentAuthorization.state.revision, attached.state.revision);
   }
-
-  const released = execute(
-    fixture,
-    requested.state,
-    "release_next_synthetic_signal",
-    { expectedRevision: requested.state.revision },
-    "analyst_control",
-  );
-  assert.equal(released.ok, true);
-  if (!released.ok) return;
-  assert.deepEqual(released.state.releasedStreamStageIds, ["STREAM-LAT-01"]);
-  assert.equal(released.state.observationRequest?.status, "released");
-  assert.equal(typeof released.state.observationRequest?.releasedAt, "string");
 });
 
 test("response bundles prepare atomically and require analyst authorization", () => {
@@ -1146,7 +1233,7 @@ test("response bundles prepare atomically and require analyst authorization", ()
 });
 
 test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
-  assert.equal(caseToolNames.length, 33);
+  assert.equal(caseToolNames.length, 34);
   const cloudNames = new Set(
     createCaseToolDefinitions(cloudIdentityScenario, async () => ({
       ok: true,
@@ -1172,6 +1259,7 @@ test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
     "run_investigation_query",
     "run_investigation_plan",
     "propose_investigation_step",
+    "attach_discovery_stage",
     "generate_case_report",
   ] satisfies readonly CaseToolName[];
   assert.deepEqual(
@@ -1195,13 +1283,12 @@ test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
       "enrich_file",
       "calculate_reachability",
       "simulate_control",
-      "request_next_observation",
       "propose_response_action",
       "simulate_response_action",
       "prepare_response_bundle",
     ]),
   );
-  assert.equal(cloudNames.size, 19);
+  assert.equal(cloudNames.size, 20);
   assert.equal(endpointNames.size, 26);
 
   for (const withheld of [
@@ -1251,7 +1338,7 @@ test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
   );
   for (const phaseTool of [
     "run_investigation_plan",
-    "request_next_observation",
+    "attach_discovery_stage",
     "prepare_response_bundle",
   ]) {
     assert.equal(
@@ -1367,15 +1454,12 @@ test("registered callbacks tolerate a missing native execution context", async (
 test("Jordan closes with an authorized exception and agent-drafted report", () => {
   const fixture = cloudIdentityScenario;
   let state = createInitialCaseState(fixture);
-  state = enrich(fixture, state, "enrich_identity", "identity:jdoe");
-  state = enrich(
-    fixture,
-    state,
-    "enrich_network_indicator",
-    "indicator:198.51.100.24",
-  );
-  state = enrich(fixture, state, "enrich_cloud_role", "role:prod-admin");
-  state = enrich(fixture, state, "enrich_resource", "object:customer-export");
+  state = succeed(runPreparedQuery(fixture, state, "QRY-CLOUD-IDENTITY-01"));
+  state = succeed(attachDiscovery(fixture, state, "DISCOVERY-CLOUD-01"));
+  state = succeed(runPreparedQuery(fixture, state, "QRY-CLOUD-EGRESS-02"));
+  state = succeed(runPreparedQuery(fixture, state, "QRY-CLOUD-ROLE-03"));
+  state = succeed(runPreparedQuery(fixture, state, "QRY-CLOUD-EXPORT-04"));
+  state = succeed(attachDiscovery(fixture, state, "DISCOVERY-CLOUD-02"));
   state = succeed(
     execute(fixture, state, "record_evidence_decision", {
       expectedRevision: state.revision,
@@ -1551,7 +1635,7 @@ test("an alternate disposition produces explicit review and reset guidance", () 
   const nextStep = getDerivedNextStep(fixture, state);
   assert.equal(nextStep.phase, "review");
   assert.equal(nextStep.recommendedTool, "get_case_context");
-  assert.match(nextStep.objective, /reset the synthetic case/i);
+  assert.match(nextStep.objective, /reset the case/i);
 });
 
 test("malicious case completes staged containment, recovery, report, and closure", () => {
@@ -1561,17 +1645,14 @@ test("malicious case completes staged containment, recovery, report, and closure
   state = succeed(runPreparedQuery(fixture, state, "QRY-ENDPOINT-HASH-10"));
   state = enrich(fixture, state, "enrich_endpoint", "endpoint:fin-ws-044");
   state = enrich(fixture, state, "enrich_identity", "identity:svc-fin-reports");
+  state = succeed(runPreparedQuery(fixture, state, "QRY-ENDPOINT-IDENTITY-03"));
   state = enrich(
     fixture,
     state,
     "enrich_network_indicator",
     "indicator:203.0.113.91",
   );
-  state = succeed(
-    execute(fixture, state, "release_next_synthetic_signal", {
-      expectedRevision: state.revision,
-    }),
-  );
+  state = succeed(attachDiscovery(fixture, state, "STREAM-LAT-01"));
   state = enrich(fixture, state, "enrich_endpoint", "endpoint:app-srv-021");
   state = succeed(
     execute(fixture, state, "record_evidence_decision", {
@@ -1610,11 +1691,8 @@ test("malicious case completes staged containment, recovery, report, and closure
   state = completeResponse(fixture, state, "contain_endpoint");
   state = completeResponse(fixture, state, "block_network_indicator");
   state = completeResponse(fixture, state, "disable_service_identity");
-  state = succeed(
-    execute(fixture, state, "release_next_synthetic_signal", {
-      expectedRevision: state.revision,
-    }),
-  );
+  state = succeed(runPreparedQuery(fixture, state, "QRY-ENDPOINT-APP-05"));
+  state = succeed(attachDiscovery(fixture, state, "STREAM-LAT-02"));
   state = enrich(fixture, state, "enrich_resource", "secret:ci-deploy-token");
   state = enrich(fixture, state, "enrich_resource", "workload:billing-api");
   state = completeResponse(fixture, state, "rotate_deployment_credential");
@@ -1686,6 +1764,7 @@ test("decision, model, response dependency, and report gates are enforced", () =
   state = succeed(runPreparedQuery(fixture, state, "QRY-ENDPOINT-HASH-10"));
   state = enrich(fixture, state, "enrich_endpoint", "endpoint:fin-ws-044");
   state = enrich(fixture, state, "enrich_identity", "identity:svc-fin-reports");
+  state = succeed(runPreparedQuery(fixture, state, "QRY-ENDPOINT-IDENTITY-03"));
   const earlyDecision = execute(fixture, state, "record_evidence_decision", {
     expectedRevision: state.revision,
     decision: "confirmed_malicious",
@@ -1696,11 +1775,7 @@ test("decision, model, response dependency, and report gates are enforced", () =
     assert.equal(earlyDecision.error.code, "CONTEXT_REQUIRED");
   }
 
-  state = succeed(
-    execute(fixture, state, "release_next_synthetic_signal", {
-      expectedRevision: state.revision,
-    }),
-  );
+  state = succeed(attachDiscovery(fixture, state, "STREAM-LAT-01"));
   state = enrich(fixture, state, "enrich_endpoint", "endpoint:app-srv-021");
   state = succeed(
     execute(fixture, state, "record_evidence_decision", {

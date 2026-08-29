@@ -73,7 +73,7 @@ export interface NetworkIndicatorEntity extends EntityBase {
 export interface CloudRoleEntity extends EntityBase {
   kind: "cloud_role";
   roleArn: string;
-  privilegeLevel: "administrative";
+  privilegeLevel: "administrative" | "scoped";
 }
 
 export interface SecretEntity extends EntityBase {
@@ -254,6 +254,27 @@ export type TelemetryPayload =
       workloadId: string;
       currentImage: string;
       knownGoodImage: string;
+      outcome: "OBSERVED";
+    }
+  | {
+      kind: "asset_device_assignment";
+      accountName: string;
+      hostname: string;
+      deviceId: string;
+      outcome: "OBSERVED";
+    }
+  | {
+      kind: "cloud_role_policy_snapshot";
+      observedRoleArn: string;
+      approvedRoleArn: string;
+      effectivePrivilege: string;
+      outcome: "OBSERVED";
+    }
+  | {
+      kind: "service_identity_scope_snapshot";
+      accountName: string;
+      expectedHostname: string;
+      observedTargetHostname: string;
       outcome: "OBSERVED";
     };
 
@@ -532,13 +553,21 @@ export type ResponseActionId =
 
 export type ResponseActionPhase = "containment" | "eradication" | "recovery";
 
+export interface DiscoveryAdmission {
+  requiredEnrichmentIds: readonly string[];
+  sourceQueryIds: readonly string[];
+  sourceRecordIds: readonly string[];
+}
+
 export interface IncidentStreamStage {
   id: string;
   ordinal: number;
   title: string;
   summary: string;
   receivedAt: string;
+  admission: DiscoveryAdmission;
   entities: readonly Entity[];
+  graphNodes: readonly CaseGraphNode[];
   events: readonly TelemetryEvent[];
   joins: readonly EvidenceJoin[];
   enrichments: readonly EnrichmentArtifact[];
@@ -761,6 +790,7 @@ export interface CaseState {
   fixtureVersion: string;
   revision: number;
   attachedEnrichmentIds: string[];
+  executedInvestigationQueryIds: string[];
   preparedQuery: PreparedInvestigationQuery | null;
   proposal: InvestigationProposal | null;
   decision: DecisionState;

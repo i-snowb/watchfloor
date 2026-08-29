@@ -109,8 +109,8 @@ export function AgentDrawer({
           </button>
         </div>
         <p className="attribution-note">
-          Operation source labels are client-reported. This case environment
-          does not authenticate analysts or WebMCP callbacks.
+          Every operation creates a revisioned record in the shared case
+          history.
         </p>
         <div className="agent-execution-summary">
           <span>
@@ -200,18 +200,20 @@ export function AgentDrawer({
                 <small>Case events, entities, links, and activity</small>
               </article>
               <article>
-                <span>Can prepare</span>
-                <strong>Plans and response packages</strong>
-                <small>Shared state, revision guards, complete receipts</small>
+                <span>Can investigate</span>
+                <strong>Queries, discoveries, and response packages</strong>
+                <small>
+                  Shared state, revision guards, and auditable receipts
+                </small>
               </article>
               <article>
-                <span>Can simulate</span>
-                <strong>Reach and control effects</strong>
-                <small>Simulated controls; no external execution</small>
+                <span>Can model</span>
+                <strong>Reachability and response effects</strong>
+                <small>Modeled effects; no external execution</small>
               </article>
               <article className="capability-matrix-analyst">
                 <span>Analyst only</span>
-                <strong>Decision, release, response, closure</strong>
+                <strong>Disposition, response, and closure</strong>
                 <small>Not registered as agent capabilities</small>
               </article>
             </div>
@@ -262,12 +264,13 @@ function capabilityEffect(toolName: string): string {
     return "Simulate";
   }
   if (toolName.includes("request")) return "Request";
+  if (toolName === "attach_discovery_stage") return "Attach";
   return "Prepare";
 }
 
 function receiptSurfaceLabel(receipt: OperationReceipt): string {
   if (receipt.toolName === "release_next_synthetic_signal") {
-    return "Case replay";
+    return "Telemetry update";
   }
   return receipt.reportedSurface === "webmcp_callback"
     ? "WebMCP callback"

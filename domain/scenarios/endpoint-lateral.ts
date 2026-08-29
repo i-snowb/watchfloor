@@ -2,7 +2,7 @@ import type { CaseFixture, InvestigationQueryReturnedRecord } from "../types";
 
 const caseId = "case-endpoint-0448";
 const scenarioId = "endpoint-lateral";
-const fixtureVersion = "endpoint-lateral-v4";
+const fixtureVersion = "endpoint-lateral-v5";
 
 const base = {
   caseId,
@@ -792,7 +792,7 @@ export const endpointLateralScenario = {
       question:
         "What does archived threat intelligence report for the exact SHA-256?",
       objective:
-        "Check the immutable sample hash against the archived intelligence snapshot and enterprise prevalence without making an external request.",
+        "Review the immutable sample hash against the archived intelligence snapshot and enterprise prevalence without making an external request.",
       targetEntityId: "file:invoice-sync-helper",
       toolName: "enrich_file",
       resultArtifactId: "ENR-LAT-HASH-04",
@@ -1147,7 +1147,8 @@ export const endpointLateralScenario = {
       ],
       resultChange:
         "APP-SRV-021 is outside the expected scope and has zero prior logons in 90 days.",
-      caveat: "The baseline is a bounded deterministic identity snapshot.",
+      caveat:
+        "The baseline is a bounded identity snapshot, not a live directory query.",
     },
     {
       id: "QRY-ENDPOINT-EGRESS-04",
@@ -1573,7 +1574,7 @@ export const endpointLateralScenario = {
       {
         id: "T1-STEP-ENDPOINT-HASH",
         status: "proposed",
-        label: "Check the exact file hash",
+        label: "Review exact file-hash intelligence",
         objective:
           "Compare the immutable SHA-256 with bounded threat intelligence and enterprise prevalence before disposition.",
         recommendedTool: "enrich_file",
@@ -1609,7 +1610,7 @@ export const endpointLateralScenario = {
       {
         id: "T1-STEP-ENDPOINT-EGRESS",
         status: "proposed",
-        label: "Check the repeated destination",
+        label: "Review destination context",
         objective:
           "Attach destination context without claiming ownership or reputation for the documentation address.",
         recommendedTool: "enrich_network_indicator",
@@ -1690,7 +1691,7 @@ export const endpointLateralScenario = {
     model: "graph_reachability_v1",
     sourceEntityId: "endpoint:fin-ws-044",
     assumption:
-      "The service identity scope and deployment credential remain valid until an approved simulated control severs them.",
+      "The service identity scope and deployment credential remain valid until an analyst-approved control interrupts them in the impact model.",
     reachableEntityIds: [
       "endpoint:app-srv-021",
       "secret:ci-deploy-token",
@@ -1719,7 +1720,7 @@ export const endpointLateralScenario = {
       },
     ],
     caveat:
-      "Reachable means permitted in the fixture model, not accessed or compromised.",
+      "Reachable means permitted in the impact model, not accessed or compromised.",
   },
   counterfactual: {
     ...base,
@@ -1727,7 +1728,7 @@ export const endpointLateralScenario = {
     sequence: 22,
     status: "simulated",
     sourceCategory: "deterministic_model",
-    sourceLabel: "Control simulation v1",
+    sourceLabel: "Response impact model v1",
     timestamp: "2026-08-28T14:05:26Z",
     actor: { kind: "system", id: "control-simulation-v1" },
     control: "isolate_compromised_path",
@@ -1747,7 +1748,36 @@ export const endpointLateralScenario = {
         summary:
           "EDR confirmed that APP-SRV-021 blocked the remote service-start attempt before execution.",
         receivedAt: "2026-08-28T14:05:18Z",
-        entities: [],
+        admission: {
+          requiredEnrichmentIds: ["ENR-LAT-IDENTITY-01"],
+          sourceQueryIds: ["QRY-ENDPOINT-IDENTITY-03"],
+          sourceRecordIds: [
+            "QRR-ENDPOINT-IDENTITY-01",
+            "QRR-ENDPOINT-IDENTITY-02",
+            "QRR-ENDPOINT-IDENTITY-03",
+          ],
+        },
+        entities: [
+          {
+            id: "endpoint:fin-reports-srv-010",
+            kind: "endpoint",
+            label: "FIN-REPORTS-SRV-010",
+            provider: "Service identity directory",
+            summary: "Expected host boundary for svc-fin-reports",
+            hostname: "FIN-REPORTS-SRV-010",
+            deviceId: "srv-fin-reports-010",
+            platform: "windows",
+            assetCriticality: "tier_1",
+          },
+        ],
+        graphNodes: [
+          {
+            entityId: "endpoint:fin-reports-srv-010",
+            x: 820,
+            y: 470,
+            lane: "lateral",
+          },
+        ],
         events: [
           {
             ...base,
@@ -1772,8 +1802,36 @@ export const endpointLateralScenario = {
               targetHostname: "APP-SRV-021",
               processName: "sc.exe",
               commandLineDisplay:
-                "sc.exe \\\\APP-SRV-021 create InvoiceSyncUpdater binPath= <synthetic-redacted>",
+                "sc.exe \\\\APP-SRV-021 create InvoiceSyncUpdater binPath= <redacted>",
               outcome: "BLOCKED_BEFORE_EXECUTION",
+            },
+          },
+          {
+            ...base,
+            id: "EVT-DIRECTORY-0448-13",
+            sequence: 34,
+            status: "observed",
+            sourceCategory: "identity_directory",
+            sourceLabel: "service identity directory",
+            timestamp: "2026-08-28T14:05:22Z",
+            actor: {
+              kind: "source_system",
+              id: "service-identity-directory",
+            },
+            action: "ServiceIdentityScopeSnapshot",
+            entityIds: [
+              "identity:svc-fin-reports",
+              "endpoint:fin-reports-srv-010",
+              "endpoint:app-srv-021",
+            ],
+            summary:
+              "svc-fin-reports is scoped to FIN-REPORTS-SRV-010, not APP-SRV-021.",
+            payload: {
+              kind: "service_identity_scope_snapshot",
+              accountName: "svc-fin-reports",
+              expectedHostname: "FIN-REPORTS-SRV-010",
+              observedTargetHostname: "APP-SRV-021",
+              outcome: "OBSERVED",
             },
           },
         ],
@@ -1801,6 +1859,25 @@ export const endpointLateralScenario = {
             limitation:
               "The target accepted authentication but did not execute the service payload.",
           },
+          {
+            ...base,
+            id: "JOIN-LAT-08",
+            sequence: 35,
+            status: "correlated",
+            sourceCategory: "deterministic_model",
+            sourceLabel: "TRACE correlation",
+            timestamp: "2026-08-28T14:05:23Z",
+            actor: { kind: "system", id: "trace-correlation-v1" },
+            fromEntityId: "identity:svc-fin-reports",
+            toEntityId: "endpoint:fin-reports-srv-010",
+            relation: "normally_scoped_to",
+            matchField: "serviceIdentity + expectedHostname",
+            matchValue: "svc-fin-reports + FIN-REPORTS-SRV-010",
+            evidenceIds: ["EVT-DIRECTORY-0448-13"],
+            label: "Expected service identity host boundary",
+            limitation:
+              "Directory scope is supporting context, not proof that the expected host was involved in this incident.",
+          },
         ],
         enrichments: [
           {
@@ -1816,7 +1893,7 @@ export const endpointLateralScenario = {
             title: "Application-host posture",
             summary:
               "APP-SRV-021 blocked remote service execution and remains visible to healthy EDR.",
-            caveat: "Fixed fixture posture; no live host was queried.",
+            caveat: "Recorded endpoint posture; no live host was queried.",
             toolName: "enrich_endpoint",
             payload: {
               kind: "endpoint_posture",
@@ -1839,9 +1916,15 @@ export const endpointLateralScenario = {
         ordinal: 2,
         title: "Recovery scope confirmed",
         summary:
-          "Deployment inventory exposed the current and known-good billing-api images for synthetic recovery planning.",
+          "Deployment inventory exposed the current and known-good billing-api images for recovery planning.",
         receivedAt: "2026-08-28T14:06:09Z",
+        admission: {
+          requiredEnrichmentIds: ["ENR-LAT-APP-01"],
+          sourceQueryIds: ["QRY-ENDPOINT-APP-05"],
+          sourceRecordIds: ["QRR-ENDPOINT-APP-02", "QRR-ENDPOINT-APP-04"],
+        },
         entities: [],
+        graphNodes: [],
         events: [
           {
             ...base,
@@ -2136,7 +2219,7 @@ export const endpointLateralScenario = {
     coverageNotes: [
       "Observed: helper execution, two TLS connections 60 seconds apart, service-account authentication, service-control commands, and a deployment-credential read. No remote payload execution, deployment, or exfiltration is claimed.",
       "The remote service start was blocked before execution. APP-SRV-021 remains affected by authentication evidence, not confirmed payload execution.",
-      "Recovery inventory comes from the case snapshot. Credential rotation and image redeployment are simulated controls.",
+      "Recovery inventory comes from the case snapshot. Credential rotation and image redeployment remain proposed until analyst authorization.",
     ],
     command: {
       observed: "Unsigned helper executed on FIN-WS-044",
@@ -2173,7 +2256,7 @@ export const endpointLateralScenario = {
     disposition: "confirmed_malicious_synthetic",
     title: "Multi-stage endpoint incident contained in the response model",
     executiveSummary:
-      "Telemetry shows unsigned helper execution on FIN-WS-044, two TLS connections 60 seconds apart, an unexpected svc-fin-reports logon to APP-SRV-021, a blocked remote service-start attempt, and a production deployment-credential read. Forensic triage collection, endpoint isolation, destination blocking, identity disablement, credential rotation, and a known-good image redeploy were recorded as simulated approvals. No external system was contacted.",
+      "Telemetry shows unsigned helper execution on FIN-WS-044, two TLS connections 60 seconds apart, an unexpected svc-fin-reports logon to APP-SRV-021, a blocked remote service-start attempt, and a production deployment-credential read. Forensic triage collection, endpoint isolation, destination blocking, identity disablement, credential rotation, and a known-good image redeploy were recorded as analyst-approved responses. No external system was contacted.",
     confirmedFindings: [
       "The unsigned helper executed on FIN-WS-044 and made two observed TLS connections separated by 60 seconds.",
       "svc-fin-reports authenticated to APP-SRV-021 outside its expected scope.",

@@ -79,9 +79,7 @@ export function AnalystActionDock({
         >
           Authorize package
         </button>
-        <small>
-          Recorded against synthetic case data. No external control is executed.
-        </small>
+        <small>Recorded response only. No external system was contacted.</small>
       </DockFrame>
     );
   }
@@ -89,7 +87,7 @@ export function AnalystActionDock({
   if (pendingStage) {
     return (
       <DockFrame
-        eyebrow="Analyst replay control"
+        eyebrow="Analyst telemetry control"
         title="Release requested telemetry"
       >
         <p>{pendingStage.summary}</p>

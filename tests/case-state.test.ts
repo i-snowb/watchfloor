@@ -10,6 +10,7 @@ import {
   cloudIdentityScenario,
   endpointLateralScenario,
 } from "../domain/scenarios";
+import { getQueryConsoleContract } from "../domain/query-console";
 import type { CaseFixture, CaseState } from "../domain/types";
 
 function write(
@@ -45,7 +46,7 @@ function completeInvestigationPlan(
       );
       return (
         query !== undefined &&
-        !current.attachedEnrichmentIds.includes(query.resultArtifactId)
+        !current.executedInvestigationQueryIds.includes(query.id)
       );
     });
     assert.ok(queryId, `No unresolved query exists for ${planId}`);
@@ -65,6 +66,25 @@ function completeInvestigationPlan(
     const data = result.data as { remainingCount: number };
     if (data.remainingCount === 0) return current;
   }
+}
+
+function runQuery(
+  fixture: CaseFixture,
+  state: CaseState,
+  queryId: string,
+): CaseState {
+  let current = write(fixture, state, "prepare_investigation_query", {
+    expectedRevision: state.revision,
+    queryId,
+  });
+  const queryText = getQueryConsoleContract(queryId)?.text;
+  assert.ok(queryText, `No query console contract exists for ${queryId}`);
+  current = write(fixture, current, "run_investigation_query", {
+    expectedRevision: current.revision,
+    queryId,
+    queryText,
+  });
+  return current;
 }
 
 test("canonical initial states pass persisted-state validation", () => {
@@ -92,9 +112,17 @@ test("persisted state rejects unreleased enrichment visibility", () => {
 });
 
 test("persisted state rejects a response that bypasses model and simulation gates", () => {
-  const invalid = createInitialCaseState(endpointLateralScenario);
-  invalid.revision = 2;
-  invalid.releasedStreamStageIds = ["STREAM-LAT-01"];
+  let invalid = runQuery(
+    endpointLateralScenario,
+    createInitialCaseState(endpointLateralScenario),
+    "QRY-ENDPOINT-IDENTITY-03",
+  );
+  invalid = write(endpointLateralScenario, invalid, "attach_discovery_stage", {
+    expectedRevision: invalid.revision,
+    stageId: "STREAM-LAT-01",
+    rationale:
+      "The service identity query supports the discovered host boundary.",
+  });
   invalid.responseActions[0] = {
     actionId: "contain_endpoint",
     status: "authorized_in_demo",
@@ -108,20 +136,45 @@ test("persisted state rejects a response that bypasses model and simulation gate
   );
 });
 
+test("persisted discovery requires executed source-query provenance", () => {
+  const invalid = createInitialCaseState(cloudIdentityScenario);
+  invalid.revision = 2;
+  invalid.attachedEnrichmentIds = ["ENR-CLOUD-IDENTITY-01"];
+  invalid.releasedStreamStageIds = ["DISCOVERY-CLOUD-01"];
+  assert.throws(
+    () => parseCaseState(JSON.stringify(invalid), cloudIdentityScenario),
+    /Stored query provenance/,
+  );
+});
+
 test("persisted report requires the deterministic evidence inventory", () => {
   const fixture = cloudIdentityScenario;
-  let state = createInitialCaseState(fixture);
-  for (const [toolName, entityId] of [
-    ["enrich_identity", "identity:jdoe"],
-    ["enrich_network_indicator", "indicator:198.51.100.24"],
-    ["enrich_cloud_role", "role:prod-admin"],
-    ["enrich_resource", "object:customer-export"],
-  ] as const) {
-    state = write(fixture, state, toolName, {
-      expectedRevision: state.revision,
-      entityId,
-    });
+  let state = runQuery(
+    fixture,
+    createInitialCaseState(fixture),
+    "QRY-CLOUD-IDENTITY-01",
+  );
+  state = write(fixture, state, "attach_discovery_stage", {
+    expectedRevision: state.revision,
+    stageId: "DISCOVERY-CLOUD-01",
+    rationale: "The identity baseline corroborates the managed endpoint.",
+  });
+  for (const queryId of [
+    "QRY-CLOUD-EGRESS-02",
+    "QRY-CLOUD-ROLE-03",
+    "QRY-CLOUD-EXPORT-04",
+  ]) {
+    state = runQuery(fixture, state, queryId);
   }
+  state = write(fixture, state, "attach_discovery_stage", {
+    expectedRevision: state.revision,
+    stageId: "DISCOVERY-CLOUD-02",
+    rationale: "Role and export evidence identify the required workflow role.",
+  });
+  assert.deepEqual(state.releasedStreamStageIds, [
+    "DISCOVERY-CLOUD-01",
+    "DISCOVERY-CLOUD-02",
+  ]);
   state = write(
     fixture,
     state,
@@ -187,6 +240,46 @@ test("persisted report requires the deterministic evidence inventory", () => {
     () => parseCaseState(JSON.stringify(approvedWithoutSignoff), fixture),
     /Stored response state/,
   );
+});
+
+test("persisted proposals cannot target an unreleased cloud discovery entity", () => {
+  const fixture = cloudIdentityScenario;
+  const invalid = createInitialCaseState(fixture);
+  invalid.revision = 2;
+  invalid.proposal = {
+    id: "PROP-CLOUD-0001",
+    phase: "inspect",
+    objective:
+      "Inspect the assigned endpoint before validating device continuity.",
+    recommendedTool: "inspect_entity",
+    targetEntityId: "endpoint:nxs-lt-227",
+    basedOnRevision: 1,
+    reportedSurface: "webmcp_callback",
+  };
+  assert.throws(
+    () => parseCaseState(JSON.stringify(invalid), fixture),
+    /Stored investigation state/,
+  );
+
+  let released = runQuery(
+    fixture,
+    createInitialCaseState(fixture),
+    "QRY-CLOUD-IDENTITY-01",
+  );
+  released = write(fixture, released, "attach_discovery_stage", {
+    expectedRevision: released.revision,
+    stageId: "DISCOVERY-CLOUD-01",
+    rationale: "The identity baseline corroborates the managed endpoint.",
+  });
+  released = write(fixture, released, "propose_investigation_step", {
+    expectedRevision: released.revision,
+    phase: "inspect",
+    objective:
+      "Inspect the assigned endpoint before validating device continuity.",
+    recommendedTool: "inspect_entity",
+    entityId: "endpoint:nxs-lt-227",
+  });
+  assert.deepEqual(parseCaseState(JSON.stringify(released), fixture), released);
 });
 
 test("persisted investigation proposals round-trip with visible or null targets", () => {

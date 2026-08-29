@@ -145,10 +145,7 @@ export function createCaseToolDefinitions(
       "calculate_reachability",
       "simulate_control",
     ),
-    ...includeTools(
-      fixture.stream.stages.length > 0,
-      "request_next_observation",
-    ),
+    ...includeTools(fixture.stream.stages.length > 0, "attach_discovery_stage"),
     "inspect_event",
     ...includeTools(
       availableResponseActions.length > 0,
@@ -171,7 +168,7 @@ export function createCaseToolDefinitions(
     definition(
       "get_case_delta",
       "Read released case updates",
-      "Return observed synthetic telemetry released after a bounded stream cursor.",
+      "Return observed case telemetry added after a bounded stream cursor.",
       {
         sinceCursor: {
           type: "integer",
@@ -222,7 +219,7 @@ export function createCaseToolDefinitions(
     definition(
       "search_events",
       "Search observed events",
-      "Search the bounded synthetic event set by entity, source category, and exact action.",
+      "Search the bounded case event set by entity, source category, and exact action.",
       {
         entityId: visibleArtifactId,
         sourceCategory: {
@@ -295,7 +292,7 @@ export function createCaseToolDefinitions(
           definition(
             "run_investigation_query",
             "Run bounded investigation query",
-            "Run the exact KQL currently prepared in shared case state across released synthetic sources, then attach the bounded result and source records. Call prepare_investigation_query first for the same queryId and use its returned queryText.",
+            "Run the exact KQL currently prepared in shared case state across available case sources, then attach the bounded result and source records. Call prepare_investigation_query first for the same queryId and use its returned queryText.",
             {
               expectedRevision: revision,
               queryId: {
@@ -363,7 +360,7 @@ export function createCaseToolDefinitions(
           definition(
             "enrich_identity",
             "Attach identity baseline",
-            "Attach bounded synthetic identity context for one released case entity without changing observed events.",
+            "Attach bounded identity context for one available case entity without changing observed events.",
             {
               expectedRevision: revision,
               entityId: visibleArtifactId,
@@ -379,7 +376,7 @@ export function createCaseToolDefinitions(
           definition(
             "enrich_network_indicator",
             "Attach network context",
-            "Attach bounded synthetic network inventory context for one released indicator.",
+            "Attach bounded network inventory context for one available indicator.",
             {
               expectedRevision: revision,
               entityId: visibleArtifactId,
@@ -395,7 +392,7 @@ export function createCaseToolDefinitions(
           definition(
             "enrich_cloud_role",
             "Attach cloud role posture",
-            "Attach bounded synthetic IAM trust and effective-privilege context for one released cloud role.",
+            "Attach bounded IAM trust and effective-privilege context for one available cloud role.",
             {
               expectedRevision: revision,
               entityId: visibleArtifactId,
@@ -411,7 +408,7 @@ export function createCaseToolDefinitions(
           definition(
             "enrich_resource",
             "Attach resource context",
-            "Attach bounded synthetic object, secret, or workload context for one released resource.",
+            "Attach bounded object, secret, or workload context for one available resource.",
             {
               expectedRevision: revision,
               entityId: visibleArtifactId,
@@ -427,7 +424,7 @@ export function createCaseToolDefinitions(
           definition(
             "enrich_endpoint",
             "Attach endpoint posture",
-            "Attach bounded synthetic ownership and EDR control context for a released endpoint.",
+            "Attach bounded ownership and EDR control context for an available endpoint.",
             {
               expectedRevision: revision,
               entityId: visibleArtifactId,
@@ -443,7 +440,7 @@ export function createCaseToolDefinitions(
           definition(
             "enrich_file",
             "Attach file analysis",
-            "Attach bounded synthetic archive analysis for a released file entity without executing or uploading it.",
+            "Attach bounded archive analysis for an available file entity without executing or uploading it.",
             {
               expectedRevision: revision,
               entityId: visibleArtifactId,
@@ -459,7 +456,7 @@ export function createCaseToolDefinitions(
           definition(
             "calculate_reachability",
             "Calculate modeled reach",
-            "Calculate deterministic candidate risk segments after the analyst records the evidence disposition.",
+            "Calculate candidate risk segments after the analyst records the evidence disposition.",
             {
               expectedRevision: revision,
               fromEntityId: {
@@ -475,7 +472,7 @@ export function createCaseToolDefinitions(
           definition(
             "simulate_control",
             "Simulate impact control",
-            "Apply one allowlisted control to a copy of the synthetic graph and return modeled segment changes. No control is executed.",
+            "Apply one allowlisted control to a copy of the case graph and return modeled segment changes. No control is executed.",
             {
               expectedRevision: revision,
               control: {
@@ -492,15 +489,15 @@ export function createCaseToolDefinitions(
     ...(fixture.stream.stages.length > 0
       ? [
           definition(
-            "request_next_observation",
-            "Request next observation",
-            "Request the next fixture-defined telemetry boundary and publish the reason into shared case state. Analyst release remains required.",
+            "attach_discovery_stage",
+            "Add verified discovery to case",
+            "Add the next provenance-backed entities, relationships, and observations after its required query results are attached. The operation cannot create arbitrary evidence or authorize a response.",
             {
               expectedRevision: revision,
               stageId: {
                 ...visibleArtifactId,
                 description:
-                  "Case stream stage ID. Read get_case_context before use; only the next released boundary is accepted.",
+                  "Discovery ID returned by get_case_context. Only the next ready discovery is accepted.",
               },
               rationale: { type: "string", minLength: 8, maxLength: 240 },
             },
@@ -515,7 +512,7 @@ export function createCaseToolDefinitions(
           definition(
             "propose_response_action",
             "Propose bounded response",
-            "Publish a revision-bound recommendation for one fixture-defined response action. No control executes.",
+            "Publish a revision-bound recommendation for one case-defined response action. No control executes.",
             {
               expectedRevision: revision,
               actionId: {
@@ -532,7 +529,7 @@ export function createCaseToolDefinitions(
           definition(
             "simulate_response_action",
             "Simulate bounded response",
-            "Model the fixture-defined effect of a proposed response action. No endpoint, identity, credential, or workload is modified.",
+            "Model the case-defined effect of a proposed response action. No endpoint, identity, credential, or workload is modified.",
             {
               expectedRevision: revision,
               actionId: {
@@ -552,7 +549,7 @@ export function createCaseToolDefinitions(
           definition(
             "prepare_response_bundle",
             "Prepare response package",
-            "Prepare and simulate a fixture-defined response package in one shared revision. Analyst authorization remains required and no external control executes.",
+            "Prepare and model a case-defined response package in one shared revision. Analyst authorization remains required and no external control executes.",
             {
               expectedRevision: revision,
               bundleId: {
@@ -570,7 +567,7 @@ export function createCaseToolDefinitions(
     definition(
       "generate_case_report",
       "Generate case evidence report",
-      "Assemble the visible evidence, disposition, limitations, and approved simulated actions into a draft report. Analyst approval remains required.",
+      "Assemble the visible evidence, disposition, limitations, approved response records, and modeled effects into a draft report. Analyst approval remains required.",
       { expectedRevision: revision },
       ["expectedRevision"],
       false,

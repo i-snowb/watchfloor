@@ -59,7 +59,6 @@ export function PlatformShell({
               ? `Cases · ${queueCount ?? fixture.alerts.length}`
               : "All cases"}
           </Link>
-          <span className="environment-chip">Synthetic case data</span>
           <button
             aria-label={agentStatusLabel(agentStatus)}
             className={`agent-chip agent-chip-${agentStatus.state}`}
@@ -109,7 +108,7 @@ function formatCaseId(caseId: string): string {
 function agentStatusLabel(status: AgentStatus): string {
   if (status.state === "checking") return "Connecting copilot";
   if (status.state === "unavailable") {
-    return "Open in ChatGPT Sites for Copilot";
+    return "Copilot unavailable in this browser";
   }
   if (status.state === "available") {
     return `Copilot connected · ${status.count} tools`;

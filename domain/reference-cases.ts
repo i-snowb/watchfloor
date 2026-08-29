@@ -265,7 +265,7 @@ const oauthCase: ReferenceCase = {
       status: "correlated",
       evidenceIds: ["EVT-OAUTH-01"],
       limitation:
-        "The address is synthetic and establishes no real geography or ownership.",
+        "Documentation-range address; no real geography or ownership claim.",
     },
     {
       id: "JOIN-OAUTH-03",
@@ -371,7 +371,7 @@ const oauthCase: ReferenceCase = {
       dominantMetric: "1 delegated scope",
       result:
         "Mail.Read was user-granted. No admin consent or additional scope was returned.",
-      caveat: "Refresh-token persistence is outside this fixture.",
+      caveat: "Refresh-token persistence is outside this case record.",
       workspace: "bounded_query",
     },
     {
@@ -510,7 +510,7 @@ const kubernetesCase: ReferenceCase = {
       id: "artifact:manifest",
       kind: "artifact",
       label: "build-runner manifest",
-      summary: "Fixture inventory for binding and expected network path",
+      summary: "Recorded inventory for binding and expected network path",
       x: 320,
       y: 470,
       attributes: [
@@ -631,7 +631,7 @@ const kubernetesCase: ReferenceCase = {
       status: "supporting",
       evidenceIds: ["EVT-K8S-01"],
       limitation:
-        "Inventory is deterministic fixture policy, not live cluster configuration.",
+        "Recorded inventory snapshot; not live cluster configuration.",
     },
   ],
   tier1: {
@@ -645,7 +645,7 @@ const kubernetesCase: ReferenceCase = {
     recommendations: [
       {
         id: "K8S-STEP-1",
-        label: "Check workload token posture",
+        label: "Assess workload token posture",
         queryId: "QRY-K8S-WORKLOAD",
         targetEntityId: "workload:build-runner",
       },
@@ -894,7 +894,7 @@ const cicdCase: ReferenceCase = {
       timestamp: "2026-08-27T09:18:11Z",
       source: "Artifact analysis",
       action: "analysis.completed",
-      summary: "Fixture analysis observed an outbound bootstrap request.",
+      summary: "Archived analysis observed an outbound bootstrap request.",
       entityIds: ["artifact:payments-7b3d"],
     },
     {
@@ -1035,7 +1035,7 @@ const cicdCase: ReferenceCase = {
           window: "90 days",
         },
         {
-          label: "Artifact analysis fixture",
+          label: "Artifact analysis archive",
           records: 18,
           window: "3 minutes",
         },
@@ -1044,7 +1044,7 @@ const cicdCase: ReferenceCase = {
       returnedRecords: 3,
       dominantMetric: "0 attestations · 1 behavior flag",
       result:
-        "Review and signing records are absent. Fixture analysis observed one outbound bootstrap request.",
+        "Review and signing records are absent. Archived analysis observed one outbound bootstrap request.",
       caveat:
         "The artifact result requires review; malicious production behavior is not confirmed.",
       workspace: "fixture_artifact",
@@ -1084,7 +1084,7 @@ const cicdCase: ReferenceCase = {
     {
       id: "T1071.001",
       label: "Web Protocols",
-      qualification: "Hypothesis only from fixture analysis",
+      qualification: "Hypothesis based on archived analysis",
     },
   ],
   assessment: {

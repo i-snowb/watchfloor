@@ -28,12 +28,10 @@ interface CaseCommandBarProps {
   state: CaseState;
   agentStatus: AgentStatus;
   busy: boolean;
-  streamPlaying: boolean;
   onExecute: (
     toolName: CaseToolName,
     input: Record<string, unknown>,
   ) => Promise<void>;
-  onReleaseSignal: () => void;
   onReset: () => void;
   onSelect: (selection: TraceSelection) => void;
   selection: TraceSelection;
@@ -49,9 +47,7 @@ export function CaseCommandBar({
   state,
   agentStatus,
   busy,
-  streamPlaying,
   onExecute,
-  onReleaseSignal,
   onReset,
   onSelect,
   selection,
@@ -258,12 +254,10 @@ export function CaseCommandBar({
             nextStage={nextStage}
             nextTool={nextStep.recommendedTool}
             onExecute={onExecute}
-            onReleaseSignal={onReleaseSignal}
             onReset={onReset}
             onSelect={onSelect}
             selection={selection}
             state={state}
-            streamPlaying={streamPlaying}
             targetEntityId={nextStep.targetEntityId}
           />
         </div>
@@ -300,7 +294,6 @@ function CommandControls({
   fixture,
   state,
   busy,
-  streamPlaying,
   decisionReady,
   nextTool,
   targetEntityId,
@@ -308,7 +301,6 @@ function CommandControls({
   activeAction,
   activeActionState,
   onExecute,
-  onReleaseSignal,
   onReset,
   onSelect,
   selection,
@@ -316,7 +308,6 @@ function CommandControls({
   fixture: CaseFixture;
   state: CaseState;
   busy: boolean;
-  streamPlaying: boolean;
   decisionReady: boolean;
   nextTool: CaseToolName | null;
   targetEntityId: string | null;
@@ -324,7 +315,6 @@ function CommandControls({
   activeAction: ResponseActionDefinition | null;
   activeActionState: ResponseActionState | undefined;
   onExecute: CaseCommandBarProps["onExecute"];
-  onReleaseSignal: () => void;
   onReset: () => void;
   onSelect: (selection: TraceSelection) => void;
   selection: TraceSelection;
@@ -357,7 +347,7 @@ function CommandControls({
         onClick={onReset}
         type="button"
       >
-        Reset and replay case
+        Reset case
       </button>
     );
   }
@@ -382,7 +372,7 @@ function CommandControls({
         }
         type="button"
       >
-        Approve simulated {bundle?.id ?? "response"} package
+        Approve {bundle?.id ?? "response"} package
       </button>
     );
   }
@@ -438,29 +428,6 @@ function CommandControls({
           </button>
         ))}
       </div>
-    );
-  }
-
-  if (!nextTool && nextStage) {
-    const requestedTargetId = state.observationRequest?.targetEntityIds.at(-1);
-    const requestedTarget = requestedTargetId
-      ? getAllEntities(fixture).find(
-          (entity) => entity.id === requestedTargetId,
-        )
-      : null;
-    return (
-      <button
-        className="case-command-primary"
-        disabled={busy || streamPlaying}
-        onClick={onReleaseSignal}
-        type="button"
-      >
-        {streamPlaying
-          ? `Receiving ${requestedTarget?.label ?? "telemetry"}`
-          : state.observationRequest?.status === "pending"
-            ? `Release ${requestedTarget?.label ?? "requested"} telemetry`
-            : `Receive update: ${nextStage.title}`}
-      </button>
     );
   }
 
@@ -544,22 +511,19 @@ function CommandControls({
         </button>
       );
     }
-    if (nextTool === "request_next_observation" && nextStage) {
+    if (
+      (nextTool === "attach_discovery_stage" ||
+        nextTool === "request_next_observation") &&
+      nextStage
+    ) {
       return (
-        <button
-          className="case-command-primary"
-          disabled={busy}
-          onClick={() =>
-            void onExecute("request_next_observation", {
-              expectedRevision: state.revision,
-              stageId: nextStage.id,
-              rationale: `Request ${nextStage.title.toLowerCase()} to resolve the current evidence boundary.`,
-            })
-          }
-          type="button"
-        >
-          Request new telemetry
-        </button>
+        <div className="case-command-agent-handoff">
+          <span>Verified discovery</span>
+          <strong>Copilot can add {nextStage.title.toLowerCase()}</strong>
+          <small>
+            It attaches only after the required evidence is available.
+          </small>
+        </div>
       );
     }
     if (nextTool === "prepare_response_bundle") {
@@ -775,15 +739,7 @@ function commandTitle(
   const nextStage =
     fixture.stream.stages[state.releasedStreamStageIds.length] ?? null;
   if (!recommendedTool && nextStage) {
-    const requestedTargetId = state.observationRequest?.targetEntityIds.at(-1);
-    const requestedTarget = requestedTargetId
-      ? getAllEntities(fixture).find(
-          (entity) => entity.id === requestedTargetId,
-        )
-      : null;
-    return state.observationRequest?.status === "pending"
-      ? `Copilot requests ${requestedTarget?.label ?? "the next target"} telemetry.`
-      : `New telemetry ready: ${nextStage.title}`;
+    return `Copilot can add ${nextStage.title.toLowerCase()} after its required evidence is attached.`;
   }
   if (recommendedTool === "calculate_reachability") {
     const source = getAllEntities(fixture).find(
@@ -797,8 +753,15 @@ function commandTitle(
   if (recommendedTool === "simulate_control") {
     return "Test the containment effect before response.";
   }
+  if (recommendedTool === "attach_discovery_stage") {
+    return nextStage
+      ? `Add verified discovery: ${nextStage.title}`
+      : "Add the verified discovery to the shared case.";
+  }
   if (recommendedTool === "request_next_observation") {
-    return `Resolve: ${fixture.tier1Escalation.unresolvedQuestions[0]}`;
+    return nextStage
+      ? `Copilot can add ${nextStage.title.toLowerCase()} after its required evidence is attached.`
+      : "Copilot can add verified discoveries after the required evidence is attached.";
   }
   if (recommendedTool === "prepare_response_bundle") {
     return derivedObjective;
@@ -831,13 +794,13 @@ function commandDetail(
     state.decision.status !== "pending" &&
     state.decision.status !== fixture.conclusion.requiredDecision
   ) {
-    return "This disposition stops the response workflow. Reset the case to replay another path.";
+    return "This disposition holds the response workflow for further review.";
   }
   if (state.report.status === "drafted") {
     return "Review evidence coverage, response provenance, limitations, and residual risk before approval.";
   }
   if (state.responseBundle) {
-    return `${state.responseBundle.actionIds.length} controls modeled. Analyst authorization is required; no external system has been contacted.`;
+    return `${state.responseBundle.actionIds.length} response actions modeled. Analyst authorization is required; no external system has been contacted.`;
   }
   const activeState = activeAction
     ? state.responseActions.find(
@@ -845,16 +808,13 @@ function commandDetail(
       )
     : null;
   if (activeState?.status === "simulated") {
-    return `${activeAction?.simulatedEffect ?? ""} Approval records the simulated response; no external system is contacted.`;
+    return `${activeAction?.simulatedEffect ?? ""} Approval records the response decision; no external system is contacted.`;
   }
   if (state.decision.status === "pending") {
     return `${requiredContextCount}/${fixture.decision.requiresEnrichmentIds.length} required context records attached.`;
   }
   if (commandOwner === "evidence" && nextStage && !activeAction) {
-    if (state.observationRequest?.status === "pending") {
-      return state.observationRequest.rationale;
-    }
-    return `Case replay · ${state.releasedStreamStageIds.length}/${fixture.stream.stages.length} updates received.`;
+    return "Copilot adds discoveries only when the supporting evidence is attached to the case.";
   }
   if (agentStatus.state === "available") {
     return "Copilot ready. It can run the next case operation through WebMCP.";
@@ -891,14 +851,14 @@ function impactSummary(fixture: CaseFixture, state: CaseState): string {
       authorized.some((action) => action.actionId === id),
     )
   ) {
-    return "Modeled propagation halted · no external control executed";
+    return "Potential propagation interrupted · no external control executed";
   }
   if (authorized.length > 0) {
     return `${authorized.length}/${fixture.responseActions.length} controls approved · ${severed.size} modeled segment${severed.size === 1 ? "" : "s"} severed`;
   }
   if (state.counterfactualAttached) {
     const count = fixture.counterfactual.severedPathIds.length;
-    return `Simulation blocks ${count} modeled path${count === 1 ? "" : "s"} · no control executed`;
+    return `Modeled response interrupts ${count} potential path${count === 1 ? "" : "s"} · no control executed`;
   }
   if (state.reachabilityAttached) {
     return `${fixture.reachability.paths.length} candidate risk segments · billing-api modeled only`;
@@ -968,7 +928,7 @@ function responsePlanStatus(
   dependenciesReady: boolean,
   responseModelReady: boolean,
 ): string {
-  if (status === "authorized_in_demo") return "Approved · no execution";
+  if (status === "authorized_in_demo") return "Approved · recorded only";
   if (status === "simulated") return "Needs approval";
   if (status === "proposed") return "Copilot proposed";
   if (status === "available") {

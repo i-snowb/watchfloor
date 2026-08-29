@@ -50,6 +50,7 @@ export const caseToolNames = [
   "record_evidence_decision",
   "calculate_reachability",
   "simulate_control",
+  "attach_discovery_stage",
   "request_next_observation",
   "release_next_synthetic_signal",
   "propose_response_action",
@@ -115,6 +116,7 @@ const proposalTools = new Set<CaseToolName>([
   "enrich_file",
   "calculate_reachability",
   "simulate_control",
+  "attach_discovery_stage",
   "request_next_observation",
   "propose_response_action",
   "simulate_response_action",
@@ -128,6 +130,7 @@ export function createInitialCaseState(fixture: CaseFixture): CaseState {
     fixtureVersion: fixture.fixtureVersion,
     revision: 1,
     attachedEnrichmentIds: [],
+    executedInvestigationQueryIds: [],
     preparedQuery: null,
     proposal: null,
     decision: {
@@ -266,6 +269,7 @@ function nextState(state: CaseState): CaseState {
     ...state,
     revision: state.revision + 1,
     attachedEnrichmentIds: [...state.attachedEnrichmentIds],
+    executedInvestigationQueryIds: [...state.executedInvestigationQueryIds],
     preparedQuery: state.preparedQuery ? { ...state.preparedQuery } : null,
     decision: { ...state.decision },
     proposal: state.proposal ? { ...state.proposal } : null,
@@ -363,7 +367,7 @@ export function getInvestigationPlans(
     title:
       key === "initial"
         ? "Resolve escalation evidence gaps"
-        : `Investigate ${fixture.stream.stages.find((stage) => stage.id === key)?.title ?? "released telemetry"}`,
+        : `Investigate ${fixture.stream.stages.find((stage) => stage.id === key)?.title ?? "attached discovery"}`,
     queryIds: queries.map((query) => query.id),
     requiresStageId: key === "initial" ? null : key,
     targetEntityIds: queries.map((query) => query.targetEntityId),
@@ -390,7 +394,7 @@ export function getResponseBundles(
       ],
       reasoning:
         "Prepare forensic collection, endpoint isolation, exact-indicator blocking, and identity disablement before analyst approval.",
-      approvalPrompt: "Approve the prepared simulated containment package?",
+      approvalPrompt: "Approve the prepared containment package?",
     });
   }
   if (recovery.length > 0) {
@@ -403,7 +407,7 @@ export function getResponseBundles(
       ],
       reasoning:
         "Prepare the supported credential and workload recovery controls in dependency order before analyst authorization.",
-      approvalPrompt: "Approve the prepared simulated recovery package?",
+      approvalPrompt: "Approve the prepared recovery package?",
     });
   }
   return bundles;
@@ -421,7 +425,7 @@ export interface CollaborationHandoff {
   nextOwner: "copilot" | "analyst" | "complete";
   pendingGate:
     | "evidence_disposition"
-    | "telemetry_release"
+    | "discovery_attachment"
     | "response_authorization"
     | "report_approval"
     | null;
@@ -449,8 +453,8 @@ export function getCollaborationHandoff(
         ? "report_approval"
         : state.responseBundle !== null
           ? "response_authorization"
-          : state.observationRequest?.status === "pending"
-            ? "telemetry_release"
+          : next.recommendedTool === "attach_discovery_stage"
+            ? "discovery_attachment"
             : next.recommendedTool === null &&
                 state.decision.status === "pending"
               ? "evidence_disposition"
@@ -460,33 +464,31 @@ export function getCollaborationHandoff(
       ? "Tier 1 identified an evidence gap; the copilot must prepare the case-approved query in the shared console."
       : next.recommendedTool === "run_investigation_query"
         ? "The case-approved query is visible and ready to run against bounded case data."
-        : next.recommendedTool === "request_next_observation"
-          ? "Required target telemetry has not reached the case."
+        : next.recommendedTool === "attach_discovery_stage"
+          ? "The required query evidence is attached; the copilot can add the verified discovery to the shared case."
           : next.recommendedTool === "calculate_reachability"
             ? "The analyst disposition is recorded; modeled reach is still unknown."
             : next.recommendedTool === "simulate_control"
               ? "Modeled reach is attached; the control effect is not."
               : pendingGate === "evidence_disposition"
                 ? `${requiredAttached}/${fixture.decision.requiresEnrichmentIds.length} required context records are attached.`
-                : pendingGate === "telemetry_release"
-                  ? "The copilot requested a bounded observation; analyst release is required."
+                : pendingGate === "discovery_attachment"
+                  ? "The next provenance-backed discovery is ready for the copilot to attach."
                   : pendingGate === "response_authorization"
                     ? "The response package is modeled; external execution remains disabled."
                     : pendingGate === "report_approval"
                       ? "The evidence-bound report is drafted and awaits analyst approval."
                       : state.lifecycle === "closed_in_demo"
-                        ? "The evidence report and simulated actions are approved."
+                        ? "The evidence report and recorded response actions are approved."
                         : "The shared case revision determines the next bounded operation.";
   const lastAnalystAction =
     state.report.status === "approved_in_demo"
       ? "Approved the evidence report"
       : authorizedCount > 0
-        ? `Authorized ${authorizedCount} simulated control${authorizedCount === 1 ? "" : "s"}`
+        ? `Approved ${authorizedCount} response control${authorizedCount === 1 ? "" : "s"}`
         : state.decision.status !== "pending"
           ? "Recorded the evidence disposition"
-          : state.releasedStreamStageIds.length > 0
-            ? "Released bounded fixture telemetry"
-            : null;
+          : null;
   return {
     currentRevision: state.revision,
     nextOwner:
@@ -510,8 +512,7 @@ export function getDerivedNextStep(
   if (state.lifecycle === "closed_in_demo") {
     return {
       phase: "review",
-      objective:
-        "Review the approved synthetic evidence report and operation receipts.",
+      objective: "Review the approved evidence report and operation receipts.",
       recommendedTool: "get_case_context",
       targetEntityId: null,
     };
@@ -524,7 +525,7 @@ export function getDerivedNextStep(
     return {
       phase: "review",
       objective:
-        "The recorded disposition holds this case for further evidence. Reset the synthetic case before replaying another decision path.",
+        "The recorded disposition holds this case for further evidence. Reset the case before recording another decision path.",
       recommendedTool: "get_case_context",
       targetEntityId: null,
     };
@@ -532,6 +533,26 @@ export function getDerivedNextStep(
 
   const attached = new Set(state.attachedEnrichmentIds);
   const visibleEnrichments = getVisibleEnrichments(fixture, state);
+  const nextDiscovery = getNextStreamStage(fixture, state);
+  if (
+    nextDiscovery &&
+    nextDiscovery.admission.requiredEnrichmentIds.every((id) =>
+      attached.has(id),
+    ) &&
+    nextDiscovery.admission.sourceQueryIds.every((id) =>
+      state.executedInvestigationQueryIds.includes(id),
+    )
+  ) {
+    return {
+      phase: "inspect",
+      objective: `Add ${nextDiscovery.title.toLowerCase()} to the shared case.`,
+      recommendedTool: "attach_discovery_stage",
+      targetEntityId:
+        nextDiscovery.entities[0]?.id ??
+        nextDiscovery.events.at(-1)?.entityIds.at(-1) ??
+        null,
+    };
+  }
   const nextPlan = getInvestigationPlans(fixture).find(
     (plan) =>
       (plan.requiresStageId === null ||
@@ -540,7 +561,9 @@ export function getDerivedNextStep(
         const query = fixture.investigationQueries.find(
           (candidate) => candidate.id === queryId,
         );
-        return query ? !attached.has(query.resultArtifactId) : false;
+        return query
+          ? !state.executedInvestigationQueryIds.includes(query.id)
+          : false;
       }),
   );
   if (nextPlan) {
@@ -552,7 +575,8 @@ export function getDerivedNextStep(
       )
       .find(
         (query): query is CaseFixture["investigationQueries"][number] =>
-          query !== undefined && !attached.has(query.resultArtifactId),
+          query !== undefined &&
+          !state.executedInvestigationQueryIds.includes(query.id),
       );
     const preparedQuery = state.preparedQuery
       ? fixture.investigationQueries.find(
@@ -560,7 +584,8 @@ export function getDerivedNextStep(
         )
       : null;
     const query =
-      preparedQuery && !attached.has(preparedQuery.resultArtifactId)
+      preparedQuery &&
+      !state.executedInvestigationQueryIds.includes(preparedQuery.id)
         ? preparedQuery
         : nextQuery;
     return {
@@ -603,12 +628,9 @@ export function getDerivedNextStep(
         phase: "inspect",
         objective:
           state.observationRequest?.status === "pending"
-            ? "Await the analyst-released observation required for disposition."
-            : "Request the next bounded observation required for disposition.",
-        recommendedTool:
-          state.observationRequest?.status === "pending"
-            ? null
-            : "request_next_observation",
+            ? "The requested observation is pending."
+            : "Run the required investigation query before adding the next verified discovery.",
+        recommendedTool: null,
         targetEntityId: null,
       };
     }
@@ -662,7 +684,7 @@ export function getDerivedNextStep(
     return {
       phase: "model",
       objective:
-        "Model the fixture-defined control against the current impact paths.",
+        "Model the case-defined response against the current impact paths.",
       recommendedTool: "simulate_control",
       targetEntityId: fixture.counterfactual.changedEntityId,
     };
@@ -762,11 +784,9 @@ export function getDerivedNextStep(
   if (state.releasedStreamStageIds.length < fixture.stream.stages.length) {
     return {
       phase: "respond",
-      objective: "Request the next bounded observation for analyst release.",
-      recommendedTool:
-        state.observationRequest?.status === "pending"
-          ? null
-          : "request_next_observation",
+      objective:
+        "Run the required investigation query before adding the next verified discovery.",
+      recommendedTool: null,
       targetEntityId: null,
     };
   }
@@ -783,8 +803,7 @@ export function getDerivedNextStep(
 
   return {
     phase: "review",
-    objective:
-      "Analyst approval is required to close the synthetic case report.",
+    objective: "Analyst approval is required to close the case report.",
     recommendedTool: "get_case_context",
     targetEntityId: null,
   };
@@ -847,6 +866,7 @@ function executeRead(
         attachedEnrichmentIds: attachedEnrichments.map(
           (artifact) => artifact.id,
         ),
+        executedInvestigationQueryIds: state.executedInvestigationQueryIds,
         decisionStatus: state.decision.status,
         reachabilityAttached: state.reachabilityAttached,
         counterfactualAttached: state.counterfactualAttached,
@@ -855,6 +875,26 @@ function executeRead(
           cursor: state.releasedStreamStageIds.length,
           releasedStageIds: state.releasedStreamStageIds,
           latestObservedEventId: visibleEvents.at(-1)?.id ?? null,
+        },
+        discoveries: {
+          nextStageId: getNextStreamStage(fixture, state)?.id ?? null,
+          available: fixture.stream.stages.map((stage) => ({
+            id: stage.id,
+            title: stage.title,
+            requiredEnrichmentIds: stage.admission.requiredEnrichmentIds,
+            sourceQueryIds: stage.admission.sourceQueryIds,
+            progress: state.releasedStreamStageIds.includes(stage.id)
+              ? "attached"
+              : stage.id === getNextStreamStage(fixture, state)?.id &&
+                  stage.admission.requiredEnrichmentIds.every((id) =>
+                    state.attachedEnrichmentIds.includes(id),
+                  ) &&
+                  stage.admission.sourceQueryIds.every((id) =>
+                    state.executedInvestigationQueryIds.includes(id),
+                  )
+                ? "ready"
+                : "blocked",
+          })),
         },
         responseActions: releasedResponseActions,
         tier1Handoff: {
@@ -896,11 +936,11 @@ function executeRead(
                 (total, scope) => total + scope.syntheticRecordCount,
                 0,
               ),
-              progress: state.attachedEnrichmentIds.includes(
-                query.resultArtifactId,
-              )
-                ? "attached"
-                : "available",
+              progress:
+                state.attachedEnrichmentIds.includes(query.resultArtifactId) &&
+                state.executedInvestigationQueryIds.includes(query.id)
+                  ? "attached"
+                  : "available",
             })),
           blockedCount: fixture.investigationQueries.filter(
             (query) =>
@@ -911,12 +951,7 @@ function executeRead(
         investigationPlans: getInvestigationPlans(fixture).map((plan) => ({
           ...plan,
           progress: plan.queryIds.every((queryId) => {
-            const query = fixture.investigationQueries.find(
-              (candidate) => candidate.id === queryId,
-            );
-            return query
-              ? state.attachedEnrichmentIds.includes(query.resultArtifactId)
-              : false;
+            return state.executedInvestigationQueryIds.includes(queryId);
           })
             ? "complete"
             : plan.requiresStageId === null ||
@@ -1302,7 +1337,7 @@ function attachEnrichment(
     return fail(
       state,
       request.toolName,
-      "This tool and entity combination is not available in the bounded fixture.",
+      "This tool and entity combination is not available in the current case.",
       "UNSUPPORTED_SCOPE",
     );
   }
@@ -1373,7 +1408,7 @@ function runInvestigationQuery(
     return fail(
       state,
       request.toolName,
-      "queryId is not part of this bounded case fixture.",
+      "queryId is not part of the current case query catalog.",
       "QUERY_NOT_FOUND",
     );
   }
@@ -1384,7 +1419,7 @@ function runInvestigationQuery(
     return fail(
       state,
       request.toolName,
-      "The query depends on synthetic telemetry that has not been released.",
+      "The query depends on telemetry that has not been added to the case.",
       "QUERY_NOT_AVAILABLE",
     );
   }
@@ -1399,11 +1434,11 @@ function runInvestigationQuery(
       "QUERY_RESULT_UNAVAILABLE",
     );
   }
-  if (state.attachedEnrichmentIds.includes(artifact.id)) {
+  if (state.executedInvestigationQueryIds.includes(query.id)) {
     return fail(
       state,
       request.toolName,
-      `${query.id} is already attached through ${artifact.id}.`,
+      `${query.id} has already executed and attached ${artifact.id}.`,
       "ALREADY_ATTACHED",
     );
   }
@@ -1428,7 +1463,10 @@ function runInvestigationQuery(
     0,
   );
   const updated = nextState(state);
-  updated.attachedEnrichmentIds.push(artifact.id);
+  if (!updated.attachedEnrichmentIds.includes(artifact.id)) {
+    updated.attachedEnrichmentIds.push(artifact.id);
+  }
+  updated.executedInvestigationQueryIds.push(query.id);
   if (state.preparedQuery?.queryId === query.id) {
     updated.preparedQuery = null;
   }
@@ -1492,11 +1530,11 @@ function prepareInvestigationQuery(
       "QUERY_NOT_AVAILABLE",
     );
   }
-  if (state.attachedEnrichmentIds.includes(query.resultArtifactId)) {
+  if (state.executedInvestigationQueryIds.includes(query.id)) {
     return fail(
       state,
       request.toolName,
-      `${query.id} is already attached through ${query.resultArtifactId}.`,
+      `${query.id} has already executed and attached ${query.resultArtifactId}.`,
       "ALREADY_ATTACHED",
     );
   }
@@ -1568,7 +1606,7 @@ function runInvestigationPlan(
     return fail(
       state,
       request.toolName,
-      "planId is not part of this bounded case fixture.",
+      "planId is not part of the current case investigation catalog.",
       "PLAN_NOT_FOUND",
     );
   }
@@ -1600,7 +1638,7 @@ function runInvestigationPlan(
     planQueries.push(query);
   }
   const unresolvedQueries = planQueries.filter(
-    (query) => !state.attachedEnrichmentIds.includes(query.resultArtifactId),
+    (query) => !state.executedInvestigationQueryIds.includes(query.id),
   );
   const query = unresolvedQueries[0];
   if (!query) {
@@ -1647,7 +1685,10 @@ function runInvestigationPlan(
   const nextQueryId = unresolvedQueries[1]?.id ?? null;
 
   const updated = nextState(state);
-  updated.attachedEnrichmentIds.push(artifact.id);
+  if (!updated.attachedEnrichmentIds.includes(artifact.id)) {
+    updated.attachedEnrichmentIds.push(artifact.id);
+  }
+  updated.executedInvestigationQueryIds.push(query.id);
   if (state.preparedQuery?.queryId === query.id) {
     updated.preparedQuery = null;
   }
@@ -1699,7 +1740,7 @@ function prepareResponseBundle(
     return fail(
       state,
       request.toolName,
-      "bundleId is not part of this bounded case fixture.",
+      "bundleId is not part of the current case response catalog.",
       "BUNDLE_NOT_FOUND",
     );
   }
@@ -1723,7 +1764,7 @@ function prepareResponseBundle(
     return fail(
       state,
       request.toolName,
-      "Attach reachability and the control simulation before preparing a response.",
+      "Attach reachability and the response impact model before preparing a response.",
       "MODEL_REQUIRED",
     );
   }
@@ -1843,6 +1884,105 @@ function prepareResponseBundle(
   );
 }
 
+function applyDiscoveryStage(
+  fixture: CaseFixture,
+  state: CaseState,
+  stage: CaseFixture["stream"]["stages"][number],
+  toolName: CaseToolName,
+): ToolOutcome {
+  const updated = nextState(state);
+  updated.releasedStreamStageIds.push(stage.id);
+  if (
+    updated.observationRequest?.status === "pending" &&
+    updated.observationRequest.stageId === stage.id
+  ) {
+    updated.observationRequest.status = "released";
+    updated.observationRequest.releasedAt = deterministicTimestamp(
+      updated.revision,
+    );
+  }
+  for (const actionId of stage.responseActionIds) {
+    const responseState = updated.responseActions.find(
+      (action) => action.actionId === actionId,
+    );
+    if (!responseState) {
+      return fail(
+        state,
+        toolName,
+        "The discovery has an invalid response action mapping.",
+        "INVALID_FIXTURE",
+      );
+    }
+    responseState.status = "available";
+  }
+  const entityIds = stage.entities.map((entity) => entity.id);
+  const eventIds = stage.events.map((event) => event.id);
+  const relationshipIds = stage.joins.map((join) => join.id);
+  return success(
+    updated,
+    {
+      discovery: {
+        id: stage.id,
+        title: stage.title,
+        summary: stage.summary,
+        receivedAt: stage.receivedAt,
+      },
+      added: {
+        entityIds,
+        eventIds,
+        relationshipIds,
+        availableEnrichmentIds: stage.enrichments.map(
+          (artifact) => artifact.id,
+        ),
+      },
+      provenance: {
+        sourceQueryIds: stage.admission.sourceQueryIds,
+        sourceRecordIds: stage.admission.sourceRecordIds,
+      },
+      cursor: updated.releasedStreamStageIds.length,
+      remaining:
+        fixture.stream.stages.length - updated.releasedStreamStageIds.length,
+      availableResponseActionIds: stage.responseActionIds,
+    },
+    {
+      title: "Verified discovery added",
+      target: stage.title,
+      resultSummary: `${entityIds.length} ${entityIds.length === 1 ? "entity" : "entities"}, ${relationshipIds.length} ${relationshipIds.length === 1 ? "relationship" : "relationships"}, and ${eventIds.length} ${eventIds.length === 1 ? "observation" : "observations"} added from ${stage.admission.sourceRecordIds.length} cited records`,
+    },
+    true,
+  );
+}
+
+function validateDiscoveryAdmission(
+  state: CaseState,
+  stage: CaseFixture["stream"]["stages"][number],
+  toolName: CaseToolName,
+): ToolFailure | null {
+  const missingEvidence = stage.admission.requiredEnrichmentIds.filter(
+    (id) => !state.attachedEnrichmentIds.includes(id),
+  );
+  if (missingEvidence.length > 0) {
+    return fail(
+      state,
+      toolName,
+      `Attach the required query evidence before adding this discovery: ${missingEvidence.join(", ")}.`,
+      "DISCOVERY_EVIDENCE_REQUIRED",
+    );
+  }
+  const missingQueries = stage.admission.sourceQueryIds.filter(
+    (id) => !state.executedInvestigationQueryIds.includes(id),
+  );
+  if (missingQueries.length > 0) {
+    return fail(
+      state,
+      toolName,
+      `Run the cited investigation queries before adding this discovery: ${missingQueries.join(", ")}.`,
+      "DISCOVERY_QUERY_REQUIRED",
+    );
+  }
+  return null;
+}
+
 function executeWrite(
   fixture: CaseFixture,
   state: CaseState,
@@ -1938,6 +2078,40 @@ function executeWrite(
     return runInvestigationPlan(fixture, state, request);
   }
 
+  if (toolName === "attach_discovery_stage") {
+    const invalid = validateInput(
+      input,
+      ["expectedRevision", "stageId", "rationale"],
+      ["expectedRevision", "stageId", "rationale"],
+    );
+    if (invalid) return fail(state, toolName, invalid);
+    const guarded = writeGuard(state, input, toolName);
+    if (guarded) return guarded;
+    const stage = getNextStreamStage(fixture, state);
+    if (!stage || input.stageId !== stage.id) {
+      return fail(
+        state,
+        toolName,
+        "stageId must identify the next available discovery.",
+        "DISCOVERY_NOT_AVAILABLE",
+      );
+    }
+    if (
+      typeof input.rationale !== "string" ||
+      input.rationale.length < 8 ||
+      input.rationale.length > 240
+    ) {
+      return fail(
+        state,
+        toolName,
+        "rationale must contain 8 to 240 characters.",
+      );
+    }
+    const admissionFailure = validateDiscoveryAdmission(state, stage, toolName);
+    if (admissionFailure) return admissionFailure;
+    return applyDiscoveryStage(fixture, state, stage, toolName);
+  }
+
   if (toolName === "request_next_observation") {
     const invalid = validateInput(
       input,
@@ -2010,7 +2184,7 @@ function executeWrite(
       return fail(
         state,
         toolName,
-        "This operation is reserved for the synthetic replay control.",
+        "This operation is reserved for the internal telemetry control.",
         "SURFACE_NOT_ALLOWED",
       );
     }
@@ -2027,50 +2201,13 @@ function executeWrite(
       return fail(
         state,
         toolName,
-        "All synthetic telemetry updates are already released.",
+        "All available telemetry updates are already attached.",
         "STREAM_COMPLETE",
       );
     }
-    const updated = nextState(state);
-    updated.releasedStreamStageIds.push(stage.id);
-    if (
-      updated.observationRequest?.status === "pending" &&
-      updated.observationRequest.stageId === stage.id
-    ) {
-      updated.observationRequest.status = "released";
-      updated.observationRequest.releasedAt = deterministicTimestamp(
-        updated.revision,
-      );
-    }
-    for (const actionId of stage.responseActionIds) {
-      const responseState = updated.responseActions.find(
-        (action) => action.actionId === actionId,
-      );
-      if (!responseState) {
-        return fail(
-          state,
-          toolName,
-          "The stream stage has an invalid response action state.",
-          "INVALID_FIXTURE",
-        );
-      }
-      responseState.status = "available";
-    }
-    return success(
-      updated,
-      {
-        stage,
-        cursor: updated.releasedStreamStageIds.length,
-        remaining:
-          fixture.stream.stages.length - updated.releasedStreamStageIds.length,
-      },
-      {
-        title: "New telemetry received",
-        target: stage.events.at(-1)?.id ?? stage.id,
-        resultSummary: `${stage.title} · observation received`,
-      },
-      true,
-    );
+    const admissionFailure = validateDiscoveryAdmission(state, stage, toolName);
+    if (admissionFailure) return admissionFailure;
+    return applyDiscoveryStage(fixture, state, stage, toolName);
   }
 
   if (toolName === "prepare_response_bundle") {
@@ -2123,7 +2260,7 @@ function executeWrite(
       return fail(
         state,
         toolName,
-        "Attach reachability and the control simulation before proposing a response.",
+        "Attach reachability and the response impact model before proposing a response.",
         "MODEL_REQUIRED",
       );
     }
@@ -2243,7 +2380,7 @@ function executeWrite(
       return fail(
         state,
         toolName,
-        "A matching response proposal is required before simulation.",
+        "A matching response proposal is required before modeling its effect.",
         "PROPOSAL_REQUIRED",
       );
     }
@@ -2334,7 +2471,7 @@ function executeWrite(
       return fail(
         state,
         toolName,
-        "acknowledgement must confirm the synthetic-only response boundary.",
+        "acknowledgement must confirm the recorded-only response boundary.",
       );
     }
     const updated = nextState(state);
@@ -2369,7 +2506,7 @@ function executeWrite(
         externalExecution: false,
       },
       {
-        title: "Authorized synthetic response",
+        title: "Response approved",
         target: labelForEntity(fixture, definition.targetEntityId),
         resultSummary: `${definition.title} approved · no external execution`,
       },
@@ -2424,7 +2561,7 @@ function executeWrite(
       return fail(
         state,
         toolName,
-        "acknowledgement must confirm the synthetic-only response boundary.",
+        "acknowledgement must confirm the recorded-only response boundary.",
       );
     }
     const updated = nextState(state);
@@ -2618,7 +2755,7 @@ function executeWrite(
       return fail(
         state,
         toolName,
-        "The control simulation is already attached.",
+        "The response impact model is already attached.",
         "ALREADY_ATTACHED",
       );
     }
@@ -2691,7 +2828,7 @@ function executeWrite(
       return fail(
         state,
         toolName,
-        "All synthetic telemetry stages must be released before report generation.",
+        "All required telemetry discoveries must be attached before report generation.",
         "STREAM_INCOMPLETE",
       );
     }
@@ -2705,7 +2842,7 @@ function executeWrite(
       return fail(
         state,
         toolName,
-        "Attach reachability and the control simulation before report generation.",
+        "Attach reachability and the response impact model before report generation.",
         "MODEL_REQUIRED",
       );
     }
@@ -2834,7 +2971,7 @@ function executeWrite(
       return fail(
         state,
         toolName,
-        "acknowledgement must confirm the synthetic report boundary.",
+        "acknowledgement must confirm the recorded-only report boundary.",
       );
     }
     const analystClosureNote = normalizeAnalystClosureNote(

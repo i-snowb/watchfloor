@@ -7,7 +7,7 @@ import { getCaseQueueItems } from "@/domain/case-queue";
 import { createInitialCaseState } from "@/domain/operations";
 import { getReferenceCase } from "@/domain/reference-cases";
 import type { CaseFixture, CaseQueueItem, CaseSnapshot } from "@/domain/types";
-import { executeTool, loadCase, resetCase } from "@/lib/client-api";
+import { loadCase, resetCase } from "@/lib/client-api";
 import { formatUtcTime } from "@/lib/format";
 import type { ToolRegistrationOutcome } from "@/webmcp/tools";
 import { PlatformShell, type AgentStatus } from "./platform-shell";
@@ -23,9 +23,7 @@ export function AlertWorkspace({
 }) {
   const fixture = fixtures[0];
   if (!fixture) {
-    throw new Error(
-      "The alert queue requires at least one synthetic case fixture.",
-    );
+    throw new Error("The alert queue requires at least one case record.");
   }
   const router = useRouter();
   const [snapshots, setSnapshots] = useState<Record<string, CaseSnapshot>>(() =>
@@ -176,37 +174,6 @@ export function AlertWorkspace({
     };
   }, [definitions]);
 
-  const releaseNextSignal = useCallback(
-    async (caseFixture: CaseFixture) => {
-      const snapshot = snapshots[caseFixture.id];
-      if (!snapshot) return;
-      setBusy(true);
-      setError(null);
-      try {
-        const response = await executeTool(
-          caseFixture.id,
-          "release_next_synthetic_signal",
-          "analyst_control",
-          { expectedRevision: snapshot.state.revision },
-        );
-        setSnapshots((current) => ({
-          ...current,
-          [caseFixture.id]: response.snapshot,
-        }));
-        if (!response.result.ok) setError(response.result.error.message);
-      } catch (releaseError) {
-        setError(
-          releaseError instanceof Error
-            ? releaseError.message
-            : "The next observation could not be released.",
-        );
-      } finally {
-        setBusy(false);
-      }
-    },
-    [snapshots],
-  );
-
   const resetQueueCase = useCallback(async (caseFixture: CaseFixture) => {
     setBusy(true);
     setError(null);
@@ -302,7 +269,7 @@ export function AlertWorkspace({
                   0,
                 )}
               </strong>{" "}
-              live observations
+              verified discoveries
             </span>
           </div>
           <div className="case-feed-filters" aria-label="Queue filters">
@@ -334,9 +301,9 @@ export function AlertWorkspace({
         <div className="ledger-time-ruler" aria-hidden="true">
           <span>#</span>
           <span>Observed UTC</span>
-          <span>Incident relation</span>
-          <span>Evidence run</span>
-          <span>Decision edge</span>
+          <span>Primary relationship</span>
+          <span>Latest evidence</span>
+          <span>Current status</span>
           <strong>Open</strong>
         </div>
 
@@ -410,9 +377,6 @@ export function AlertWorkspace({
                       error={error}
                       fixture={caseFixture}
                       item={item}
-                      onRelease={() => {
-                        if (caseFixture) void releaseNextSignal(caseFixture);
-                      }}
                       onReset={() => {
                         if (caseFixture) void resetQueueCase(caseFixture);
                       }}
@@ -520,7 +484,6 @@ function CaseLedgerDetail({
   snapshot,
   busy,
   error,
-  onRelease,
   onReset,
 }: {
   item: CaseQueueItem;
@@ -528,14 +491,10 @@ function CaseLedgerDetail({
   snapshot: CaseSnapshot | null;
   busy: boolean;
   error: string | null;
-  onRelease: () => void;
   onReset: () => void;
 }) {
   const routableCase = item.caseId !== null;
   const released = snapshot?.state.releasedStreamStageIds.length ?? 0;
-  const streamComplete = fixture
-    ? released >= fixture.stream.stages.length
-    : true;
   const latestReceipt = snapshot?.receipts.at(-1) ?? null;
   const relation = getQueueRelation(item);
   const sourceLabels = item.source.split(" · ");
@@ -544,23 +503,24 @@ function CaseLedgerDetail({
     ? {
         primary: `${fixture.tier1Escalation.confidence} confidence`,
         secondary: (() => {
-          const openChecks = fixture.tier1Escalation.recommendedSteps.filter(
-            (step) =>
-              step.completionArtifactId === null ||
-              !snapshot?.state.attachedEnrichmentIds.includes(
-                step.completionArtifactId,
-              ),
-          ).length;
-          return openChecks === 0
+          const openInvestigations =
+            fixture.tier1Escalation.recommendedSteps.filter(
+              (step) =>
+                step.completionArtifactId === null ||
+                !snapshot?.state.attachedEnrichmentIds.includes(
+                  step.completionArtifactId,
+                ),
+            ).length;
+          return openInvestigations === 0
             ? "Evidence review ready"
-            : `${openChecks} evidence check${openChecks === 1 ? "" : "s"} open`;
+            : `${openInvestigations} investigation${openInvestigations === 1 ? "" : "s"} available`;
         })(),
         reason: fixture.tier1Escalation.escalationReason,
       }
     : referenceCase
       ? {
           primary: `${referenceCase.tier1.observations.length} observations`,
-          secondary: `${referenceCase.tier1.recommendations.length} checks available`,
+          secondary: `${referenceCase.tier1.recommendations.length} investigations available`,
           reason: referenceCase.tier1.reason,
         }
       : {
@@ -600,7 +560,7 @@ function CaseLedgerDetail({
 
         <div className="case-sheet-sections">
           <section className="case-sheet-memo">
-            <span>Escalated by Tier 1</span>
+            <span>Tier 1 escalation</span>
             <div className="case-sheet-handoff-state">
               <strong>{handoffState.primary}</strong>
               <span>{handoffState.secondary}</span>
@@ -620,7 +580,7 @@ function CaseLedgerDetail({
 
           <section className="case-sheet-evidence">
             <div className="case-sheet-evidence-head">
-              <span>Evidence edge</span>
+              <span>Observed relationship</span>
               <div>
                 {sourceLabels.map((source) => (
                   <span key={source}>{source}</span>
@@ -631,35 +591,13 @@ function CaseLedgerDetail({
             <p>{item.latestObservation}</p>
             {fixture && snapshot ? (
               <div className="case-sheet-stream">
-                <div className="case-sheet-stage-rail" aria-hidden="true">
-                  {fixture.stream.stages.map((stage, index) => (
-                    <span
-                      className={
-                        index < released
-                          ? "case-sheet-stage-released"
-                          : index === released
-                            ? "case-sheet-stage-next"
-                            : ""
-                      }
-                      key={stage.id}
-                    />
-                  ))}
-                </div>
                 <div>
-                  <span>Live replay inlet</span>
+                  <span>Copilot workflow</span>
                   <strong>
-                    {released}/{fixture.stream.stages.length} later observations
+                    Copilot adds verified discoveries after supporting evidence
+                    is attached.
                   </strong>
                 </div>
-                {!streamComplete ? (
-                  <button disabled={busy} onClick={onRelease} type="button">
-                    Release observation {String(released + 1).padStart(2, "0")}
-                  </button>
-                ) : (
-                  <strong className="case-sheet-stream-complete">
-                    Replay complete
-                  </strong>
-                )}
               </div>
             ) : null}
           </section>
@@ -680,7 +618,7 @@ function CaseLedgerDetail({
             <time dateTime={latestReceipt.occurredAt}>
               {formatUtcTime(latestReceipt.occurredAt)}
             </time>
-            <span>client-reported</span>
+            <span>Recorded activity</span>
           </div>
         ) : (
           <div className="case-sheet-receipt case-sheet-receipt-idle">
@@ -697,8 +635,8 @@ function CaseLedgerDetail({
         <footer className="case-sheet-footer">
           <p>
             {item.investigationDepth === "full_response"
-              ? "Complete evidence, response, and report lifecycle. Recorded approval never executes an external control."
-              : "Explorable local evidence brief with typed entities, available queries, and explicit limitations. It is not part of the shared response lifecycle."}
+              ? "Investigate evidence, document response decisions, and review the case report. Recorded approval does not execute an external control."
+              : "Evidence brief with recorded entities, available investigations, and stated limitations. It is not part of the shared response workflow."}
           </p>
           {routableCase ? (
             <div>
@@ -857,7 +795,7 @@ function formatQueueStatus(status: CaseQueueItem["status"]): string {
   if (status === "tier1_triage") return "Tier 1 triage";
   if (status === "investigating") return "Investigating";
   if (status === "response_pending") return "Response pending";
-  if (status === "contained_in_demo") return "Contained · simulated";
+  if (status === "contained_in_demo") return "Containment recorded";
   return "Closed";
 }
 
@@ -877,7 +815,7 @@ function createAlertToolDefinitions(
       name: "list_case_queue",
       title: "List security case queue",
       description:
-        "Return the synthetic cases and Tier 1 states visible in the queue.",
+        "Return the current case queue and Tier 1 investigation states.",
       inputSchema: {
         type: "object",
         properties: { requestId },

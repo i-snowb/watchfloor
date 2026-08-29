@@ -1,6 +1,7 @@
 import type {
   CaseFixture,
   CaseState,
+  CaseGraphNode,
   EnrichmentArtifact,
   Entity,
   EvidenceJoin,
@@ -38,6 +39,27 @@ export function getVisibleEntities(
     ...fixture.entities,
     ...getAppliedStreamStages(fixture, state).flatMap(
       (stage) => stage.entities,
+    ),
+  ];
+}
+
+export function getAllGraphNodes(
+  fixture: CaseFixture,
+): readonly CaseGraphNode[] {
+  return [
+    ...fixture.presentation.nodes,
+    ...fixture.stream.stages.flatMap((stage) => stage.graphNodes),
+  ];
+}
+
+export function getVisibleGraphNodes(
+  fixture: CaseFixture,
+  state: CaseState,
+): readonly CaseGraphNode[] {
+  return [
+    ...fixture.presentation.nodes,
+    ...getAppliedStreamStages(fixture, state).flatMap(
+      (stage) => stage.graphNodes,
     ),
   ];
 }

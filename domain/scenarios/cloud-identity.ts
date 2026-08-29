@@ -2,7 +2,7 @@ import type { CaseFixture, InvestigationQueryReturnedRecord } from "../types";
 
 const caseId = "case-cloud-0421";
 const scenarioId = "cloud-identity";
-const fixtureVersion = "cloud-identity-v5";
+const fixtureVersion = "cloud-identity-v6";
 
 const base = {
   caseId,
@@ -453,7 +453,7 @@ export const cloudIdentityScenario = {
       summary:
         "CHG-2941 covers this object and size during 09:00–11:00 UTC, but it does not authorize prod-admin.",
       caveat:
-        "Fixed synthetic approval scope; this result corrects the initial assumption that the change also approved the role.",
+        "Recorded approval scope; this result corrects the initial assumption that the change also approved the role.",
       toolName: "enrich_resource",
       payload: {
         kind: "object_inventory",
@@ -526,8 +526,7 @@ export const cloudIdentityScenario = {
       ],
       resultChange:
         "Known device and CHG-2941 ownership support operator continuity; authorization remains unresolved.",
-      caveat:
-        "Bounded deterministic fixture; no identity provider was queried.",
+      caveat: "Recorded identity snapshot; no identity provider was queried.",
     },
     {
       id: "QRY-CLOUD-EGRESS-02",
@@ -588,7 +587,7 @@ export const cloudIdentityScenario = {
         ),
       ],
       resultChange:
-        "The documentation address maps to the approved London VPN POP in the fixture.",
+        "The recorded network inventory maps this address to the approved London VPN POP.",
       caveat:
         "The address is documentation-range data; the result makes no real ownership claim.",
     },
@@ -728,7 +727,7 @@ export const cloudIdentityScenario = {
       ],
       resultChange:
         "CHG-2941 covers the object and time window, but not the prod-admin role; analyst interpretation is required.",
-      caveat: "The approval and access baseline are fixed synthetic values.",
+      caveat: "The approval and access baseline use a recorded case snapshot.",
     },
   ],
   tier1Escalation: {
@@ -919,16 +918,178 @@ export const cloudIdentityScenario = {
     sequence: 19,
     status: "simulated",
     sourceCategory: "deterministic_model",
-    sourceLabel: "Control simulation v1",
+    sourceLabel: "Response impact model v1",
     timestamp: "2026-08-27T09:46:30Z",
     actor: { kind: "system", id: "control-simulation-v1" },
     control: "remove_role_trust",
     changedEntityId: "role:prod-admin",
     severedPathIds: ["PATH-CLOUD-01", "PATH-CLOUD-02"],
     remainingPathIds: [],
-    caveat: "The simulation does not revoke a session or execute a control.",
+    caveat: "The impact model does not revoke a session or execute a control.",
   },
-  stream: { mode: "deterministic_manual_replay", stages: [] },
+  stream: {
+    mode: "deterministic_manual_replay",
+    stages: [
+      {
+        id: "DISCOVERY-CLOUD-01",
+        ordinal: 1,
+        title: "Managed endpoint attributed to the session",
+        summary:
+          "Directory and session records identify NXS-LT-227 as Jordan Doe's assigned managed endpoint.",
+        receivedAt: "2026-08-27T09:44:01Z",
+        admission: {
+          requiredEnrichmentIds: ["ENR-CLOUD-IDENTITY-01"],
+          sourceQueryIds: ["QRY-CLOUD-IDENTITY-01"],
+          sourceRecordIds: ["QRR-CLOUD-IDENTITY-01", "QRR-CLOUD-IDENTITY-02"],
+        },
+        entities: [
+          {
+            id: "endpoint:nxs-lt-227",
+            kind: "endpoint",
+            label: "NXS-LT-227",
+            provider: "Asset inventory",
+            summary: "Assigned managed endpoint used by federated session 921",
+            hostname: "NXS-LT-227",
+            deviceId: "device-391-jd",
+            platform: "windows",
+            assetCriticality: "standard",
+          },
+        ],
+        graphNodes: [
+          {
+            entityId: "endpoint:nxs-lt-227",
+            x: 70,
+            y: 410,
+            lane: "entry",
+          },
+        ],
+        events: [
+          {
+            ...base,
+            id: "EVT-ASSET-0421-08",
+            sequence: 20,
+            status: "observed",
+            sourceCategory: "asset_inventory",
+            sourceLabel: "asset inventory",
+            timestamp: "2026-08-27T09:44:01Z",
+            actor: { kind: "source_system", id: "asset-inventory" },
+            action: "DeviceAssignmentSnapshot",
+            entityIds: ["identity:jdoe", "endpoint:nxs-lt-227"],
+            summary: "NXS-LT-227 is assigned to Jordan Doe.",
+            payload: {
+              kind: "asset_device_assignment",
+              accountName: "jdoe",
+              hostname: "NXS-LT-227",
+              deviceId: "device-391-jd",
+              outcome: "OBSERVED",
+            },
+          },
+        ],
+        joins: [
+          {
+            ...base,
+            id: "JOIN-CLOUD-05",
+            sequence: 21,
+            status: "correlated",
+            sourceCategory: "deterministic_model",
+            sourceLabel: "TRACE correlation",
+            timestamp: "2026-08-27T09:44:02Z",
+            actor: { kind: "system", id: "trace-correlation-v1" },
+            fromEntityId: "identity:jdoe",
+            toEntityId: "endpoint:nxs-lt-227",
+            relation: "assigned_device",
+            matchField: "deviceId",
+            matchValue: "device-391-jd",
+            evidenceIds: ["EVT-OKTA-0001", "EVT-ASSET-0421-08"],
+            label: "Identity to assigned managed endpoint",
+            limitation:
+              "Device assignment supports continuity but does not prove the physical operator.",
+          },
+        ],
+        enrichments: [],
+        responseActionIds: [],
+      },
+      {
+        id: "DISCOVERY-CLOUD-02",
+        ordinal: 2,
+        title: "Required export role identified",
+        summary:
+          "The policy snapshot identifies data-export-operator as the approved workflow role and confirms that prod-admin exceeded it.",
+        receivedAt: "2026-08-27T09:44:31Z",
+        admission: {
+          requiredEnrichmentIds: ["ENR-CLOUD-ROLE-01", "ENR-CLOUD-OBJECT-01"],
+          sourceQueryIds: ["QRY-CLOUD-ROLE-03", "QRY-CLOUD-EXPORT-04"],
+          sourceRecordIds: ["QRR-CLOUD-ROLE-02", "QRR-CLOUD-EXPORT-02"],
+        },
+        entities: [
+          {
+            id: "role:data-export-operator",
+            kind: "cloud_role",
+            label: "data-export-operator",
+            provider: "AWS IAM",
+            summary: "Scoped role approved for the customer export workflow",
+            roleArn: "arn:aws:iam::111122223333:role/data-export-operator",
+            privilegeLevel: "scoped",
+          },
+        ],
+        graphNodes: [
+          {
+            entityId: "role:data-export-operator",
+            x: 550,
+            y: 430,
+            lane: "access",
+          },
+        ],
+        events: [
+          {
+            ...base,
+            id: "EVT-IAM-0421-09",
+            sequence: 22,
+            status: "observed",
+            sourceCategory: "cloud_configuration",
+            sourceLabel: "IAM policy graph",
+            timestamp: "2026-08-27T09:44:31Z",
+            actor: { kind: "source_system", id: "iam-policy-graph" },
+            action: "CompareWorkflowRole",
+            entityIds: ["role:prod-admin", "role:data-export-operator"],
+            summary:
+              "The approved workflow requires data-export-operator, not prod-admin.",
+            payload: {
+              kind: "cloud_role_policy_snapshot",
+              observedRoleArn: "arn:aws:iam::111122223333:role/prod-admin",
+              approvedRoleArn:
+                "arn:aws:iam::111122223333:role/data-export-operator",
+              effectivePrivilege: "Scoped customer export",
+              outcome: "OBSERVED",
+            },
+          },
+        ],
+        joins: [
+          {
+            ...base,
+            id: "JOIN-CLOUD-06",
+            sequence: 23,
+            status: "correlated",
+            sourceCategory: "deterministic_model",
+            sourceLabel: "TRACE correlation",
+            timestamp: "2026-08-27T09:44:32Z",
+            actor: { kind: "system", id: "trace-correlation-v1" },
+            fromEntityId: "role:prod-admin",
+            toEntityId: "role:data-export-operator",
+            relation: "exceeds_required_role",
+            matchField: "workflowRole",
+            matchValue: "data-export-operator",
+            evidenceIds: ["EVT-AWS-0004", "EVT-IAM-0421-09"],
+            label: "Observed privilege exceeds approved workflow role",
+            limitation:
+              "The comparison establishes excess privilege, not malicious intent.",
+          },
+        ],
+        enrichments: [],
+        responseActionIds: [],
+      },
+    ],
+  },
   responseActions: [],
   presentation: {
     defaultEvidenceView: "trace",
@@ -951,7 +1112,10 @@ export const cloudIdentityScenario = {
     command: {
       observed: "prod-admin accessed customer-export.csv",
       initialScope: "Approved change and VPN context are not yet attached",
-      stageScopes: [],
+      stageScopes: [
+        "Managed endpoint assignment verified from directory and session records",
+        "Approved export role identified; prod-admin remains a policy exception",
+      ],
       scopeMilestones: [
         {
           requiresEnrichmentIds: ["ENR-CLOUD-IDENTITY-01"],
@@ -985,6 +1149,8 @@ export const cloudIdentityScenario = {
       "role:prod-admin",
       "secret:prod-db-primary",
       "object:customer-export",
+      "endpoint:nxs-lt-227",
+      "role:data-export-operator",
     ],
     atRiskEntityIds: [],
     blockedJoinIds: [],
@@ -1008,7 +1174,7 @@ export const cloudIdentityScenario = {
     ],
     limitations: [
       "The identity records do not prove the physical operator.",
-      "No endpoint or downstream transfer telemetry is included in this fixture.",
+      "No endpoint or downstream transfer telemetry is included in the case record.",
     ],
     residualRisk: [
       "Review why the scoped data-export role was not used.",

@@ -16,6 +16,9 @@ export function parseCaseState(value: string, fixture: CaseFixture): CaseState {
   if (isRecord(parsed) && !("preparedQuery" in parsed)) {
     parsed.preparedQuery = null;
   }
+  if (isRecord(parsed) && !("executedInvestigationQueryIds" in parsed)) {
+    parsed.executedInvestigationQueryIds = [];
+  }
   if (!hasValidBaseShape(parsed, fixture)) {
     throw new Error(`Stored state for ${fixture.id} is invalid.`);
   }
@@ -45,6 +48,36 @@ export function parseCaseState(value: string, fixture: CaseFixture): CaseState {
     attachedEnrichmentIds.some((id) => !visibleEnrichmentIds.has(id))
   ) {
     throw new Error(`Stored enrichment state for ${fixture.id} is invalid.`);
+  }
+
+  const executedQueryIds = parsed.executedInvestigationQueryIds as string[];
+  const queryById = new Map(
+    fixture.investigationQueries.map((query) => [query.id, query]),
+  );
+  if (
+    new Set(executedQueryIds).size !== executedQueryIds.length ||
+    executedQueryIds.some((id) => {
+      const query = queryById.get(id);
+      return (
+        !query ||
+        !attachedEnrichmentIds.includes(query.resultArtifactId) ||
+        (query.requiresStageId !== null &&
+          !releasedStageIds.includes(query.requiresStageId))
+      );
+    }) ||
+    fixture.stream.stages
+      .slice(0, releasedStageIds.length)
+      .some(
+        (stage) =>
+          stage.admission.requiredEnrichmentIds.some(
+            (id) => !attachedEnrichmentIds.includes(id),
+          ) ||
+          stage.admission.sourceQueryIds.some(
+            (id) => !executedQueryIds.includes(id),
+          ),
+      )
+  ) {
+    throw new Error(`Stored query provenance for ${fixture.id} is invalid.`);
   }
 
   const visibleEntityIds = new Set(
@@ -200,6 +233,7 @@ function hasValidBaseShape(
   fixture: CaseFixture,
 ): value is Record<string, unknown> & {
   attachedEnrichmentIds: unknown[];
+  executedInvestigationQueryIds: unknown[];
   releasedStreamStageIds: unknown[];
   observationRequest: unknown;
   responseBundle: unknown;
@@ -214,6 +248,8 @@ function hasValidBaseShape(
     Number(value.revision) >= 1 &&
     Array.isArray(value.attachedEnrichmentIds) &&
     value.attachedEnrichmentIds.every((id) => typeof id === "string") &&
+    Array.isArray(value.executedInvestigationQueryIds) &&
+    value.executedInvestigationQueryIds.every((id) => typeof id === "string") &&
     (value.preparedQuery === null || isRecord(value.preparedQuery)) &&
     typeof value.reachabilityAttached === "boolean" &&
     typeof value.counterfactualAttached === "boolean" &&
@@ -240,7 +276,9 @@ function hasValidBaseShape(
 }
 
 function isValidPreparedQuery(
-  state: Record<string, unknown> & { attachedEnrichmentIds: unknown[] },
+  state: Record<string, unknown> & {
+    executedInvestigationQueryIds: unknown[];
+  },
   fixture: CaseFixture,
   releasedStageIds: readonly string[],
 ): boolean {
@@ -261,7 +299,7 @@ function isValidPreparedQuery(
     !Number.isNaN(Date.parse(prepared.preparedAt)) &&
     (query.requiresStageId === null ||
       releasedStageIds.includes(query.requiresStageId)) &&
-    !state.attachedEnrichmentIds.includes(query.resultArtifactId)
+    !state.executedInvestigationQueryIds.includes(query.id)
   );
 }
 

@@ -320,7 +320,9 @@ export function ReferenceCaseWorkbench({
               }
               type="button"
             >
-              {planComplete ? "Plan complete" : "Run evidence plan"}
+              {planComplete
+                ? "All available queries attached"
+                : "Run available queries"}
             </button>
           </header>
 
@@ -363,9 +365,10 @@ export function ReferenceCaseWorkbench({
             <header>
               <span>Query insights</span>
               <strong>
-                {attachedQueryIds.length}/{dossier.queries.length} attached
+                {attachedQueryIds.length} finding
+                {attachedQueryIds.length === 1 ? "" : "s"} attached
               </strong>
-              <small>Synthetic analysis sources</small>
+              <small>Archived case sources</small>
             </header>
             <div>
               {dossier.queries.map((query) => {
@@ -378,7 +381,7 @@ export function ReferenceCaseWorkbench({
                     <summary>
                       <span>{query.capability}</span>
                       <strong>{query.title}</strong>
-                      <em>{attached ? query.dominantMetric : "Ready"}</em>
+                      <em>{attached ? query.dominantMetric : "Available"}</em>
                     </summary>
                     <div>
                       <p>{attached ? query.result : query.question}</p>
@@ -398,7 +401,7 @@ export function ReferenceCaseWorkbench({
                       </dl>
                       <small>
                         {query.workspace === "fixture_artifact"
-                          ? "Malware analysis workspace · synthetic file · no binary executed"
+                          ? "Archived malware analysis · no binary executed"
                           : query.caveat}
                       </small>
                     </div>
@@ -440,15 +443,17 @@ export function ReferenceCaseWorkbench({
                   Review evidence assessment
                 </button>
               ) : (
-                <small>Complete the evidence plan before disposition.</small>
+                <small>
+                  Review the attached evidence before recording a disposition.
+                </small>
               )}
             </section>
           </div>
         </section>
 
         <footer className="reference-boundary">
-          Explorable client-local evidence brief · deterministic synthetic data
-          · no shared response lifecycle or external control
+          Evidence brief · archived case data · no shared response workflow or
+          external control
         </footer>
       </div>
 
@@ -685,12 +690,12 @@ function ReferenceCapabilityDrawer({
           <article>
             <span>Can query</span>
             <strong>{dossier.queries.length} evidence insights</strong>
-            <small>Synthetic data sources</small>
+            <small>Archived case sources</small>
           </article>
           <article>
             <span>Can lead</span>
-            <strong>Atomic investigation plan</strong>
-            <small>Ordered results in this local brief</small>
+            <strong>Guided investigation</strong>
+            <small>Ordered findings in this brief</small>
           </article>
           <article className="capability-matrix-analyst">
             <span>Analyst only</span>
@@ -827,7 +832,7 @@ function createReferenceToolDefinitions(
     create(
       "inspect_reference_event",
       "Inspect reference event",
-      "Return one observed synthetic event from the dossier.",
+      "Return one observed event from the dossier.",
       {
         eventId: {
           type: "string",
@@ -866,7 +871,7 @@ function createReferenceToolDefinitions(
     create(
       "run_reference_query",
       "Run reference query",
-      "Run one bounded query and add its deterministic result to the shared brief.",
+      "Run one bounded query and add its returned result to the shared brief.",
       {
         queryId: {
           type: "string",

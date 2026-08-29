@@ -137,6 +137,7 @@ export function buildImpactLayout(
   entities: readonly Entity[],
   nodeWidth = 202,
   nodeHeight = 104,
+  graphNodes: readonly CaseGraphNode[] = fixture.presentation.nodes,
 ): ImpactLayout {
   const { graphWidth, graphHeight } = fixture.presentation;
   const sourceId = fixture.reachability.sourceEntityId;
@@ -155,7 +156,7 @@ export function buildImpactLayout(
   }
 
   const tracePositions = new Map(
-    fixture.presentation.nodes.map((node) => [node.entityId, node]),
+    graphNodes.map((node) => [node.entityId, node]),
   );
   const center = {
     x: Math.round(graphWidth * 0.48),

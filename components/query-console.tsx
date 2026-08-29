@@ -162,7 +162,7 @@ export function QueryConsole({
         {attached ? (
           <div className="query-console-execution-summary">
             <div>
-              <span>Query complete</span>
+              <span>Query result attached</span>
               <strong>
                 {query.matchedRecordCount} matched · {query.returnedRecordCount}{" "}
                 returned

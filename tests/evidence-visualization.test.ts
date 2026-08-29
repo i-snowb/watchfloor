@@ -80,6 +80,23 @@ test("cloud reachability preserves shared prefixes without extra depth", () => {
   assert.equal(layout.hops.get("object:customer-export"), 3);
 });
 
+test("impact layout retains released discovery graph lanes", () => {
+  const fixture = endpointLateralScenario;
+  const discovery = fixture.stream.stages[0]!;
+  const layout = buildImpactLayout(
+    fixture,
+    [...fixture.entities, ...discovery.entities],
+    202,
+    104,
+    [...fixture.presentation.nodes, ...discovery.graphNodes],
+  );
+
+  assert.equal(
+    layout.positions.get("endpoint:fin-reports-srv-010")?.lane,
+    "lateral",
+  );
+});
+
 test("causal field lanes are stable and directional impact envelopes follow hops", () => {
   const fixture = endpointLateralScenario;
   const phasePlanes = buildCausalPhasePlanes(fixture);

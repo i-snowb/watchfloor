@@ -14,6 +14,7 @@ import {
   getVisibleEntities,
   getVisibleEnrichments,
   getVisibleEvents,
+  getVisibleGraphNodes,
   getVisibleJoins,
 } from "@/domain/incident-stream";
 import { getDerivedNextStep, getResponseBundles } from "@/domain/operations";
@@ -54,6 +55,7 @@ import {
 
 interface EvidenceMapProps {
   busy: boolean;
+  hydrated: boolean;
   fixture: CaseFixture;
   state: CaseState;
   selection: TraceSelection;
@@ -67,11 +69,6 @@ interface EvidenceMapProps {
   latestAuthorizationReceipt?: OperationReceipt | null;
   receipts?: readonly OperationReceipt[];
   showInvestigationActions?: boolean;
-  syntheticExpansion?: {
-    stageId: string;
-    revision: number;
-    token: number;
-  } | null;
   reportReviewRequestToken?: number;
   children?: ReactNode;
 }
@@ -92,6 +89,7 @@ const nodeHeight = 152;
 
 export function EvidenceMap({
   busy,
+  hydrated,
   fixture,
   state,
   selection,
@@ -105,7 +103,6 @@ export function EvidenceMap({
   latestAuthorizationReceipt = null,
   receipts = [],
   showInvestigationActions = false,
-  syntheticExpansion = null,
   reportReviewRequestToken = 0,
   children,
 }: EvidenceMapProps) {
@@ -125,10 +122,19 @@ export function EvidenceMap({
     null,
   );
   const [activeExpansion, setActiveExpansion] = useState<{
-    token: number;
+    stageId: string;
     joinIds: ReadonlySet<string>;
     entityIds: ReadonlySet<string>;
   } | null>(null);
+  const previousReleasedStageCount = useRef(
+    state.releasedStreamStageIds.length,
+  );
+  const streamBaselineReady = useRef(false);
+  const visibleExpansion =
+    activeExpansion &&
+    state.releasedStreamStageIds.includes(activeExpansion.stageId)
+      ? activeExpansion
+      : null;
 
   useEffect(() => {
     if (state.revision < previousRevision.current) {
@@ -218,19 +224,39 @@ export function EvidenceMap({
   }, [replayPulseJoinId]);
 
   useEffect(() => {
-    if (!syntheticExpansion) return;
+    const currentCount = state.releasedStreamStageIds.length;
+    if (!hydrated) {
+      previousReleasedStageCount.current = currentCount;
+      streamBaselineReady.current = false;
+      return;
+    }
+    if (!streamBaselineReady.current) {
+      streamBaselineReady.current = true;
+      previousReleasedStageCount.current = currentCount;
+      return;
+    }
+    if (currentCount < previousReleasedStageCount.current) {
+      previousReleasedStageCount.current = currentCount;
+      return;
+    }
+    if (currentCount === previousReleasedStageCount.current) return;
+    const stageId = state.releasedStreamStageIds.at(-1);
     const stage = fixture.stream.stages.find(
-      (candidate) => candidate.id === syntheticExpansion.stageId,
+      (candidate) => candidate.id === stageId,
     );
-    if (!stage || syntheticExpansion.revision !== state.revision) return;
+    previousReleasedStageCount.current = currentCount;
+    if (!stage) return;
     let timer: number | null = null;
     const frame = window.requestAnimationFrame(() => {
       setReplayPlaying(false);
       setReplayCursor(replayPlan.joins.length);
       setActiveExpansion({
-        token: syntheticExpansion.token,
+        stageId: stage.id,
         joinIds: new Set(stage.joins.map((join) => join.id)),
-        entityIds: new Set(stage.events.flatMap((event) => event.entityIds)),
+        entityIds: new Set([
+          ...stage.entities.map((entity) => entity.id),
+          ...stage.events.flatMap((event) => event.entityIds),
+        ]),
       });
       timer = window.setTimeout(() => setActiveExpansion(null), 1_800);
     });
@@ -238,7 +264,13 @@ export function EvidenceMap({
       window.cancelAnimationFrame(frame);
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [fixture, replayPlan.joins.length, state.revision, syntheticExpansion]);
+  }, [
+    fixture,
+    hydrated,
+    replayPlan.joins.length,
+    state.releasedStreamStageIds,
+    state.revision,
+  ]);
 
   useEffect(() => {
     if (investigationActivity.status !== "running") return;
@@ -275,10 +307,13 @@ export function EvidenceMap({
     () => getAppliedStreamStages(fixture, state),
     [fixture, state],
   );
+  const visibleGraphNodes = useMemo(
+    () => getVisibleGraphNodes(fixture, state),
+    [fixture, state],
+  );
   const tracePositions = useMemo(
-    () =>
-      new Map(fixture.presentation.nodes.map((node) => [node.entityId, node])),
-    [fixture],
+    () => new Map(visibleGraphNodes.map((node) => [node.entityId, node])),
+    [visibleGraphNodes],
   );
   const visibleEntityIds = new Set(visibleEntities.map((entity) => entity.id));
   const eventBackedEntityIds = new Set(
@@ -337,10 +372,13 @@ export function EvidenceMap({
     view === "trace" ? replayedJoins : visibleJoins,
     view === "impact" && state.reachabilityAttached,
   );
-  const impactLayout = buildImpactLayout(fixture, [
-    ...renderedVisibleEntities,
-    ...modeledOnlyEntities,
-  ]);
+  const impactLayout = buildImpactLayout(
+    fixture,
+    [...renderedVisibleEntities, ...modeledOnlyEntities],
+    202,
+    104,
+    visibleGraphNodes,
+  );
   const positions =
     view === "impact" && state.reachabilityAttached
       ? impactLayout.positions
@@ -459,7 +497,7 @@ export function EvidenceMap({
   }
   const queryResultPlacements = layoutTraceResultPackets(
     [...attachedQueriesByTarget.keys()],
-    fixture.presentation.nodes,
+    [...tracePositions.values()],
     mapEntityIds,
     fixture.presentation.graphWidth,
     fixture.presentation.graphHeight,
@@ -557,12 +595,7 @@ export function EvidenceMap({
     planeRef,
     viewportRef,
     zoomBy,
-  } = useTraceCamera(
-    selection,
-    state.revision * 100 + replayCursor * 2 + (view === "impact" ? 1 : 0),
-    132,
-    0.82,
-  );
+  } = useTraceCamera(selection, view === "impact" ? 1 : 0, 132, 0.82);
   const focusFromDrawer = useCallback(
     (nextSelection: TraceSelection) => {
       selectEvidence(nextSelection);
@@ -588,11 +621,6 @@ export function EvidenceMap({
     const frame = window.requestAnimationFrame(fit);
     return () => window.cancelAnimationFrame(frame);
   }, [fit, state.revision, view]);
-  const activeExpansionStage = activeExpansion
-    ? (fixture.stream.stages.find(
-        (stage) => stage.id === syntheticExpansion?.stageId,
-      ) ?? null)
-    : null;
   const agentTargetPosition =
     investigationActivity.status !== "idle" &&
     investigationActivity.targetEntityId
@@ -656,6 +684,7 @@ export function EvidenceMap({
       }}
       playing={replayPlaying}
       receipts={receipts}
+      reducedMotion={reducedMotion}
       selection={selection}
     />
   );
@@ -701,14 +730,14 @@ export function EvidenceMap({
             onClick={() => setView("trace")}
             type="button"
           >
-            Incident path
+            Observed activity
           </button>
           <button
             aria-pressed={view === "impact"}
             onClick={() => setView("impact")}
             type="button"
           >
-            Exposure map
+            Potential impact
           </button>
         </div>
         <div className="trace-camera-tools" aria-label="Graph view controls">
@@ -737,29 +766,13 @@ export function EvidenceMap({
         {actionDock ? (
           <div className="map-command-dock">{actionDock}</div>
         ) : null}
-        {latestReceipt ? (
-          <button
-            className={`map-moment map-moment-${latestReceipt.reportedSurface}`}
-            key={latestReceipt.id}
-            onClick={openFindings}
-            type="button"
-          >
-            <span>
-              {latestReceipt.reportedSurface === "webmcp_callback"
-                ? "Copilot update"
-                : "Analyst update"}
-            </span>
-            <strong>{receiptUpdateTitle(latestReceipt)}</strong>
-            <small>{receiptUpdateAction(latestReceipt)}</small>
-          </button>
-        ) : null}
         <button className="map-skip-link" onClick={openFindings} type="button">
           Open results and notes
         </button>
         <div
           aria-describedby="evidence-map-help"
           aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - 0 Escape"
-          aria-label="Interactive incident path and exposure map"
+          aria-label="Interactive incident evidence and potential-impact map"
           className={`trace-scroll trace-viewport evidence-map-viewport ${dragging ? "trace-viewport-dragging" : ""} ${focusing ? "trace-viewport-focusing" : ""}`}
           onKeyDown={onKeyDown}
           onLostPointerCapture={onLostPointerCapture}
@@ -941,7 +954,7 @@ export function EvidenceMap({
                   edge.pathIds.length > 0 &&
                   edge.pathIds.every((id) => predictedPathIds.has(id));
                 const expanding =
-                  activeExpansion?.joinIds.has(edge.id) ?? false;
+                  visibleExpansion?.joinIds.has(edge.id) ?? false;
                 const replaying = replayPulseJoinId === edge.id;
                 const selected =
                   selection.kind === "join" && selection.id === edge.id;
@@ -1033,7 +1046,7 @@ export function EvidenceMap({
               const label = severed
                 ? "Modeled path blocked"
                 : predicted
-                  ? "Simulated control · approval required"
+                  ? "Modeled control effect · analyst approval required"
                   : edge.blocked
                     ? "Attempt prevented"
                     : edge.truth === "modeled"
@@ -1137,7 +1150,7 @@ export function EvidenceMap({
               const related = selectionFocus.entityIds.has(entity.id);
               const dimmed = selectionFocus.active && !related;
               const expanding =
-                activeExpansion?.entityIds.has(entity.id) ?? false;
+                visibleExpansion?.entityIds.has(entity.id) ?? false;
               const impactPosition = impactLayout.positions.get(entity.id);
               const investigationRunning =
                 investigationActivity.status === "running" &&
@@ -1198,7 +1211,7 @@ export function EvidenceMap({
                         ? "Modeled · not observed"
                         : evidenceState}
                   </span>
-                  {expanding ? <i>New telemetry</i> : null}
+                  {expanding ? <i>New evidence</i> : null}
                   {investigationRunning ? (
                     <b>
                       {investigationActivity.actor === "agent"
@@ -1208,7 +1221,7 @@ export function EvidenceMap({
                   ) : agentFocusEntityId === entity.id ? (
                     <b>Copilot focus</b>
                   ) : nextGap && investigationActivity.status === "idle" ? (
-                    <b>Next evidence gap</b>
+                    <b>Suggested inquiry</b>
                   ) : null}
                 </button>
               );
@@ -1335,17 +1348,6 @@ export function EvidenceMap({
             ) : null}
           </div>
 
-          {activeExpansionStage ? (
-            <div className="synthetic-expansion-status" role="status">
-              <span>New telemetry</span>
-              <strong>{activeExpansionStage.title}</strong>
-              <small>
-                {activeExpansion?.joinIds.size ?? 0} observed link
-                {(activeExpansion?.joinIds.size ?? 0) === 1 ? "" : "s"} added
-              </small>
-            </div>
-          ) : null}
-
           {view === "impact" && state.reachabilityAttached ? (
             <div className="impact-model-caveat">
               <span>Reachability model</span>
@@ -1444,7 +1446,7 @@ export function EvidenceMap({
               : severed
                 ? "Modeled path blocked · analyst approved"
                 : predicted
-                  ? "Simulated control · approval required"
+                  ? "Modeled control effect · analyst approval required"
                   : edge.truth;
             return (
               <button
@@ -1497,7 +1499,7 @@ export function EvidenceMap({
             {view === "impact" ? "Impact boundary" : "Evidence boundary"}
           </span>
           <small>
-            Solid = observed evidence · dashed = modeled or simulated
+            Solid = observed evidence · dashed = modeled relationship
           </small>
         </div>
         <p>
@@ -1542,6 +1544,7 @@ function TraceSequenceRail({
   onNext,
   onStep,
   receipts,
+  reducedMotion,
 }: {
   activeQuery: CaseFixture["investigationQueries"][number] | null;
   activity: InvestigationActivity;
@@ -1559,7 +1562,10 @@ function TraceSequenceRail({
   onNext: () => void;
   onStep: (step: number) => void;
   receipts: readonly OperationReceipt[];
+  reducedMotion: boolean;
 }) {
+  const observedTrackRef = useRef<HTMLOListElement>(null);
+  const investigationTrackRef = useRef<HTMLOListElement>(null);
   const entityLabels = new Map(
     entities.map((entity) => [entity.id, entity.label]),
   );
@@ -1576,6 +1582,7 @@ function TraceSequenceRail({
         receipt.toolName === "run_investigation_plan" ||
         receipt.toolName === "query_related_activity" ||
         receipt.toolName === "find_first_occurrence" ||
+        receipt.toolName === "attach_discovery_stage" ||
         receipt.toolName === "request_next_observation" ||
         receipt.toolName === "release_next_synthetic_signal" ||
         receipt.toolName === "calculate_reachability" ||
@@ -1590,6 +1597,31 @@ function TraceSequenceRail({
         receipt.toolName === "approve_case_report" ||
         receipt.toolName.startsWith("enrich_")),
   );
+  const latestDiscoveryReceiptId = investigationReceipts.findLast(
+    (receipt) => receipt.toolName === "attach_discovery_stage",
+  )?.id;
+  const observedDiscoveryReceiptId = useRef<string | undefined>(
+    latestDiscoveryReceiptId,
+  );
+  useEffect(() => {
+    if (latestDiscoveryReceiptId === observedDiscoveryReceiptId.current) {
+      return;
+    }
+    observedDiscoveryReceiptId.current = latestDiscoveryReceiptId;
+    if (!latestDiscoveryReceiptId) return;
+    const frame = window.requestAnimationFrame(() => {
+      for (const track of [
+        observedTrackRef.current,
+        investigationTrackRef.current,
+      ]) {
+        track?.scrollTo({
+          behavior: reducedMotion ? "auto" : "smooth",
+          left: track.scrollWidth - track.clientWidth,
+        });
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [latestDiscoveryReceiptId, reducedMotion]);
 
   return (
     <section
@@ -1598,20 +1630,16 @@ function TraceSequenceRail({
     >
       <header className="evidence-replay-controls timeline-controls">
         <div>
-          <span>Activity</span>
+          <span>Incident timeline</span>
           <strong>
             {String(cursor).padStart(2, "0")} /{" "}
             {String(orderedJoins.length).padStart(2, "0")}
           </strong>
-          <small>Observed activity and investigation work</small>
+          <small>Telemetry and recorded investigation work</small>
         </div>
         <div className="replay-buttons">
-          <button
-            aria-label="Restart activity replay"
-            onClick={onRestart}
-            type="button"
-          >
-            Restart
+          <button aria-label="Reset timeline" onClick={onRestart} type="button">
+            Reset
           </button>
           <button
             aria-label="Previous activity step"
@@ -1622,9 +1650,7 @@ function TraceSequenceRail({
             ←
           </button>
           <button
-            aria-label={
-              playing ? "Pause activity replay" : "Play activity replay"
-            }
+            aria-label={playing ? "Pause timeline" : "Play timeline"}
             aria-pressed={playing}
             className="replay-toggle"
             onClick={onToggle}
@@ -1633,7 +1659,7 @@ function TraceSequenceRail({
             {playing
               ? "Pause"
               : cursor >= orderedJoins.length
-                ? "Replay"
+                ? "Play"
                 : "Play"}
           </button>
           <button
@@ -1649,12 +1675,13 @@ function TraceSequenceRail({
 
       <div className="timeline-tracks">
         <div className="timeline-track-labels" aria-hidden="true">
-          <span>Observed</span>
-          <span>Analyst + copilot</span>
+          <span>Telemetry</span>
+          <span>Investigation</span>
         </div>
         <ol
           className="trace-sequence-rail timeline-observed-track"
           aria-label={`Recorded activity. Horizontal timeline with ${orderedJoins.length} events; scroll for more.`}
+          ref={observedTrackRef}
         >
           {orderedJoins.map((join, index) => {
             const blocked = fixture.impact.blockedJoinIds.includes(join.id);
@@ -1697,6 +1724,7 @@ function TraceSequenceRail({
         <ol
           className="timeline-query-track"
           aria-label="Investigation activity"
+          ref={investigationTrackRef}
         >
           {investigationReceipts.map((receipt) => {
             const targetEntityId = receipt.target
@@ -1765,7 +1793,7 @@ function TraceSequenceRail({
       <p aria-live="polite" className="sr-only">
         {currentJoin
           ? `Activity step ${cursor} of ${orderedJoins.length}: ${currentJoin.label}.`
-          : `Activity replay ready. ${orderedJoins.length} recorded activities.`}
+          : `Incident timeline ready. ${orderedJoins.length} recorded activities.`}
       </p>
     </section>
   );
@@ -1907,6 +1935,7 @@ function activityCategory(toolName: string): string {
     return "Response model";
   }
   if (
+    toolName === "attach_discovery_stage" ||
     toolName === "request_next_observation" ||
     toolName === "release_next_synthetic_signal"
   ) {
@@ -1959,7 +1988,7 @@ function impactAnnouncement(
   }
   if (state.counterfactualAttached) {
     const count = fixture.counterfactual.severedPathIds.length;
-    return `${count} risk ${count === 1 ? "path is" : "paths are"} blocked in the simulation. No control is approved.`;
+    return `${count} risk ${count === 1 ? "path is" : "paths are"} interrupted in the impact model. No response action is approved.`;
   }
   if (state.reachabilityAttached) {
     return `Exposure model added: ${fixture.reachability.paths.length} modeled risk paths and ${fixture.impact.atRiskEntityIds.length} entities at risk but not observed.`;
@@ -1978,10 +2007,11 @@ function receiptUpdateTitle(receipt: OperationReceipt): string {
     return "Exposure map updated";
   }
   if (
+    receipt.toolName === "attach_discovery_stage" ||
     receipt.toolName === "request_next_observation" ||
     receipt.toolName === "release_next_synthetic_signal"
   ) {
-    return "New telemetry added";
+    return "Verified discovery added";
   }
   if (
     receipt.toolName === "simulate_control" ||
@@ -1999,13 +2029,6 @@ function receiptUpdateTitle(receipt: OperationReceipt): string {
     return "Evidence report updated";
   }
   return "Case updated";
-}
-
-function receiptUpdateAction(receipt: OperationReceipt): string {
-  return isQueryExecutionReceipt(receipt) ||
-    receipt.toolName.startsWith("enrich_")
-    ? "Open findings and source records"
-    : "Open activity notes";
 }
 
 function entityEvidenceState(

@@ -119,7 +119,7 @@ export function InvestigationDeck({
           <strong>{entity?.label ?? "Select an item"}</strong>
           <small>
             {entity
-              ? `${humanizeEntityKind(entity.kind)} · ${attached ? "result added" : "query available"}`
+              ? `${humanizeEntityKind(entity.kind)} · ${attached ? "finding attached" : "query available"}`
               : "Select a node or path to investigate"}
           </small>
         </div>
@@ -140,14 +140,14 @@ export function InvestigationDeck({
             }
             type="button"
           >
-            <span>{attached ? "Result added" : "Run investigation"}</span>
+            <span>{attached ? "Finding attached" : "Run query"}</span>
             <strong>{selectedQuery.title}</strong>
             <small>
               {selectedQuery.sourceScopes.length} sources · results appear here
               when complete
             </small>
             <em className="probe-action" aria-hidden="true">
-              {attached ? "Added" : "Run →"}
+              {attached ? "Attached" : "Run →"}
             </em>
           </button>
         ) : (
@@ -191,8 +191,8 @@ export function InvestigationDeck({
           <span>Decision status</span>
           <strong>
             {decisionEvidenceCount} of{" "}
-            {fixture.decision.requiresEnrichmentIds.length} required checks
-            complete
+            {fixture.decision.requiresEnrichmentIds.length} required evidence
+            records attached
           </strong>
           <small>{fixture.decision.question}</small>
         </div>
@@ -204,7 +204,8 @@ export function InvestigationDeck({
             }
           />
           <small>
-            When ready: {fixture.decision.options[0]?.label ?? "path A"} or{" "}
+            When evidence supports it:{" "}
+            {fixture.decision.options[0]?.label ?? "path A"} or{" "}
             {fixture.decision.options[1]?.label ?? "path B"}
           </small>
         </div>
@@ -227,10 +228,10 @@ export function InvestigationDeck({
             <i />
           </div>
           <ol>
-            <li className="query-stage-complete">Sources selected</li>
-            <li className="query-stage-active">Searching records</li>
-            <li>Review matches</li>
-            <li>Add results</li>
+            <li className="query-stage-complete">Sources validated</li>
+            <li className="query-stage-active">Querying records</li>
+            <li>Correlating matches</li>
+            <li>Attaching evidence</li>
           </ol>
         </div>
       ) : null}

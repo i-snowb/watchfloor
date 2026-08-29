@@ -91,6 +91,7 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     "run_investigation_query",
     "run_investigation_plan",
     "propose_investigation_step",
+    "attach_discovery_stage",
     "generate_case_report",
   ] satisfies readonly CaseToolName[];
   const expectedCloud = new Set<CaseToolName>([
@@ -109,14 +110,13 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     "enrich_file",
     "calculate_reachability",
     "simulate_control",
-    "request_next_observation",
     "propose_response_action",
     "simulate_response_action",
     "prepare_response_bundle",
   ]);
   assert.deepEqual(cloudExposed, expectedCloud);
   assert.deepEqual(endpointExposed, expectedEndpoint);
-  assert.equal(cloudExposed.size, 19);
+  assert.equal(cloudExposed.size, 20);
   assert.equal(endpointExposed.size, 26);
   assert.equal(exposed.size, 27);
   const successful = new Set<string>();
@@ -180,19 +180,6 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
   });
   assert.deepEqual(planProbe.attachedEnrichmentIds, ["ENR-CLOUD-IDENTITY-01"]);
 
-  let requestProbe = createInitialCaseState(endpointLateralScenario);
-  requestProbe = web(
-    endpointLateralScenario,
-    requestProbe,
-    "request_next_observation",
-    {
-      expectedRevision: requestProbe.revision,
-      stageId: "STREAM-LAT-01",
-      rationale: "Request the next target-host prevention observation.",
-    },
-  );
-  assert.equal(requestProbe.observationRequest?.status, "pending");
-
   let cloud = createInitialCaseState(cloudIdentityScenario);
   cloud = web(cloudIdentityScenario, cloud, "get_case_context", {});
   cloud = web(cloudIdentityScenario, cloud, "get_case_delta", {
@@ -249,6 +236,33 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     expectedRevision: cloud.revision,
     entityId: "object:customer-export",
   });
+  for (const queryId of [
+    "QRY-CLOUD-IDENTITY-01",
+    "QRY-CLOUD-EGRESS-02",
+    "QRY-CLOUD-ROLE-03",
+    "QRY-CLOUD-EXPORT-04",
+  ]) {
+    cloud = web(cloudIdentityScenario, cloud, "prepare_investigation_query", {
+      expectedRevision: cloud.revision,
+      queryId,
+    });
+    cloud = web(cloudIdentityScenario, cloud, "run_investigation_query", {
+      expectedRevision: cloud.revision,
+      queryId,
+    });
+  }
+  cloud = web(cloudIdentityScenario, cloud, "attach_discovery_stage", {
+    expectedRevision: cloud.revision,
+    stageId: "DISCOVERY-CLOUD-01",
+    rationale:
+      "Attach the managed endpoint after the identity query established session continuity.",
+  });
+  cloud = web(cloudIdentityScenario, cloud, "attach_discovery_stage", {
+    expectedRevision: cloud.revision,
+    stageId: "DISCOVERY-CLOUD-02",
+    rationale:
+      "Attach the approved export role after role and object evidence were corroborated.",
+  });
   cloud = analystDecision(cloudIdentityScenario, cloud, "authorized_exception");
   cloud = web(cloudIdentityScenario, cloud, "generate_case_report", {
     expectedRevision: cloud.revision,
@@ -256,13 +270,6 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
   assert.equal(cloud.report.status, "drafted");
 
   let endpoint = createInitialCaseState(endpointLateralScenario);
-  endpoint = invoke(
-    endpointLateralScenario,
-    endpoint,
-    "release_next_synthetic_signal",
-    { expectedRevision: endpoint.revision },
-    "analyst_control",
-  );
   endpoint = web(
     endpointLateralScenario,
     endpoint,
@@ -297,6 +304,25 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
       entityId: "indicator:203.0.113.91",
     },
   );
+  endpoint = web(
+    endpointLateralScenario,
+    endpoint,
+    "prepare_investigation_query",
+    {
+      expectedRevision: endpoint.revision,
+      queryId: "QRY-ENDPOINT-IDENTITY-03",
+    },
+  );
+  endpoint = web(endpointLateralScenario, endpoint, "run_investigation_query", {
+    expectedRevision: endpoint.revision,
+    queryId: "QRY-ENDPOINT-IDENTITY-03",
+  });
+  endpoint = web(endpointLateralScenario, endpoint, "attach_discovery_stage", {
+    expectedRevision: endpoint.revision,
+    stageId: "STREAM-LAT-01",
+    rationale:
+      "Attach the verified host-boundary discovery after service identity evidence was returned.",
+  });
   endpoint = web(endpointLateralScenario, endpoint, "enrich_endpoint", {
     expectedRevision: endpoint.revision,
     entityId: "endpoint:app-srv-021",
@@ -376,14 +402,6 @@ test("WebMCP keeps one stable case-scoped registration across revisions", async 
   state = invoke(
     endpointLateralScenario,
     state,
-    "release_next_synthetic_signal",
-    { expectedRevision: state.revision },
-    "analyst_control",
-  );
-
-  state = invoke(
-    endpointLateralScenario,
-    state,
     "prepare_investigation_query",
     {
       expectedRevision: state.revision,
@@ -435,6 +453,25 @@ test("WebMCP keeps one stable case-scoped registration across revisions", async 
   state = invoke(endpointLateralScenario, state, "enrich_identity", {
     expectedRevision: state.revision,
     entityId: "identity:svc-fin-reports",
+  });
+  state = invoke(
+    endpointLateralScenario,
+    state,
+    "prepare_investigation_query",
+    {
+      expectedRevision: state.revision,
+      queryId: "QRY-ENDPOINT-IDENTITY-03",
+    },
+  );
+  state = invoke(endpointLateralScenario, state, "run_investigation_query", {
+    expectedRevision: state.revision,
+    queryId: "QRY-ENDPOINT-IDENTITY-03",
+  });
+  state = invoke(endpointLateralScenario, state, "attach_discovery_stage", {
+    expectedRevision: state.revision,
+    stageId: "STREAM-LAT-01",
+    rationale:
+      "Attach the verified host-boundary discovery after service identity evidence was returned.",
   });
   state = invoke(endpointLateralScenario, state, "enrich_endpoint", {
     expectedRevision: state.revision,

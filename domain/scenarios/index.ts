@@ -78,6 +78,10 @@ export function validateCaseFixture(fixture: CaseFixture): void {
     ...fixture.enrichments,
     ...fixture.stream.stages.flatMap((stage) => stage.enrichments),
   ];
+  const allGraphNodes = [
+    ...fixture.presentation.nodes,
+    ...fixture.stream.stages.flatMap((stage) => stage.graphNodes),
+  ];
   const entityIds = new Set(allEntities.map((entity) => entity.id));
   const eventIds = new Set(allEvents.map((event) => event.id));
   const initialEntityIds = new Set(fixture.entities.map((entity) => entity.id));
@@ -87,6 +91,26 @@ export function validateCaseFixture(fixture: CaseFixture): void {
     eventIds.size !== allEvents.length
   ) {
     throw new Error(`${fixture.id} has duplicate entity or event IDs.`);
+  }
+  const allGraphEntityIds = allGraphNodes.map((node) => node.entityId);
+  if (
+    new Set(allGraphEntityIds).size !== allGraphEntityIds.length ||
+    allGraphEntityIds.length !== allEntities.length ||
+    !allGraphEntityIds.every((id) => entityIds.has(id))
+  ) {
+    throw new Error(`${fixture.id} has an invalid graph node definition.`);
+  }
+  for (const stage of fixture.stream.stages) {
+    const stageEntityIds = stage.entities.map((entity) => entity.id).sort();
+    const stageGraphEntityIds = stage.graphNodes
+      .map((node) => node.entityId)
+      .sort();
+    if (
+      stageEntityIds.length !== stageGraphEntityIds.length ||
+      stageEntityIds.some((id, index) => id !== stageGraphEntityIds[index])
+    ) {
+      throw new Error(`${stage.id} has an invalid staged graph definition.`);
+    }
   }
   const artifactIds = new Set<string>();
   const artifactSequences = new Set<number>();
@@ -228,6 +252,66 @@ export function validateCaseFixture(fixture: CaseFixture): void {
       consoleContract.text.length > 900
     ) {
       throw new Error(`${query.id} has an invalid bounded query definition.`);
+    }
+  }
+
+  const visibleBeforeStageEntityIds = new Set(initialEntityIds);
+  const visibleBeforeStageEventIds = new Set(initialEventIds);
+  const visibleBeforeStageEnrichmentIds = new Set(
+    fixture.enrichments.map((artifact) => artifact.id),
+  );
+  for (const stage of fixture.stream.stages) {
+    const stageVisibleEntityIds = new Set([
+      ...visibleBeforeStageEntityIds,
+      ...stage.entities.map((entity) => entity.id),
+    ]);
+    const stageVisibleEventIds = new Set([
+      ...visibleBeforeStageEventIds,
+      ...stage.events.map((event) => event.id),
+    ]);
+    const sourceQueries = stage.admission.sourceQueryIds.flatMap((queryId) => {
+      const query = fixture.investigationQueries.find(
+        (candidate) => candidate.id === queryId,
+      );
+      return query ? [query] : [];
+    });
+    const sourceRecordIds = new Set(
+      sourceQueries.flatMap((query) =>
+        query.returnedRecords.map((record) => record.id),
+      ),
+    );
+    if (
+      stage.admission.requiredEnrichmentIds.length === 0 ||
+      stage.admission.sourceQueryIds.length === 0 ||
+      stage.admission.sourceRecordIds.length === 0 ||
+      sourceQueries.length !== stage.admission.sourceQueryIds.length ||
+      !stage.admission.requiredEnrichmentIds.every((id) =>
+        visibleBeforeStageEnrichmentIds.has(id),
+      ) ||
+      !sourceQueries.every((query) =>
+        stage.admission.requiredEnrichmentIds.includes(query.resultArtifactId),
+      ) ||
+      !stage.admission.sourceRecordIds.every((id) => sourceRecordIds.has(id)) ||
+      !stage.events.every((event) =>
+        event.entityIds.every((id) => stageVisibleEntityIds.has(id)),
+      ) ||
+      !stage.joins.every(
+        (join) =>
+          stageVisibleEntityIds.has(join.fromEntityId) &&
+          stageVisibleEntityIds.has(join.toEntityId) &&
+          join.evidenceIds.every((id) => stageVisibleEventIds.has(id)),
+      )
+    ) {
+      throw new Error(`${stage.id} has an invalid discovery admission.`);
+    }
+    for (const entity of stage.entities) {
+      visibleBeforeStageEntityIds.add(entity.id);
+    }
+    for (const event of stage.events) {
+      visibleBeforeStageEventIds.add(event.id);
+    }
+    for (const artifact of stage.enrichments) {
+      visibleBeforeStageEnrichmentIds.add(artifact.id);
     }
   }
 

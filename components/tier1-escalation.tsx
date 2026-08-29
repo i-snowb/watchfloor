@@ -28,11 +28,6 @@ export function Tier1LeadDock({
   const entityLabels = new Map(
     entities.map((entity) => [entity.id, entity.label]),
   );
-  const completedSteps = escalation.recommendedSteps.filter(
-    (step) =>
-      step.completionArtifactId !== null &&
-      state.attachedEnrichmentIds.includes(step.completionArtifactId),
-  ).length;
   const nextStep = escalation.recommendedSteps.find(
     (step) =>
       step.completionArtifactId === null ||
@@ -41,27 +36,23 @@ export function Tier1LeadDock({
 
   return (
     <details className="tier1-lead-dock">
-      <summary aria-label="Open Tier 1 assessment">
-        <span>
-          {nextStep ? "Tier 1 assessment" : "Copilot follow-up complete"}
-        </span>
-        <strong>{escalation.unresolvedQuestions[0]}</strong>
-        <output>
-          {completedSteps}/{escalation.recommendedSteps.length} checks
-        </output>
+      <summary aria-label="Open Tier 1 handoff">
+        <span>Tier 1 handoff</span>
+        <strong>{escalation.escalationReason}</strong>
+        <output>{escalation.actionsWithheld.length} controls withheld</output>
       </summary>
 
       <div className="lead-dock-panel">
         <header>
           <div>
-            <span>Tier 1 assessment</span>
-            <strong>Observed signals require analyst review</strong>
+            <span>Initial observations</span>
+            <strong>Escalated for investigation</strong>
           </div>
           <small>{escalation.confidence} confidence</small>
         </header>
         <p className="lead-dock-reason">{escalation.escalationReason}</p>
 
-        <ol className="lead-dock-options" aria-label="Recommended checks">
+        <ol className="lead-dock-options" aria-label="Suggested investigations">
           {escalation.recommendedSteps.map((step, index) => {
             const attached =
               step.completionArtifactId !== null &&
@@ -94,10 +85,10 @@ export function Tier1LeadDock({
                       {running
                         ? "Query running"
                         : attached
-                          ? "Result added"
+                          ? "Finding attached"
                           : step.id === nextStep?.id
-                            ? "Recommended check"
-                            : "Ready"}
+                            ? "Suggested investigation"
+                            : "Available"}
                     </small>
                     <strong>{step.label}</strong>
                     <em>{entityLabels.get(step.entityId) ?? step.entityId}</em>
@@ -132,7 +123,7 @@ export function Tier1LeadDock({
         </details>
 
         <footer>
-          <span>Recommended for investigation</span>
+          <span>Initial investigation scope</span>
           <small>{escalation.actionsWithheld.length} controls withheld</small>
         </footer>
       </div>
