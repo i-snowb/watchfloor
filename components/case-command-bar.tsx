@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import {
   getDerivedNextStep,
   getInvestigationPlans,
@@ -15,6 +16,8 @@ import type {
   ResponseActionState,
 } from "@/domain/types";
 import type { AgentStatus } from "./platform-shell";
+import type { InvestigationActivity } from "./investigation-activity";
+import { QueryConsole } from "./query-console";
 import {
   selectionContainsEntity,
   type TraceSelection,
@@ -35,6 +38,7 @@ interface CaseCommandBarProps {
   onSelect: (selection: TraceSelection) => void;
   selection: TraceSelection;
   showInvestigationControls: boolean;
+  investigationActivity: InvestigationActivity;
 }
 
 type CommandOwner = "agent" | "analyst" | "evidence" | "complete";
@@ -51,6 +55,7 @@ export function CaseCommandBar({
   onSelect,
   selection,
   showInvestigationControls,
+  investigationActivity,
 }: CaseCommandBarProps) {
   const nextStep = getDerivedNextStep(fixture, state);
   const releasedStageCount = state.releasedStreamStageIds.length;
@@ -87,28 +92,46 @@ export function CaseCommandBar({
   const alternateDisposition =
     state.decision.status !== "pending" &&
     state.decision.status !== fixture.conclusion.requiredDecision;
-  const derivedTarget = nextStep.targetEntityId
-    ? (getAllEntities(fixture).find(
-        (entity) => entity.id === nextStep.targetEntityId,
-      ) ?? null)
-    : null;
-  const selectedQuery = findSelectedInvestigationQuery(
+  const selectedQueries = findSelectedInvestigationQueries(
     fixture,
     state,
     selection,
   );
   const investigationOpen =
     state.decision.status === "pending" && !decisionReady;
-  const nextQuery =
-    investigationOpen && showInvestigationControls ? selectedQuery : null;
-  const nextTarget = nextQuery
-    ? (getAllEntities(fixture).find(
-        (entity) => entity.id === nextQuery.targetEntityId,
+  const [preferredQueryId, setPreferredQueryId] = useState<string | null>(null);
+  const activityQuery =
+    investigationActivity.status !== "idle"
+      ? (selectedQueries.find(
+          (query) => query.id === investigationActivity.queryId,
+        ) ?? null)
+      : null;
+  const preferredQuery = preferredQueryId
+    ? (selectedQueries.find((query) => query.id === preferredQueryId) ?? null)
+    : null;
+  const preparedQuery = state.preparedQuery
+    ? (selectedQueries.find(
+        (query) => query.id === state.preparedQuery?.queryId,
       ) ?? null)
-    : derivedTarget;
-  const nextQueryTargetFocused = nextTarget
-    ? selectionContainsEntity(fixture, selection, nextTarget.id)
-    : false;
+    : null;
+  const nextQuery =
+    investigationOpen &&
+    (showInvestigationControls ||
+      activityQuery !== null ||
+      preparedQuery !== null) &&
+    selectedQueries.length > 0
+      ? investigationActivity.status === "running" && activityQuery
+        ? activityQuery
+        : (preferredQuery ??
+          activityQuery ??
+          preparedQuery ??
+          selectedQueries.find(
+            (query) =>
+              !state.attachedEnrichmentIds.includes(query.resultArtifactId),
+          ) ??
+          selectedQueries[0] ??
+          null)
+      : null;
   const commandOwner = getCommandOwner(
     state,
     decisionReady,
@@ -120,51 +143,29 @@ export function CaseCommandBar({
 
   if (nextQuery) {
     return (
-      <section
-        className="case-command-bar case-command-query-gate command-owner-agent"
-        aria-labelledby="case-command-heading"
-      >
-        <div className="case-command-next">
-          <div className="case-command-label">
-            <span>Investigate selection</span>
-            <small>
-              {nextTarget
-                ? humanizeSelectionTarget(nextTarget.kind)
-                : "Evidence"}
-            </small>
-          </div>
-          <div className="case-command-copy">
-            <h2 id="case-command-heading">{nextQuery.title}</h2>
-            <p>
-              {nextTarget?.label ?? "Selected item"} ·{" "}
-              {nextQuery.sourceScopes.length} source
-              {nextQuery.sourceScopes.length === 1 ? "" : "s"} · bounded query
-            </p>
-          </div>
-          <div className="case-command-control">
-            <button
-              className="case-command-primary"
-              disabled={busy || !nextTarget}
-              onClick={() => {
-                if (nextTarget && !nextQueryTargetFocused) {
-                  onSelect({ kind: "entity", id: nextTarget.id });
-                }
-                void onExecute("run_investigation_query", {
-                  expectedRevision: state.revision,
-                  queryId: nextQuery.id,
-                });
-              }}
-              type="button"
-            >
-              {busy ? "Running query" : "Run query"}
-            </button>
-          </div>
-        </div>
-      </section>
+      <QueryConsole
+        key={nextQuery.id}
+        activity={investigationActivity}
+        busy={busy}
+        candidates={selectedQueries}
+        fixture={fixture}
+        onChooseQuery={setPreferredQueryId}
+        onExecute={(input) => onExecute("run_investigation_query", input)}
+        onSelect={onSelect}
+        query={nextQuery}
+        state={state}
+      />
     );
   }
 
-  if (investigationOpen) return null;
+  if (investigationOpen) {
+    return (
+      <div className="query-console-cue" role="status">
+        <span>Investigation query</span>
+        <strong>Select an entity on the map to open its queries.</strong>
+      </div>
+    );
+  }
 
   return (
     <section
@@ -631,24 +632,17 @@ function CommandControls({
   return null;
 }
 
-function findSelectedInvestigationQuery(
+function findSelectedInvestigationQueries(
   fixture: CaseFixture,
   state: CaseState,
   selection: TraceSelection,
 ) {
-  return (
-    fixture.investigationQueries.find(
-      (query) =>
-        !state.attachedEnrichmentIds.includes(query.resultArtifactId) &&
-        (query.requiresStageId === null ||
-          state.releasedStreamStageIds.includes(query.requiresStageId)) &&
-        selectionContainsEntity(fixture, selection, query.targetEntityId),
-    ) ?? null
+  return fixture.investigationQueries.filter(
+    (query) =>
+      (query.requiresStageId === null ||
+        state.releasedStreamStageIds.includes(query.requiresStageId)) &&
+      selectionContainsEntity(fixture, selection, query.targetEntityId),
   );
-}
-
-function humanizeSelectionTarget(kind: string): string {
-  return kind.replaceAll("_", " ");
 }
 
 function ResponsePlan({

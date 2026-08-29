@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import type { CaseApiResponse, ToolApiResponse } from "../domain/api";
+import { getQueryConsoleContract } from "../domain/query-console";
 
 const baseUrl = process.env.TRACE_BASE_URL ?? "http://localhost:3000";
 const sitesAuthorization = process.env.TRACE_SITES_AUTHORIZATION;
@@ -41,6 +42,15 @@ async function op(
   input: Record<string, unknown>,
   ok = true,
 ): Promise<ToolApiResponse> {
+  const normalizedInput =
+    toolName === "run_investigation_query" &&
+    typeof input.queryId === "string" &&
+    input.queryText === undefined
+      ? {
+          ...input,
+          queryText: getQueryConsoleContract(input.queryId)?.text ?? "",
+        }
+      : input;
   const response = await request<ToolApiResponse>(
     `/api/cases/${caseId}/operations`,
     {
@@ -50,7 +60,7 @@ async function op(
         requestId: `smoke-${caseId}-${String(n).padStart(2, "0")}-${toolName}`,
         toolName,
         reportedSurface: surface,
-        input,
+        input: normalizedInput,
       }),
     },
   );

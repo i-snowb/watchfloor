@@ -1,4 +1,5 @@
 import type { CaseToolName } from "@/domain/operations";
+import { getQueryConsoleContract } from "@/domain/query-console";
 import type { CSSProperties } from "react";
 import type {
   CaseFixture,
@@ -133,6 +134,8 @@ export function InvestigationDeck({
               void onExecute("run_investigation_query", {
                 expectedRevision: state.revision,
                 queryId: selectedQuery.id,
+                queryText:
+                  getQueryConsoleContract(selectedQuery.id)?.text ?? "",
               })
             }
             type="button"

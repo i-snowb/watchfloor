@@ -3,8 +3,7 @@ import {
   getResponseBundles,
   type CaseToolName,
 } from "@/domain/operations";
-import { getVisibleEnrichments } from "@/domain/incident-stream";
-import type { CaseFixture, CaseState } from "@/domain/types";
+import type { CaseFixture } from "@/domain/types";
 
 export type WebMcpHandler = (
   toolName: CaseToolName,
@@ -84,154 +83,23 @@ function definition(
 export function createCaseToolDefinitions(
   fixture: CaseFixture,
   handler: WebMcpHandler,
-  state?: CaseState,
 ): WebMcpToolDefinition[] {
-  const when = <T>(condition: boolean, values: readonly T[]): readonly T[] =>
-    condition ? values : [];
-  const whenTool = <T extends CaseToolName>(
-    condition: boolean,
-    values: readonly T[],
-  ): readonly T[] => (condition ? values : []);
-  const visibleEnrichments = state
-    ? getVisibleEnrichments(fixture, state).filter(
-        (artifact) => !state.attachedEnrichmentIds.includes(artifact.id),
-      )
-    : [
-        ...fixture.enrichments,
-        ...fixture.stream.stages.flatMap((stage) => stage.enrichments),
-      ];
+  // Registration is case-scoped, not revision-scoped. Availability remains
+  // enforced by the operation layer using the current shared case state.
+  const caseEnrichments = [
+    ...fixture.enrichments,
+    ...fixture.stream.stages.flatMap((stage) => stage.enrichments),
+  ];
   const availableEnrichmentTools = new Set(
-    visibleEnrichments.map((artifact) => artifact.toolName),
+    caseEnrichments.map((artifact) => artifact.toolName),
   );
-  const availableQueries = fixture.investigationQueries.filter((query) => {
-    if (!state) return true;
-    return (
-      (query.requiresStageId === null ||
-        state.releasedStreamStageIds.includes(query.requiresStageId)) &&
-      visibleEnrichments.some(
-        (artifact) => artifact.id === query.resultArtifactId,
-      )
-    );
-  });
-  const availablePlans = getInvestigationPlans(fixture).filter((plan) => {
-    if (!state) return true;
-    return (
-      (plan.requiresStageId === null ||
-        state.releasedStreamStageIds.includes(plan.requiresStageId)) &&
-      plan.queryIds.some((queryId) =>
-        availableQueries.some((query) => query.id === queryId),
-      )
-    );
-  });
-  const nextStage = state
-    ? (fixture.stream.stages.find(
-        (stage) => !state.releasedStreamStageIds.includes(stage.id),
-      ) ?? null)
-    : null;
+  const availableQueries = fixture.investigationQueries;
+  const availablePlans = getInvestigationPlans(fixture);
   const supportsImpactModel =
     fixture.impact.atRiskEntityIds.length > 0 ||
     fixture.responseActions.length > 0;
-  const canModelReachability =
-    supportsImpactModel &&
-    (!state ||
-      (state.decision.status !== "pending" && !state.reachabilityAttached));
-  const canSimulateControl =
-    supportsImpactModel &&
-    (!state || (state.reachabilityAttached && !state.counterfactualAttached));
-  const availableResponseActions = !state
-    ? fixture.responseActions
-    : fixture.responseActions.filter((action) => {
-        const actionState = state.responseActions.find(
-          (candidate) => candidate.actionId === action.id,
-        );
-        return (
-          state.responseBundle === null &&
-          state.decision.status === fixture.conclusion.requiredDecision &&
-          state.reachabilityAttached &&
-          state.counterfactualAttached &&
-          actionState?.status === "available" &&
-          state.releasedStreamStageIds.includes(action.requiresStageId) &&
-          action.requiresEnrichmentIds.every((artifactId) =>
-            state.attachedEnrichmentIds.includes(artifactId),
-          ) &&
-          action.dependsOnActionIds.every(
-            (actionId) =>
-              state.responseActions.find(
-                (candidate) => candidate.actionId === actionId,
-              )?.status === "authorized_in_demo",
-          ) &&
-          !state.responseActions.some(
-            (candidate) =>
-              candidate.actionId !== action.id &&
-              (candidate.status === "proposed" ||
-                candidate.status === "simulated"),
-          )
-        );
-      });
-  const simulatableActionIds = !state
-    ? fixture.responseActions.map((action) => action.id)
-    : state.responseActions
-        .filter(
-          (action) =>
-            action.status === "proposed" &&
-            state.responseProposal?.actionId === action.actionId &&
-            state.responseProposal.id === action.proposalId,
-        )
-        .map((action) => action.actionId);
-  const availableBundles = !state
-    ? getResponseBundles(fixture)
-    : getResponseBundles(fixture).filter((bundle) => {
-        if (
-          state.responseBundle !== null ||
-          state.responseProposal !== null ||
-          state.decision.status !== fixture.conclusion.requiredDecision ||
-          !state.reachabilityAttached ||
-          !state.counterfactualAttached
-        ) {
-          return false;
-        }
-        return bundle.actionIds.every((actionId) => {
-          const action = fixture.responseActions.find(
-            (candidate) => candidate.id === actionId,
-          );
-          const actionState = state.responseActions.find(
-            (candidate) => candidate.actionId === actionId,
-          );
-          return Boolean(
-            action &&
-            actionState?.status === "available" &&
-            state.releasedStreamStageIds.includes(action.requiresStageId) &&
-            action.requiresEnrichmentIds.every((artifactId) =>
-              state.attachedEnrichmentIds.includes(artifactId),
-            ) &&
-            action.dependsOnActionIds.every(
-              (dependencyId) =>
-                bundle.actionIds.includes(dependencyId) ||
-                state.responseActions.find(
-                  (candidate) => candidate.actionId === dependencyId,
-                )?.status === "authorized_in_demo",
-            ),
-          );
-        });
-      });
-  const canGenerateReport =
-    !state ||
-    (state.report.status === "unavailable" &&
-      state.decision.status === fixture.conclusion.requiredDecision &&
-      fixture.conclusion.requiredEnrichmentIds.every((artifactId) =>
-        state.attachedEnrichmentIds.includes(artifactId),
-      ) &&
-      fixture.conclusion.requiredActionIds.every(
-        (actionId) =>
-          state.responseActions.find((action) => action.actionId === actionId)
-            ?.status === "authorized_in_demo",
-      ) &&
-      state.releasedStreamStageIds.length === fixture.stream.stages.length &&
-      (!(
-        fixture.impact.atRiskEntityIds.length > 0 ||
-        fixture.responseActions.length > 0
-      ) ||
-        (state.reachabilityAttached && state.counterfactualAttached)));
+  const availableResponseActions = fixture.responseActions;
+  const availableBundles = getResponseBundles(fixture);
   const eventSourceCategories = [
     ...new Set(
       [
@@ -240,41 +108,55 @@ export function createCaseToolDefinitions(
       ].map((event) => event.sourceCategory),
     ),
   ];
+  const includeTools = (
+    condition: boolean,
+    ...tools: readonly CaseToolName[]
+  ): readonly CaseToolName[] => (condition ? tools : []);
   const recommendedTools: readonly CaseToolName[] = [
     "inspect_entity",
     "inspect_relationship",
     "query_related_activity",
-    ...whenTool(availableQueries.length > 0, ["run_investigation_query"]),
-    ...whenTool(availablePlans.length > 0, ["run_investigation_plan"]),
-    ...whenTool(availableEnrichmentTools.has("enrich_identity"), [
+    ...includeTools(availableQueries.length > 0, "prepare_investigation_query"),
+    ...includeTools(availableQueries.length > 0, "run_investigation_query"),
+    ...includeTools(availablePlans.length > 0, "run_investigation_plan"),
+    ...includeTools(
+      availableEnrichmentTools.has("enrich_identity"),
       "enrich_identity",
-    ]),
-    ...whenTool(availableEnrichmentTools.has("enrich_network_indicator"), [
+    ),
+    ...includeTools(
+      availableEnrichmentTools.has("enrich_network_indicator"),
       "enrich_network_indicator",
-    ]),
-    ...whenTool(availableEnrichmentTools.has("enrich_cloud_role"), [
+    ),
+    ...includeTools(
+      availableEnrichmentTools.has("enrich_cloud_role"),
       "enrich_cloud_role",
-    ]),
-    ...whenTool(availableEnrichmentTools.has("enrich_resource"), [
+    ),
+    ...includeTools(
+      availableEnrichmentTools.has("enrich_resource"),
       "enrich_resource",
-    ]),
-    ...whenTool(availableEnrichmentTools.has("enrich_endpoint"), [
+    ),
+    ...includeTools(
+      availableEnrichmentTools.has("enrich_endpoint"),
       "enrich_endpoint",
-    ]),
-    ...whenTool(availableEnrichmentTools.has("enrich_file"), ["enrich_file"]),
-    ...whenTool(canModelReachability, ["calculate_reachability"]),
-    ...whenTool(canSimulateControl, ["simulate_control"]),
-    ...whenTool(
-      nextStage !== null || (!state && fixture.stream.stages.length > 0),
-      ["request_next_observation"],
+    ),
+    ...includeTools(availableEnrichmentTools.has("enrich_file"), "enrich_file"),
+    ...includeTools(
+      supportsImpactModel,
+      "calculate_reachability",
+      "simulate_control",
+    ),
+    ...includeTools(
+      fixture.stream.stages.length > 0,
+      "request_next_observation",
     ),
     "inspect_event",
-    ...whenTool(availableResponseActions.length > 0, [
+    ...includeTools(
+      availableResponseActions.length > 0,
       "propose_response_action",
-    ]),
-    ...whenTool(simulatableActionIds.length > 0, ["simulate_response_action"]),
-    ...whenTool(availableBundles.length > 0, ["prepare_response_bundle"]),
-    ...whenTool(canGenerateReport, ["generate_case_report"]),
+      "simulate_response_action",
+    ),
+    ...includeTools(availableBundles.length > 0, "prepare_response_bundle"),
+    "generate_case_report",
   ];
   return [
     definition(
@@ -391,19 +273,45 @@ export function createCaseToolDefinitions(
     ...(availableQueries.length > 0
       ? [
           definition(
+            "prepare_investigation_query",
+            "Prepare investigation query",
+            "Load one released, case-approved KQL query into the shared investigation console. This prepares the visible query only; it does not retrieve evidence or execute a response action.",
+            {
+              expectedRevision: revision,
+              queryId: {
+                ...visibleArtifactId,
+                description:
+                  "Case query ID. Read get_case_context before use; the current shared state determines availability.",
+              },
+            },
+            ["expectedRevision", "queryId"],
+            false,
+            handler,
+          ),
+        ]
+      : []),
+    ...(availableQueries.length > 0
+      ? [
+          definition(
             "run_investigation_query",
             "Run bounded investigation query",
             "Compile and run one recommended evidence question across released synthetic sources, then attach the bounded result to shared case state.",
             {
               expectedRevision: revision,
               queryId: {
-                type: "string",
-                enum: availableQueries.map((query) => query.id),
+                ...visibleArtifactId,
                 description:
-                  "Bounded query contract exposed by get_case_context; the agent chooses when to execute it.",
+                  "Case query ID. Read get_case_context before use; the current shared state determines availability.",
+              },
+              queryText: {
+                type: "string",
+                minLength: 40,
+                maxLength: 1024,
+                description:
+                  "Exact KQL returned by prepare_investigation_query or the current get_case_context workset. The server validates it against the selected query contract.",
               },
             },
-            ["expectedRevision", "queryId"],
+            ["expectedRevision", "queryId", "queryText"],
             false,
             handler,
           ),
@@ -418,10 +326,9 @@ export function createCaseToolDefinitions(
             {
               expectedRevision: revision,
               planId: {
-                type: "string",
-                enum: availablePlans.map((plan) => plan.id),
+                ...visibleArtifactId,
                 description:
-                  "Available evidence plan returned by get_case_context. Tier 1 supplied the gaps; the copilot chooses and runs the queries.",
+                  "Case plan ID. Read get_case_context before use; the current shared state determines availability.",
               },
             },
             ["expectedRevision", "planId"],
@@ -547,46 +454,42 @@ export function createCaseToolDefinitions(
           ),
         ]
       : []),
-    ...(canModelReachability || canSimulateControl
+    ...(supportsImpactModel
       ? [
-          ...when(canModelReachability, [
-            definition(
-              "calculate_reachability",
-              "Calculate modeled reach",
-              "Calculate deterministic candidate risk segments after the analyst records the evidence disposition.",
-              {
-                expectedRevision: revision,
-                fromEntityId: {
-                  type: "string",
-                  enum: [fixture.reachability.sourceEntityId],
-                },
-                maxDepth: { type: "integer", minimum: 1, maximum: 8 },
+          definition(
+            "calculate_reachability",
+            "Calculate modeled reach",
+            "Calculate deterministic candidate risk segments after the analyst records the evidence disposition.",
+            {
+              expectedRevision: revision,
+              fromEntityId: {
+                type: "string",
+                enum: [fixture.reachability.sourceEntityId],
               },
-              ["expectedRevision", "fromEntityId", "maxDepth"],
-              false,
-              handler,
-            ),
-          ]),
-          ...when(canSimulateControl, [
-            definition(
-              "simulate_control",
-              "Simulate impact control",
-              "Apply one allowlisted control to a copy of the synthetic graph and return modeled segment changes. No control is executed.",
-              {
-                expectedRevision: revision,
-                control: {
-                  type: "string",
-                  enum: [fixture.counterfactual.control],
-                },
+              maxDepth: { type: "integer", minimum: 1, maximum: 8 },
+            },
+            ["expectedRevision", "fromEntityId", "maxDepth"],
+            false,
+            handler,
+          ),
+          definition(
+            "simulate_control",
+            "Simulate impact control",
+            "Apply one allowlisted control to a copy of the synthetic graph and return modeled segment changes. No control is executed.",
+            {
+              expectedRevision: revision,
+              control: {
+                type: "string",
+                enum: [fixture.counterfactual.control],
               },
-              ["expectedRevision", "control"],
-              false,
-              handler,
-            ),
-          ]),
+            },
+            ["expectedRevision", "control"],
+            false,
+            handler,
+          ),
         ]
       : []),
-    ...(nextStage !== null || (!state && fixture.stream.stages.length > 0)
+    ...(fixture.stream.stages.length > 0
       ? [
           definition(
             "request_next_observation",
@@ -595,10 +498,9 @@ export function createCaseToolDefinitions(
             {
               expectedRevision: revision,
               stageId: {
-                type: "string",
-                enum: nextStage
-                  ? [nextStage.id]
-                  : fixture.stream.stages.map((stage) => stage.id),
+                ...visibleArtifactId,
+                description:
+                  "Case stream stage ID. Read get_case_context before use; only the next released boundary is accepted.",
               },
               rationale: { type: "string", minLength: 8, maxLength: 240 },
             },
@@ -608,43 +510,41 @@ export function createCaseToolDefinitions(
           ),
         ]
       : []),
-    ...(availableResponseActions.length > 0 || simulatableActionIds.length > 0
+    ...(availableResponseActions.length > 0
       ? [
-          ...when(availableResponseActions.length > 0, [
-            definition(
-              "propose_response_action",
-              "Propose bounded response",
-              "Publish a revision-bound recommendation for one fixture-defined response action. No control executes.",
-              {
-                expectedRevision: revision,
-                actionId: {
-                  ...visibleResponseActionId,
-                  enum: availableResponseActions.map((action) => action.id),
-                },
-                reasoning: { type: "string", minLength: 8, maxLength: 240 },
+          definition(
+            "propose_response_action",
+            "Propose bounded response",
+            "Publish a revision-bound recommendation for one fixture-defined response action. No control executes.",
+            {
+              expectedRevision: revision,
+              actionId: {
+                ...visibleResponseActionId,
+                description:
+                  "Case response action ID. Read get_case_context before use; the current shared state determines availability.",
               },
-              ["expectedRevision", "actionId", "reasoning"],
-              false,
-              handler,
-            ),
-          ]),
-          ...when(simulatableActionIds.length > 0, [
-            definition(
-              "simulate_response_action",
-              "Simulate bounded response",
-              "Model the fixture-defined effect of a proposed response action. No endpoint, identity, credential, or workload is modified.",
-              {
-                expectedRevision: revision,
-                actionId: {
-                  ...visibleResponseActionId,
-                  enum: simulatableActionIds,
-                },
+              reasoning: { type: "string", minLength: 8, maxLength: 240 },
+            },
+            ["expectedRevision", "actionId", "reasoning"],
+            false,
+            handler,
+          ),
+          definition(
+            "simulate_response_action",
+            "Simulate bounded response",
+            "Model the fixture-defined effect of a proposed response action. No endpoint, identity, credential, or workload is modified.",
+            {
+              expectedRevision: revision,
+              actionId: {
+                ...visibleResponseActionId,
+                description:
+                  "Proposed case response action ID. Read get_case_context before use; only the active proposal is accepted.",
               },
-              ["expectedRevision", "actionId"],
-              false,
-              handler,
-            ),
-          ]),
+            },
+            ["expectedRevision", "actionId"],
+            false,
+            handler,
+          ),
         ]
       : []),
     ...(availableBundles.length > 0
@@ -656,8 +556,9 @@ export function createCaseToolDefinitions(
             {
               expectedRevision: revision,
               bundleId: {
-                type: "string",
-                enum: availableBundles.map((bundle) => bundle.id),
+                ...visibleArtifactId,
+                description:
+                  "Case response package ID. Read get_case_context before use; the current shared state determines availability.",
               },
             },
             ["expectedRevision", "bundleId"],
@@ -666,19 +567,15 @@ export function createCaseToolDefinitions(
           ),
         ]
       : []),
-    ...(canGenerateReport
-      ? [
-          definition(
-            "generate_case_report",
-            "Generate case evidence report",
-            "Assemble the visible evidence, disposition, limitations, and approved simulated actions into a draft report. Analyst approval remains required.",
-            { expectedRevision: revision },
-            ["expectedRevision"],
-            false,
-            handler,
-          ),
-        ]
-      : []),
+    definition(
+      "generate_case_report",
+      "Generate case evidence report",
+      "Assemble the visible evidence, disposition, limitations, and approved simulated actions into a draft report. Analyst approval remains required.",
+      { expectedRevision: revision },
+      ["expectedRevision"],
+      false,
+      handler,
+    ),
   ];
 }
 

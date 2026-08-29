@@ -19,6 +19,10 @@ import {
   getVisibleEvents,
   getVisibleJoins,
 } from "./incident-stream";
+import {
+  getQueryConsoleContract,
+  matchesQueryConsoleContract,
+} from "./query-console";
 
 export const caseToolNames = [
   "list_alerts",
@@ -32,6 +36,7 @@ export const caseToolNames = [
   "find_first_occurrence",
   "compare_timepoints",
   "query_related_activity",
+  "prepare_investigation_query",
   "run_investigation_query",
   "run_investigation_plan",
   "propose_investigation_step",
@@ -98,6 +103,7 @@ const proposalTools = new Set<CaseToolName>([
   "inspect_event",
   "inspect_relationship",
   "query_related_activity",
+  "prepare_investigation_query",
   "run_investigation_query",
   "run_investigation_plan",
   "enrich_identity",
@@ -121,6 +127,7 @@ export function createInitialCaseState(fixture: CaseFixture): CaseState {
     fixtureVersion: fixture.fixtureVersion,
     revision: 1,
     attachedEnrichmentIds: [],
+    preparedQuery: null,
     proposal: null,
     decision: {
       status: "pending",
@@ -257,6 +264,7 @@ function nextState(state: CaseState): CaseState {
     ...state,
     revision: state.revision + 1,
     attachedEnrichmentIds: [...state.attachedEnrichmentIds],
+    preparedQuery: state.preparedQuery ? { ...state.preparedQuery } : null,
     decision: { ...state.decision },
     proposal: state.proposal ? { ...state.proposal } : null,
     releasedStreamStageIds: [...state.releasedStreamStageIds],
@@ -442,10 +450,10 @@ export function getCollaborationHandoff(
               ? "evidence_disposition"
               : null;
   const whyNow =
-    next.recommendedTool === "run_investigation_plan"
-      ? "Tier 1 identified evidence gaps; the copilot has not run them."
+    next.recommendedTool === "prepare_investigation_query"
+      ? "Tier 1 identified an evidence gap; the copilot must prepare the case-approved query in the shared console."
       : next.recommendedTool === "run_investigation_query"
-        ? "A bounded follow-up can refine the current evidence pivot."
+        ? "The case-approved query is visible and ready to run against bounded case data."
         : next.recommendedTool === "request_next_observation"
           ? "Required target telemetry has not reached the case."
           : next.recommendedTool === "calculate_reachability"
@@ -530,11 +538,34 @@ export function getDerivedNextStep(
       }),
   );
   if (nextPlan) {
+    const nextQuery = nextPlan.queryIds
+      .map((queryId) =>
+        fixture.investigationQueries.find(
+          (candidate) => candidate.id === queryId,
+        ),
+      )
+      .find(
+        (query): query is CaseFixture["investigationQueries"][number] =>
+          query !== undefined && !attached.has(query.resultArtifactId),
+      );
+    const preparedQuery = state.preparedQuery
+      ? fixture.investigationQueries.find(
+          (query) => query.id === state.preparedQuery?.queryId,
+        )
+      : null;
+    const query =
+      preparedQuery && !attached.has(preparedQuery.resultArtifactId)
+        ? preparedQuery
+        : nextQuery;
     return {
       phase: "inspect",
-      objective: nextPlan.title,
-      recommendedTool: "run_investigation_plan",
-      targetEntityId: nextPlan.targetEntityIds[0] ?? null,
+      objective: query?.title ?? nextPlan.title,
+      recommendedTool:
+        query && state.preparedQuery?.queryId === query.id
+          ? "run_investigation_query"
+          : "prepare_investigation_query",
+      targetEntityId:
+        query?.targetEntityId ?? nextPlan.targetEntityIds[0] ?? null,
     };
   }
   const nextRequiredEnrichment = fixture.conclusion.requiredEnrichmentIds
@@ -568,7 +599,9 @@ export function getDerivedNextStep(
         ? query.title
         : `Attach ${nextVisibleEnrichment.title.toLowerCase()} for ${labelForEntity(fixture, nextVisibleEnrichment.entityId)}.`,
       recommendedTool: query
-        ? "run_investigation_query"
+        ? state.preparedQuery?.queryId === query.id
+          ? "run_investigation_query"
+          : "prepare_investigation_query"
         : nextVisibleEnrichment.toolName,
       targetEntityId: nextVisibleEnrichment.entityId,
     };
@@ -838,6 +871,7 @@ function executeRead(
         },
         queryWorkset: {
           synthetic: true,
+          prepared: state.preparedQuery,
           available: fixture.investigationQueries
             .filter(
               (query) =>
@@ -851,6 +885,7 @@ function executeRead(
               objective: query.objective,
               targetEntityId: query.targetEntityId,
               sourceScopes: query.sourceScopes,
+              console: getQueryConsoleContract(query.id),
               syntheticRecordCount: query.sourceScopes.reduce(
                 (total, scope) => total + scope.syntheticRecordCount,
                 0,
@@ -1275,6 +1310,14 @@ function attachEnrichment(
   }
   const updated = nextState(state);
   updated.attachedEnrichmentIds.push(artifact.id);
+  const preparedDefinition = state.preparedQuery
+    ? fixture.investigationQueries.find(
+        (query) => query.id === state.preparedQuery?.queryId,
+      )
+    : null;
+  if (preparedDefinition?.resultArtifactId === artifact.id) {
+    updated.preparedQuery = null;
+  }
   return success(
     updated,
     { artifact },
@@ -1294,14 +1337,28 @@ function runInvestigationQuery(
 ): ToolOutcome {
   const invalid = validateInput(
     request.input,
-    ["expectedRevision", "queryId"],
-    ["expectedRevision", "queryId"],
+    ["expectedRevision", "queryId", "queryText"],
+    ["expectedRevision", "queryId", "queryText"],
   );
   if (invalid) return fail(state, request.toolName, invalid);
   const guarded = writeGuard(state, request.input, request.toolName);
   if (guarded) return guarded;
   if (typeof request.input.queryId !== "string") {
     return fail(state, request.toolName, "queryId must be a string.");
+  }
+  if (typeof request.input.queryText !== "string") {
+    return fail(state, request.toolName, "queryText must be a string.");
+  }
+  if (
+    request.input.queryText.length > 1024 ||
+    !matchesQueryConsoleContract(request.input.queryId, request.input.queryText)
+  ) {
+    return fail(
+      state,
+      request.toolName,
+      "queryText does not match the selected case-approved query.",
+      "QUERY_TEXT_MISMATCH",
+    );
   }
   const query = fixture.investigationQueries.find(
     (candidate) => candidate.id === request.input.queryId,
@@ -1350,6 +1407,9 @@ function runInvestigationQuery(
   );
   const updated = nextState(state);
   updated.attachedEnrichmentIds.push(artifact.id);
+  if (state.preparedQuery?.queryId === query.id) {
+    updated.preparedQuery = null;
+  }
   return success(
     updated,
     {
@@ -1367,6 +1427,97 @@ function runInvestigationQuery(
       title: query.title,
       target: labelForEntity(fixture, query.targetEntityId),
       resultSummary: `${query.matchedRecordCount} matches from ${syntheticRecordCount.toLocaleString("en-US")} records searched · result added`,
+    },
+    true,
+  );
+}
+
+function prepareInvestigationQuery(
+  fixture: CaseFixture,
+  state: CaseState,
+  request: CaseToolRequest,
+): ToolOutcome {
+  const invalid = validateInput(
+    request.input,
+    ["expectedRevision", "queryId"],
+    ["expectedRevision", "queryId"],
+  );
+  if (invalid) return fail(state, request.toolName, invalid);
+  const guarded = writeGuard(state, request.input, request.toolName);
+  if (guarded) return guarded;
+  if (typeof request.input.queryId !== "string") {
+    return fail(state, request.toolName, "queryId must be a string.");
+  }
+  const query = fixture.investigationQueries.find(
+    (candidate) => candidate.id === request.input.queryId,
+  );
+  if (!query) {
+    return fail(
+      state,
+      request.toolName,
+      "queryId is not part of this case query catalog.",
+      "QUERY_NOT_FOUND",
+    );
+  }
+  if (
+    query.requiresStageId !== null &&
+    !state.releasedStreamStageIds.includes(query.requiresStageId)
+  ) {
+    return fail(
+      state,
+      request.toolName,
+      "The query depends on telemetry that has not been released.",
+      "QUERY_NOT_AVAILABLE",
+    );
+  }
+  if (state.attachedEnrichmentIds.includes(query.resultArtifactId)) {
+    return fail(
+      state,
+      request.toolName,
+      `${query.id} is already attached through ${query.resultArtifactId}.`,
+      "ALREADY_ATTACHED",
+    );
+  }
+  if (state.preparedQuery?.queryId === query.id) {
+    return fail(
+      state,
+      request.toolName,
+      `${query.id} is already loaded in the shared investigation console.`,
+      "ALREADY_PREPARED",
+    );
+  }
+  const consoleContract = getQueryConsoleContract(query.id);
+  if (!consoleContract) {
+    return fail(
+      state,
+      request.toolName,
+      "The query console contract is unavailable.",
+      "QUERY_NOT_AVAILABLE",
+    );
+  }
+  const updated = nextState(state);
+  updated.preparedQuery = {
+    queryId: query.id,
+    targetEntityId: query.targetEntityId,
+    actor: request.reportedSurface === "webmcp_callback" ? "agent" : "analyst",
+    preparedAtRevision: updated.revision,
+    preparedAt: deterministicTimestamp(updated.revision),
+  };
+  return success(
+    updated,
+    {
+      queryId: query.id,
+      targetEntityId: query.targetEntityId,
+      title: query.title,
+      language: consoleContract.language,
+      queryText: consoleContract.text,
+      sourceScopes: query.sourceScopes,
+      executable: true,
+    },
+    {
+      title: `Prepared ${query.title}`,
+      target: labelForEntity(fixture, query.targetEntityId),
+      resultSummary: "Query loaded into the shared investigation console",
     },
     true,
   );
@@ -1459,6 +1610,9 @@ function runInvestigationPlan(
 
   const updated = nextState(state);
   updated.attachedEnrichmentIds.push(artifact.id);
+  if (state.preparedQuery?.queryId === query.id) {
+    updated.preparedQuery = null;
+  }
   return success(
     updated,
     {
@@ -1732,6 +1886,10 @@ function executeWrite(
     toolName === "enrich_file"
   ) {
     return attachEnrichment(fixture, state, request);
+  }
+
+  if (toolName === "prepare_investigation_query") {
+    return prepareInvestigationQuery(fixture, state, request);
   }
 
   if (toolName === "run_investigation_query") {

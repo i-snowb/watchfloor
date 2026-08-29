@@ -14,7 +14,12 @@ import {
   endpointLateralScenario,
   validateCaseFixture,
 } from "../domain/scenarios";
+import { parseCaseState } from "../domain/case-state";
 import type { CaseFixture, CaseState } from "../domain/types";
+import {
+  getQueryConsoleContract,
+  matchesQueryConsoleContract,
+} from "../domain/query-console";
 import { createCaseToolDefinitions, registerCaseTools } from "../webmcp/tools";
 
 function execute(
@@ -24,11 +29,20 @@ function execute(
   input: Record<string, unknown>,
   reportedSurface: ToolSurface = "analyst_control",
 ): ToolOutcome {
+  const normalizedInput =
+    toolName === "run_investigation_query" &&
+    typeof input.queryId === "string" &&
+    input.queryText === undefined
+      ? {
+          ...input,
+          queryText: getQueryConsoleContract(input.queryId)?.text ?? "",
+        }
+      : input;
   return executeCaseTool(fixture, state, {
     requestId: `test-${fixture.scenarioId}-${toolName}-${state.revision}`,
     toolName,
     reportedSurface,
-    input,
+    input: normalizedInput,
   });
 }
 
@@ -205,6 +219,223 @@ test("human and agent run the same deterministic investigation query", () => {
   );
   assert.equal(duplicate.ok, false);
   if (!duplicate.ok) assert.equal(duplicate.error.code, "ALREADY_ATTACHED");
+});
+
+test("copilot can prepare a shared visible query without attaching evidence", () => {
+  const initial = createInitialCaseState(cloudIdentityScenario);
+  const prepared = execute(
+    cloudIdentityScenario,
+    initial,
+    "prepare_investigation_query",
+    {
+      expectedRevision: initial.revision,
+      queryId: "QRY-CLOUD-IDENTITY-01",
+    },
+    "webmcp_callback",
+  );
+  assert.equal(prepared.ok, true);
+  if (!prepared.ok) return;
+  assert.equal(prepared.state.revision, initial.revision + 1);
+  assert.deepEqual(prepared.state.attachedEnrichmentIds, []);
+  assert.deepEqual(prepared.state.preparedQuery, {
+    queryId: "QRY-CLOUD-IDENTITY-01",
+    targetEntityId: "identity:jdoe",
+    actor: "agent",
+    preparedAtRevision: 2,
+    preparedAt: "2026-08-27T09:43:02.000Z",
+  });
+  const data = prepared.data as {
+    language: string;
+    queryId: string;
+    queryText: string;
+    targetEntityId: string;
+    executable: boolean;
+  };
+  assert.equal(data.language, "KQL");
+  assert.equal(data.queryId, "QRY-CLOUD-IDENTITY-01");
+  assert.equal(data.targetEntityId, "identity:jdoe");
+  assert.match(data.queryText, /^let start_time = datetime/);
+  assert.match(data.queryText, /Timestamp between/);
+  assert.equal(data.executable, true);
+
+  const context = execute(
+    cloudIdentityScenario,
+    prepared.state,
+    "get_case_context",
+    {},
+  );
+  assert.equal(context.ok, true);
+  if (context.ok) {
+    const contextData = context.data as {
+      queryWorkset: { prepared: CaseState["preparedQuery"] };
+    };
+    assert.equal(
+      contextData.queryWorkset.prepared?.queryId,
+      "QRY-CLOUD-IDENTITY-01",
+    );
+  }
+
+  const stalePrepare = execute(
+    cloudIdentityScenario,
+    prepared.state,
+    "prepare_investigation_query",
+    {
+      expectedRevision: initial.revision,
+      queryId: "QRY-CLOUD-EGRESS-02",
+    },
+    "webmcp_callback",
+  );
+  assert.equal(stalePrepare.ok, false);
+  if (!stalePrepare.ok) assert.equal(stalePrepare.error.code, "STALE_STATE");
+
+  const extraInput = execute(
+    cloudIdentityScenario,
+    initial,
+    "prepare_investigation_query",
+    {
+      expectedRevision: initial.revision,
+      queryId: "QRY-CLOUD-IDENTITY-01",
+      queryText: "arbitrary input must not execute",
+    },
+    "webmcp_callback",
+  );
+  assert.equal(extraInput.ok, false);
+  if (!extraInput.ok) {
+    assert.match(extraInput.error.message, /Unknown input field 'queryText'/);
+  }
+
+  const contract = getQueryConsoleContract("QRY-CLOUD-IDENTITY-01");
+  assert.notEqual(contract, null);
+  if (!contract) return;
+  const rejectedDraft = execute(
+    cloudIdentityScenario,
+    prepared.state,
+    "run_investigation_query",
+    {
+      expectedRevision: prepared.state.revision,
+      queryId: "QRY-CLOUD-IDENTITY-01",
+      queryText: contract.text.replace(
+        '| where User == "jdoe"',
+        '| where User != "jdoe"',
+      ),
+    },
+  );
+  assert.equal(rejectedDraft.ok, false);
+  if (!rejectedDraft.ok) {
+    assert.equal(rejectedDraft.error.code, "QUERY_TEXT_MISMATCH");
+  }
+
+  const approvedDraft = execute(
+    cloudIdentityScenario,
+    prepared.state,
+    "run_investigation_query",
+    {
+      expectedRevision: prepared.state.revision,
+      queryId: "QRY-CLOUD-IDENTITY-01",
+      queryText: contract.text,
+    },
+  );
+  assert.equal(approvedDraft.ok, true);
+
+  const executed = execute(
+    cloudIdentityScenario,
+    prepared.state,
+    "run_investigation_query",
+    {
+      expectedRevision: prepared.state.revision,
+      queryId: "QRY-CLOUD-IDENTITY-01",
+    },
+    "webmcp_callback",
+  );
+  assert.equal(executed.ok, true);
+  if (executed.ok) assert.equal(executed.state.preparedQuery, null);
+});
+
+test("query console accepts only the selected canonical case query", () => {
+  const contract = getQueryConsoleContract("QRY-CLOUD-IDENTITY-01");
+  assert.notEqual(contract, null);
+  if (!contract) return;
+  assert.equal(
+    matchesQueryConsoleContract("QRY-CLOUD-IDENTITY-01", contract.text),
+    true,
+  );
+  assert.equal(
+    matchesQueryConsoleContract(
+      "QRY-CLOUD-IDENTITY-01",
+      "operator and change baseline",
+    ),
+    false,
+  );
+  assert.equal(
+    matchesQueryConsoleContract(
+      "QRY-CLOUD-IDENTITY-01",
+      contract.text.replace('| where User == "jdoe"', '| where User != "jdoe"'),
+    ),
+    false,
+  );
+});
+
+test("running a different query preserves the shared prepared query", () => {
+  const fixture = cloudIdentityScenario;
+  const prepared = succeed(
+    execute(
+      fixture,
+      createInitialCaseState(fixture),
+      "prepare_investigation_query",
+      {
+        expectedRevision: 1,
+        queryId: "QRY-CLOUD-IDENTITY-01",
+      },
+      "webmcp_callback",
+    ),
+  );
+  const executed = succeed(
+    execute(
+      fixture,
+      prepared,
+      "run_investigation_query",
+      {
+        expectedRevision: prepared.revision,
+        queryId: "QRY-CLOUD-EGRESS-02",
+      },
+      "webmcp_callback",
+    ),
+  );
+
+  assert.equal(executed.preparedQuery?.queryId, "QRY-CLOUD-IDENTITY-01");
+  assert.deepEqual(parseCaseState(JSON.stringify(executed), fixture), executed);
+});
+
+test("an investigation plan clears a prepared query only when it executes it", () => {
+  const fixture = endpointLateralScenario;
+  const prepared = succeed(
+    execute(
+      fixture,
+      createInitialCaseState(fixture),
+      "prepare_investigation_query",
+      {
+        expectedRevision: 1,
+        queryId: "QRY-ENDPOINT-FILE-01",
+      },
+      "webmcp_callback",
+    ),
+  );
+  const planned = succeed(
+    execute(
+      fixture,
+      prepared,
+      "run_investigation_plan",
+      {
+        expectedRevision: prepared.revision,
+        planId: "tier1_initial",
+      },
+      "webmcp_callback",
+    ),
+  );
+
+  assert.deepEqual(planned.attachedEnrichmentIds, ["ENR-LAT-FILE-01"]);
+  assert.equal(planned.preparedQuery, null);
+  assert.deepEqual(parseCaseState(JSON.stringify(planned), fixture), planned);
 });
 
 test("every catalog query executes through the shared WebMCP operation", () => {
@@ -388,7 +619,7 @@ test("investigation plans attach one available finding in deterministic order", 
   ]);
 
   const nextStep = getDerivedNextStep(fixture, state);
-  assert.equal(nextStep.recommendedTool, "run_investigation_query");
+  assert.equal(nextStep.recommendedTool, "prepare_investigation_query");
   assert.equal(nextStep.objective, "Static file analysis");
 
   const repeated = execute(
@@ -709,7 +940,7 @@ test("response bundles prepare atomically and require analyst authorization", ()
 });
 
 test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
-  assert.equal(caseToolNames.length, 32);
+  assert.equal(caseToolNames.length, 33);
   const cloudNames = new Set(
     createCaseToolDefinitions(cloudIdentityScenario, async () => ({
       ok: true,
@@ -731,6 +962,7 @@ test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
     "find_first_occurrence",
     "compare_timepoints",
     "query_related_activity",
+    "prepare_investigation_query",
     "run_investigation_query",
     "run_investigation_plan",
     "propose_investigation_step",
@@ -763,8 +995,8 @@ test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
       "prepare_response_bundle",
     ]),
   );
-  assert.equal(cloudNames.size, 18);
-  assert.equal(endpointNames.size, 25);
+  assert.equal(cloudNames.size, 19);
+  assert.equal(endpointNames.size, 26);
 
   for (const withheld of [
     "record_evidence_decision",
@@ -1268,7 +1500,7 @@ test("read operations preserve revision and writes reject stale or extra input",
     assert.equal(data.collaborationHandoff.nextOwner, "copilot");
     assert.equal(
       data.collaborationHandoff.exactNextTool,
-      "run_investigation_plan",
+      "prepare_investigation_query",
     );
     assert.equal(data.collaborationHandoff.whyNow.length > 20, true);
   }

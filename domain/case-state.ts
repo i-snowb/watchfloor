@@ -12,6 +12,9 @@ import {
 
 export function parseCaseState(value: string, fixture: CaseFixture): CaseState {
   const parsed: unknown = JSON.parse(value);
+  if (isRecord(parsed) && !("preparedQuery" in parsed)) {
+    parsed.preparedQuery = null;
+  }
   if (!hasValidBaseShape(parsed, fixture)) {
     throw new Error(`Stored state for ${fixture.id} is invalid.`);
   }
@@ -53,6 +56,9 @@ export function parseCaseState(value: string, fixture: CaseFixture): CaseState {
   );
   if (!hasValidInvestigationState(parsed, visibleEntityIds)) {
     throw new Error(`Stored investigation state for ${fixture.id} is invalid.`);
+  }
+  if (!isValidPreparedQuery(parsed, fixture, releasedStageIds)) {
+    throw new Error(`Stored prepared query for ${fixture.id} is invalid.`);
   }
 
   const actionDefinitions = new Map<string, ResponseActionDefinition>(
@@ -207,6 +213,7 @@ function hasValidBaseShape(
     Number(value.revision) >= 1 &&
     Array.isArray(value.attachedEnrichmentIds) &&
     value.attachedEnrichmentIds.every((id) => typeof id === "string") &&
+    (value.preparedQuery === null || isRecord(value.preparedQuery)) &&
     typeof value.reachabilityAttached === "boolean" &&
     typeof value.counterfactualAttached === "boolean" &&
     Array.isArray(value.releasedStreamStageIds) &&
@@ -228,6 +235,32 @@ function hasValidBaseShape(
       "closed_in_demo",
     ].includes(String(value.lifecycle)) &&
     isRecord(value.report)
+  );
+}
+
+function isValidPreparedQuery(
+  state: Record<string, unknown> & { attachedEnrichmentIds: unknown[] },
+  fixture: CaseFixture,
+  releasedStageIds: readonly string[],
+): boolean {
+  if (state.preparedQuery === null) return true;
+  if (!isRecord(state.preparedQuery)) return false;
+  const prepared = state.preparedQuery;
+  const query = fixture.investigationQueries.find(
+    (candidate) => candidate.id === prepared.queryId,
+  );
+  return (
+    query !== undefined &&
+    prepared.targetEntityId === query.targetEntityId &&
+    (prepared.actor === "agent" || prepared.actor === "analyst") &&
+    Number.isInteger(prepared.preparedAtRevision) &&
+    Number(prepared.preparedAtRevision) >= 2 &&
+    Number(prepared.preparedAtRevision) <= Number(state.revision) &&
+    typeof prepared.preparedAt === "string" &&
+    !Number.isNaN(Date.parse(prepared.preparedAt)) &&
+    (query.requiresStageId === null ||
+      releasedStageIds.includes(query.requiresStageId)) &&
+    !state.attachedEnrichmentIds.includes(query.resultArtifactId)
   );
 }
 

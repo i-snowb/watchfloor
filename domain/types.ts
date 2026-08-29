@@ -721,6 +721,14 @@ export interface ObservationRequest {
   status: "pending" | "released";
 }
 
+export interface PreparedInvestigationQuery {
+  queryId: string;
+  targetEntityId: string;
+  actor: "agent" | "analyst";
+  preparedAtRevision: number;
+  preparedAt: string;
+}
+
 export interface ResponseActionState {
   actionId: ResponseActionId;
   status:
@@ -739,6 +747,7 @@ export interface CaseState {
   fixtureVersion: string;
   revision: number;
   attachedEnrichmentIds: string[];
+  preparedQuery: PreparedInvestigationQuery | null;
   proposal: InvestigationProposal | null;
   decision: DecisionState;
   reachabilityAttached: boolean;

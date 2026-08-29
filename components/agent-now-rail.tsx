@@ -80,6 +80,23 @@ function getAgentNowContent(
   }
   const next = getDerivedNextStep(fixture, state);
   const nextObjective = next.objective;
+  if (
+    activity.status === "running" &&
+    activity.toolName === "prepare_investigation_query"
+  ) {
+    const query = fixture.investigationQueries.find(
+      (candidate) => candidate.id === activity.queryId,
+    );
+    return {
+      state: "running",
+      label:
+        activity.actor === "agent"
+          ? "Copilot · Composing"
+          : "Analyst · Composing",
+      headline: query?.title ?? "Preparing investigation query",
+      detail: "Loading the approved query into the shared console",
+    };
+  }
   if (activity.status === "running") {
     const planProgress =
       activity.toolName === "run_investigation_plan"
@@ -167,6 +184,17 @@ function getAgentNowContent(
     latestReceipt?.status === "completed" &&
     latestReceipt.resultRevision === state.revision
   ) {
+    if (latestReceipt.toolName === "prepare_investigation_query") {
+      return {
+        state: "idle",
+        label:
+          latestReceipt.reportedSurface === "webmcp_callback"
+            ? "Copilot · Query prepared"
+            : "Analyst · Query prepared",
+        headline: latestReceipt.title.replace(/^Prepared /, ""),
+        detail: "Review the query in the shared console, then run it",
+      };
+    }
     return {
       state: "result",
       label:
@@ -254,6 +282,7 @@ function readPlanAggregate(data: unknown): {
 
 function operationLabel(toolName: string): string {
   const labels: Record<string, string> = {
+    prepare_investigation_query: "Preparing investigation query",
     run_investigation_plan: "Running recommended checks",
     run_investigation_query: "Running evidence query",
     calculate_reachability: "Mapping blast radius",

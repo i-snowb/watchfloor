@@ -482,6 +482,8 @@ export function EvidenceMap({
       : null;
   const activeInvestigationQuery =
     investigationActivity.status === "running" &&
+    (investigationActivity.toolName === "run_investigation_query" ||
+      investigationActivity.toolName === "run_investigation_plan") &&
     investigationActivity.queryId !== null
       ? (fixture.investigationQueries.find(
           (query) => query.id === investigationActivity.queryId,
@@ -1518,6 +1520,7 @@ function TraceSequenceRail({
     (receipt) =>
       receipt.status === "completed" &&
       (receipt.toolName === "run_investigation_query" ||
+        receipt.toolName === "prepare_investigation_query" ||
         receipt.toolName === "run_investigation_plan" ||
         receipt.toolName === "query_related_activity" ||
         receipt.toolName === "find_first_occurrence" ||
@@ -1833,6 +1836,7 @@ function humanizeRelation(value: string): string {
 }
 
 function activityCategory(toolName: string): string {
+  if (toolName === "prepare_investigation_query") return "Query draft";
   if (toolName.includes("report")) return "Closure";
   if (
     toolName.includes("authorize") ||

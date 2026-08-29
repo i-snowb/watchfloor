@@ -75,6 +75,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
   } | null>(null);
   const expansionSequence = useRef(0);
   const agentRunSequence = useRef(0);
+  const preparedFocusRevision = useRef<number | null>(null);
   const releasedStageCount = snapshot.state.releasedStreamStageIds.length;
   const runningStartedAt =
     investigationActivity.status === "running"
@@ -161,6 +162,21 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     };
   }, [backendReady, fixture.id]);
 
+  useEffect(() => {
+    const prepared = snapshot.state.preparedQuery;
+    if (!prepared) {
+      preparedFocusRevision.current = null;
+      return;
+    }
+    if (preparedFocusRevision.current === prepared.preparedAtRevision) return;
+    preparedFocusRevision.current = prepared.preparedAtRevision;
+    setAgentFocusEntityId(
+      prepared.actor === "agent" ? prepared.targetEntityId : null,
+    );
+    setAnalystSelectionActive(prepared.actor === "analyst");
+    setSelection({ kind: "entity", id: prepared.targetEntityId });
+  }, [snapshot.state.preparedQuery]);
+
   const runAgentTool = useCallback(
     async (
       toolName: CaseToolName,
@@ -238,7 +254,8 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         if (
           agentRunSequence.current === runSequence &&
           response.result.ok &&
-          receipt?.status === "completed"
+          receipt?.status === "completed" &&
+          toolName !== "prepare_investigation_query"
         ) {
           setLiveReceipt(receipt);
         }
@@ -339,20 +356,16 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     [fixture],
   );
 
-  const totalDefinitions = useMemo(
+  const caseDefinitions = useMemo(
     () => createCaseToolDefinitions(fixture, runAgentTool),
     [fixture, runAgentTool],
-  );
-  const availableDefinitions = useMemo(
-    () => createCaseToolDefinitions(fixture, runAgentTool, snapshot.state),
-    [fixture, runAgentTool, snapshot.state],
   );
 
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
     async function register() {
-      const result = await registerCaseTools(totalDefinitions, controller);
+      const result = await registerCaseTools(caseDefinitions, controller);
       if (!active) {
         return;
       }
@@ -362,7 +375,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       } else {
         setAgentStatus({
           state:
-            result.registered === totalDefinitions.length
+            result.registered === caseDefinitions.length
               ? "available"
               : "partial",
           count: result.registered,
@@ -374,7 +387,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       active = false;
       controller.abort();
     };
-  }, [totalDefinitions]);
+  }, [fixture.id, caseDefinitions]);
 
   const runManualTool = useCallback(
     async (toolName: CaseToolName, input: Record<string, unknown>) => {
@@ -602,8 +615,8 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     investigationActivity.status === "idle"
       ? {
           ...investigationActivity,
-          availableToolCount: availableDefinitions.length,
-          totalToolCount: totalDefinitions.length,
+          availableToolCount: caseDefinitions.length,
+          totalToolCount: caseDefinitions.length,
         }
       : investigationActivity;
   return (
@@ -634,6 +647,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
                   onSelect={selectAsAnalyst}
                   selection={selection}
                   showInvestigationControls={analystSelectionActive}
+                  investigationActivity={displayedInvestigationActivity}
                   state={snapshot.state}
                   streamPlaying={streamPlaying}
                 />
@@ -668,7 +682,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       </div>
 
       <AgentDrawer
-        definitions={totalDefinitions}
+        definitions={caseDefinitions}
         onClose={() => setAgentDrawerOpen(false)}
         open={agentDrawerOpen}
         outcomes={registrationOutcomes}
@@ -715,7 +729,8 @@ function readRequestedFocusEntityId(
         ? input.fromEntityId
         : null;
   if (
-    toolName === "run_investigation_query" &&
+    (toolName === "prepare_investigation_query" ||
+      toolName === "run_investigation_query") &&
     typeof input.queryId === "string"
   ) {
     return (
@@ -781,7 +796,10 @@ function resolveInvestigationExecution(
   toolName: CaseToolName,
   input: Record<string, unknown>,
 ): { queryId: string; targetEntityId: string } | null {
-  if (toolName === "run_investigation_query") {
+  if (
+    toolName === "prepare_investigation_query" ||
+    toolName === "run_investigation_query"
+  ) {
     const queryId = readQueryId(input);
     const query = fixture.investigationQueries.find(
       (candidate) => candidate.id === queryId,
@@ -864,6 +882,7 @@ function waitForOperation(
 }
 
 function operationLatencyMs(toolName: CaseToolName): number {
+  if (toolName === "prepare_investigation_query") return 900;
   if (toolName === "run_investigation_plan") return 2_800;
   if (toolName === "run_investigation_query") return 2_400;
   if (toolName === "request_next_observation") return 900;

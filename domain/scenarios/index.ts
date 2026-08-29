@@ -1,4 +1,5 @@
 import type { CaseFixture, Tier1RecommendationTool } from "../types";
+import { getQueryConsoleContract } from "../query-console";
 import { cloudIdentityScenario } from "./cloud-identity";
 import { endpointLateralScenario } from "./endpoint-lateral";
 
@@ -162,6 +163,7 @@ export function validateCaseFixture(fixture: CaseFixture): void {
     throw new Error(`${fixture.id} has invalid investigation query IDs.`);
   }
   for (const query of fixture.investigationQueries) {
+    const consoleContract = getQueryConsoleContract(query.id);
     const artifact = allEnrichments.find(
       (candidate) => candidate.id === query.resultArtifactId,
     );
@@ -220,7 +222,10 @@ export function validateCaseFixture(fixture: CaseFixture): void {
           !record.recordType ||
           record.fields.length === 0 ||
           record.fields.some((field) => !field.label || !field.value),
-      )
+      ) ||
+      !consoleContract ||
+      consoleContract.text.length < 40 ||
+      consoleContract.text.length > 900
     ) {
       throw new Error(`${query.id} has an invalid bounded query definition.`);
     }

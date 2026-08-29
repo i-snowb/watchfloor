@@ -14,7 +14,8 @@ import {
   endpointLateralScenario,
 } from "../domain/scenarios";
 import type { CaseFixture, CaseState } from "../domain/types";
-import { createCaseToolDefinitions } from "../webmcp/tools";
+import { getQueryConsoleContract } from "../domain/query-console";
+import { createCaseToolDefinitions, registerCaseTools } from "../webmcp/tools";
 
 let invocation = 0;
 
@@ -26,11 +27,20 @@ function invoke(
   surface: "webmcp_callback" | "analyst_control" = "webmcp_callback",
 ): CaseState {
   invocation += 1;
+  const normalizedInput =
+    toolName === "run_investigation_query" &&
+    typeof input.queryId === "string" &&
+    input.queryText === undefined
+      ? {
+          ...input,
+          queryText: getQueryConsoleContract(input.queryId)?.text ?? "",
+        }
+      : input;
   const result = executeCaseTool(fixture, state, {
     requestId: `matrix-${String(invocation).padStart(4, "0")}-${toolName}`,
     toolName,
     reportedSurface: surface,
-    input,
+    input: normalizedInput,
   });
   assert.equal(result.ok, true, result.ok ? undefined : result.error.message);
   return result.state;
@@ -77,6 +87,7 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     "find_first_occurrence",
     "compare_timepoints",
     "query_related_activity",
+    "prepare_investigation_query",
     "run_investigation_query",
     "run_investigation_plan",
     "propose_investigation_step",
@@ -105,9 +116,9 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
   ]);
   assert.deepEqual(cloudExposed, expectedCloud);
   assert.deepEqual(endpointExposed, expectedEndpoint);
-  assert.equal(cloudExposed.size, 18);
-  assert.equal(endpointExposed.size, 25);
-  assert.equal(exposed.size, 26);
+  assert.equal(cloudExposed.size, 19);
+  assert.equal(endpointExposed.size, 26);
+  assert.equal(exposed.size, 27);
   const successful = new Set<string>();
   const web = (
     fixture: CaseFixture,
@@ -132,6 +143,18 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
   queryProbe = web(
     cloudIdentityScenario,
     queryProbe,
+    "prepare_investigation_query",
+    {
+      expectedRevision: queryProbe.revision,
+      queryId: "QRY-CLOUD-IDENTITY-01",
+    },
+  );
+  assert.equal(queryProbe.revision, 2);
+  assert.deepEqual(queryProbe.attachedEnrichmentIds, []);
+  assert.equal(queryProbe.preparedQuery?.queryId, "QRY-CLOUD-IDENTITY-01");
+  queryProbe = web(
+    cloudIdentityScenario,
+    queryProbe,
     "run_investigation_query",
     {
       expectedRevision: queryProbe.revision,
@@ -139,6 +162,7 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     },
   );
   assert.deepEqual(queryProbe.attachedEnrichmentIds, ["ENR-CLOUD-IDENTITY-01"]);
+  assert.equal(queryProbe.preparedQuery, null);
 
   let planProbe = createInitialCaseState(cloudIdentityScenario);
   planProbe = web(cloudIdentityScenario, planProbe, "run_investigation_plan", {
@@ -299,22 +323,19 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
   }
 });
 
-test("WebMCP registration tracks current executable case state", () => {
-  const namesFor = (state: CaseState) =>
-    new Set(
-      createCaseToolDefinitions(
-        endpointLateralScenario,
-        async () => ({}),
-        state,
-      ).map((tool) => tool.name),
-    );
+test("WebMCP keeps one stable case-scoped registration across revisions", async () => {
+  const handler = async () => ({});
   let state = createInitialCaseState(endpointLateralScenario);
-  const initial = namesFor(state);
+  const initialDefinitions = createCaseToolDefinitions(
+    endpointLateralScenario,
+    handler,
+  );
+  const initial = new Set(initialDefinitions.map((tool) => tool.name));
   assert.equal(initial.has("run_investigation_query"), true);
   assert.equal(initial.has("run_investigation_plan"), true);
-  assert.equal(initial.has("calculate_reachability"), false);
-  assert.equal(initial.has("simulate_control"), false);
-  assert.equal(initial.has("propose_response_action"), false);
+  assert.equal(initial.has("calculate_reachability"), true);
+  assert.equal(initial.has("simulate_control"), true);
+  assert.equal(initial.has("propose_response_action"), true);
 
   state = invoke(
     endpointLateralScenario,
@@ -328,18 +349,35 @@ test("WebMCP registration tracks current executable case state", () => {
     expectedRevision: state.revision,
     entityId: "file:invoice-sync-helper",
   });
-  const queryDefinition = createCaseToolDefinitions(
+  const revisedDefinitions = createCaseToolDefinitions(
     endpointLateralScenario,
-    async () => ({}),
-    state,
-  ).find((tool) => tool.name === "run_investigation_query");
-  const queryIds = (
-    (queryDefinition?.inputSchema as { properties?: Record<string, unknown> })
-      .properties?.queryId as {
-      enum?: readonly string[];
-    }
-  ).enum;
-  assert.equal(queryIds?.includes("QRY-ENDPOINT-FILE-01"), false);
+    handler,
+  );
+  const queryDefinition = revisedDefinitions.find(
+    (tool) => tool.name === "run_investigation_query",
+  );
+  const querySchema = (
+    queryDefinition?.inputSchema as { properties?: Record<string, unknown> }
+  ).properties?.queryId as {
+    type?: string;
+    enum?: readonly string[];
+  };
+  assert.equal(querySchema.type, "string");
+  assert.equal(querySchema.enum, undefined);
+  const queryRequired = (
+    queryDefinition?.inputSchema as { required?: readonly string[] }
+  ).required;
+  assert.equal(queryRequired?.includes("queryText"), true);
+  assert.deepEqual(
+    revisedDefinitions.map((tool) => ({
+      name: tool.name,
+      inputSchema: tool.inputSchema,
+    })),
+    initialDefinitions.map((tool) => ({
+      name: tool.name,
+      inputSchema: tool.inputSchema,
+    })),
+  );
 
   state = invoke(endpointLateralScenario, state, "enrich_endpoint", {
     expectedRevision: state.revision,
@@ -358,16 +396,66 @@ test("WebMCP registration tracks current executable case state", () => {
     state,
     "confirmed_malicious",
   );
-  assert.equal(namesFor(state).has("calculate_reachability"), true);
-  assert.equal(namesFor(state).has("simulate_control"), false);
+  const afterDecisionDefinitions = createCaseToolDefinitions(
+    endpointLateralScenario,
+    handler,
+  );
+  assert.deepEqual(
+    afterDecisionDefinitions.map((tool) => ({
+      name: tool.name,
+      inputSchema: tool.inputSchema,
+    })),
+    initialDefinitions.map((tool) => ({
+      name: tool.name,
+      inputSchema: tool.inputSchema,
+    })),
+  );
 
-  state = invoke(endpointLateralScenario, state, "calculate_reachability", {
-    expectedRevision: state.revision,
-    fromEntityId: "endpoint:fin-ws-044",
-    maxDepth: 6,
-  });
-  assert.equal(namesFor(state).has("calculate_reachability"), false);
-  assert.equal(namesFor(state).has("simulate_control"), true);
+  const modeledState = invoke(
+    endpointLateralScenario,
+    state,
+    "calculate_reachability",
+    {
+      expectedRevision: state.revision,
+      fromEntityId: "endpoint:fin-ws-044",
+      maxDepth: 6,
+    },
+  );
+  assert.equal(modeledState.revision, state.revision + 1);
+  const afterModelDefinitions = createCaseToolDefinitions(
+    endpointLateralScenario,
+    handler,
+  );
+  assert.deepEqual(
+    afterModelDefinitions.map((tool) => ({
+      name: tool.name,
+      inputSchema: tool.inputSchema,
+    })),
+    initialDefinitions.map((tool) => ({
+      name: tool.name,
+      inputSchema: tool.inputSchema,
+    })),
+  );
+
+  const registeredNames = new Set<string>();
+  let registerCalls = 0;
+  const registry: DocumentModelContext = {
+    async registerTool(definition) {
+      registerCalls += 1;
+      if (registeredNames.has(definition.name)) {
+        throw new DOMException("Duplicate tool name", "InvalidStateError");
+      }
+      registeredNames.add(definition.name);
+    },
+  };
+  const registration = await registerCaseTools(
+    initialDefinitions,
+    new AbortController(),
+    registry,
+  );
+  assert.equal(registration.registered, initialDefinitions.length);
+  assert.equal(registerCalls, initialDefinitions.length);
+  assert.equal(registeredNames.size, initialDefinitions.length);
 });
 
 test("investigation receipt summarizes executed query context", () => {

@@ -581,7 +581,7 @@ export const endpointLateralScenario = {
       sequence: 31,
       status: "supporting",
       sourceCategory: "static_analysis",
-      sourceLabel: "static-analysis fixture",
+      sourceLabel: "static-analysis archive",
       timestamp: "2026-08-28T14:05:24Z",
       actor: { kind: "system", id: "fixture-static-analysis" },
       entityId: "file:invoice-sync-helper",
@@ -589,7 +589,7 @@ export const endpointLateralScenario = {
       summary:
         "Fixture metadata shows an unsigned PE32+ file with network-client and service-control API references.",
       caveat:
-        "Supporting fixture context only. Static characteristics do not prove execution, intent, or malware family.",
+        "Archived static analysis only. Static characteristics do not prove execution, intent, or malware family.",
       toolName: "enrich_file",
       payload: {
         kind: "static_analysis_fixture",
@@ -610,13 +610,13 @@ export const endpointLateralScenario = {
       sequence: 32,
       status: "supporting",
       sourceCategory: "sandbox_artifact",
-      sourceLabel: "sandbox behavior fixture",
+      sourceLabel: "sandbox behavior archive",
       timestamp: "2026-08-28T14:05:25Z",
       actor: { kind: "system", id: "fixture-sandbox-behavior" },
       entityId: "file:invoice-sync-helper",
       title: "Sandbox behavior",
       summary:
-        "A deterministic fixture run represents temp-path execution, two TLS connections, and remote service-control intent.",
+        "An archived sandbox run records temp-path execution, two TLS connections, and remote service-control intent.",
       caveat:
         "No binary was uploaded or executed by TRACE. The remote service start remained blocked in observed endpoint telemetry.",
       toolName: "enrich_file",
@@ -762,7 +762,7 @@ export const endpointLateralScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "static-analysis fixture",
+          sourceLabel: "static-analysis archive",
           sourceCategory: "static_analysis",
           timeRange: {
             start: "2026-08-28T14:05:20Z",
@@ -776,7 +776,7 @@ export const endpointLateralScenario = {
       returnedRecords: [
         returnedRecord(
           "QRR-ENDPOINT-STATIC-01",
-          "static-analysis fixture",
+          "static-analysis archive",
           "2026-08-28T14:05:24Z",
           "PE header",
           ["file:invoice-sync-helper"],
@@ -784,47 +784,47 @@ export const endpointLateralScenario = {
         ),
         returnedRecord(
           "QRR-ENDPOINT-STATIC-02",
-          "static-analysis fixture",
+          "static-analysis archive",
           "2026-08-28T14:05:24Z",
           "Import summary",
           ["file:invoice-sync-helper"],
           {
             Import: "WinHTTP",
             Meaning: "Network-client API",
-            Coverage: "Fixture summary",
+            Coverage: "Archive summary",
           },
         ),
         returnedRecord(
           "QRR-ENDPOINT-STATIC-03",
-          "static-analysis fixture",
+          "static-analysis archive",
           "2026-08-28T14:05:24Z",
           "Import summary",
           ["file:invoice-sync-helper"],
           {
             Import: "OpenSCManager",
             Meaning: "Service-control API",
-            Coverage: "Fixture summary",
+            Coverage: "Archive summary",
           },
         ),
       ],
       resultChange:
         "Unsigned PE metadata and network-client and service-control references support deeper behavior review.",
       caveat:
-        "This is a deterministic fixture summary, not raw disassembly or a live IDA or Ghidra session.",
+        "This is an archived summary, not raw disassembly or a live IDA or Ghidra session.",
     },
     {
       id: "QRY-ENDPOINT-SANDBOX-09",
       title: "Sandbox detonation",
-      question: "Which behaviors appear in the bounded fixture run?",
+      question: "Which behaviors were recorded in the archived sandbox run?",
       objective:
-        "Attach a deterministic behavior summary and preserve the boundary between fixture analysis and observed telemetry.",
+        "Attach an archived behavior summary and preserve the boundary between sandbox analysis and observed telemetry.",
       targetEntityId: "file:invoice-sync-helper",
       toolName: "enrich_file",
       resultArtifactId: "ENR-LAT-SANDBOX-03",
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "sandbox behavior fixture",
+          sourceLabel: "sandbox behavior archive",
           sourceCategory: "sandbox_artifact",
           timeRange: {
             start: "2026-08-28T14:05:20Z",
@@ -838,9 +838,9 @@ export const endpointLateralScenario = {
       returnedRecords: [
         returnedRecord(
           "QRR-ENDPOINT-SANDBOX-01",
-          "sandbox behavior fixture",
+          "sandbox behavior archive",
           "2026-08-28T14:05:25Z",
-          "Fixture execution",
+          "Sandbox execution",
           ["file:invoice-sync-helper"],
           {
             Profile: "Windows 11 Enterprise",
@@ -850,9 +850,9 @@ export const endpointLateralScenario = {
         ),
         returnedRecord(
           "QRR-ENDPOINT-SANDBOX-02",
-          "sandbox behavior fixture",
+          "sandbox behavior archive",
           "2026-08-28T14:05:25Z",
-          "Fixture network",
+          "Sandbox network",
           ["file:invoice-sync-helper", "indicator:203.0.113.91"],
           {
             Destination: "203.0.113.91:443",
@@ -862,19 +862,19 @@ export const endpointLateralScenario = {
         ),
         returnedRecord(
           "QRR-ENDPOINT-SANDBOX-03",
-          "sandbox behavior fixture",
+          "sandbox behavior archive",
           "2026-08-28T14:05:25Z",
-          "Fixture service control",
+          "Sandbox service control",
           ["file:invoice-sync-helper", "endpoint:app-srv-021"],
           {
             Intent: "Remote service control",
-            Observed: "Fixture behavior",
+            Observed: "Archived behavior",
             Outcome: "No external execution",
           },
         ),
       ],
       resultChange:
-        "Fixture behavior aligns with the observed temp execution, repeated TLS, and blocked service-control attempt.",
+        "Archived sandbox behavior aligns with the observed temp execution, repeated TLS, and blocked service-control attempt.",
       caveat:
         "No binary was uploaded or executed by TRACE; only existing EDR events establish observed behavior.",
     },

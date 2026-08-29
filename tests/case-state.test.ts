@@ -53,6 +53,14 @@ test("canonical initial states pass persisted-state validation", () => {
   }
 });
 
+test("legacy persisted state migrates to an empty prepared query", () => {
+  const initial = createInitialCaseState(cloudIdentityScenario);
+  const legacy = JSON.parse(JSON.stringify(initial)) as Record<string, unknown>;
+  delete legacy.preparedQuery;
+  const parsed = parseCaseState(JSON.stringify(legacy), cloudIdentityScenario);
+  assert.equal(parsed.preparedQuery, null);
+});
+
 test("persisted state rejects unreleased enrichment visibility", () => {
   const invalid = createInitialCaseState(endpointLateralScenario);
   invalid.attachedEnrichmentIds = ["ENR-LAT-WORKLOAD-01"];
