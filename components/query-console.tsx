@@ -40,11 +40,11 @@ export function QueryConsole({
 }: QueryConsoleProps) {
   const contract = getQueryConsoleContract(query.id);
   const canonicalText = contract?.text ?? "";
+  const attached = state.attachedEnrichmentIds.includes(query.resultArtifactId);
   const [open, setOpen] = useState(true);
   const [draft, setDraft] = useState(canonicalText);
+  const [showAttachedQuery, setShowAttachedQuery] = useState(false);
   const animationKey = useRef<string | null>(null);
-  const attached = state.attachedEnrichmentIds.includes(query.resultArtifactId);
-  const previousAttached = useRef(attached);
   const activityTargetsQuery =
     activity.status !== "idle" && activity.queryId === query.id;
   const copilotPreparing =
@@ -74,6 +74,8 @@ export function QueryConsole({
     activityTargetsQuery &&
     activity.status === "running" &&
     activity.toolName === "run_investigation_query";
+  const forceOpen = running || copilotPreparing;
+  const showQueryText = !attached || showAttachedQuery;
   const rejected =
     activityTargetsQuery &&
     activity.status === "rejected" &&
@@ -93,22 +95,13 @@ export function QueryConsole({
     .concat(fixture.stream.stages.flatMap((stage) => [...stage.entities]))
     .find((entity) => entity.id === query.targetEntityId);
 
-  useEffect(() => {
-    if (
-      running ||
-      copilotPreparing ||
-      (attached && !previousAttached.current)
-    ) {
-      setOpen(true);
-    }
-    previousAttached.current = attached;
-  }, [attached, copilotPreparing, running]);
-
   return (
     <details
       className="query-console"
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-      open={open}
+      onToggle={(event) => {
+        if (!forceOpen) setOpen(event.currentTarget.open);
+      }}
+      open={open || forceOpen}
     >
       <summary>
         <span>Investigation query</span>
@@ -152,94 +145,123 @@ export function QueryConsole({
           </dl>
         </header>
 
-        <div className="query-console-editor">
-          <div aria-hidden="true" className="query-console-gutter">
-            {draft.split("\n").map((_, index) => (
-              <span key={index}>{index + 1}</span>
-            ))}
-          </div>
-          <textarea
-            aria-describedby="query-console-boundary"
-            aria-label="KQL investigation query"
-            disabled={attached || running || copilotPreparing}
-            maxLength={1024}
-            onChange={(event) => setDraft(event.target.value)}
-            spellCheck={false}
-            value={draft}
-          />
-        </div>
-
-        <footer className="query-console-footer">
-          <div>
-            <strong id="query-console-boundary">
-              Case-approved sources only
-            </strong>
-            <span>
-              {query.sourceScopes
-                .map((source) => source.sourceLabel)
-                .join(" · ")}
-            </span>
-            <span>
-              {searched.toLocaleString("en-US")} records in scope · maximum{" "}
-              {query.returnedRecordCount} returned
-            </span>
-          </div>
-          <div className="query-console-actions">
-            {!canonicalLoaded && !attached ? (
-              <button
-                className="query-console-restore"
-                onClick={() => setDraft(canonicalText)}
-                type="button"
-              >
-                Restore query
-              </button>
-            ) : null}
+        {attached ? (
+          <div className="query-console-execution-summary">
+            <div>
+              <span>Query complete</span>
+              <strong>
+                {query.matchedRecordCount} matched · {query.returnedRecordCount}{" "}
+                returned
+              </strong>
+              <small>
+                {searched.toLocaleString("en-US")} records searched ·{" "}
+                {query.sourceScopes
+                  .map((source) => source.sourceLabel)
+                  .join(" · ")}
+              </small>
+            </div>
             <button
-              className="query-console-run"
-              disabled={
-                busy || attached || running || copilotPreparing || !valid
-              }
-              onClick={() =>
-                void onExecute({
-                  expectedRevision: state.revision,
-                  queryId: query.id,
-                  queryText: draft,
-                })
-              }
+              aria-expanded={showQueryText}
+              onClick={() => setShowAttachedQuery((current) => !current)}
               type="button"
             >
-              {attached
-                ? "Result attached"
-                : running
-                  ? "Searching records"
-                  : copilotPreparing
-                    ? "Copilot composing"
-                    : "Run query"}
+              {showQueryText ? "Hide query" : "View query"}
             </button>
           </div>
-        </footer>
-
-        {!valid && !copilotPreparing ? (
-          <p className="query-console-error" role="status">
-            This text does not match the selected case query. Restore the
-            approved query before execution.
-          </p>
         ) : null}
 
-        {running && activity.status === "running" ? (
-          <div className="query-console-progress" role="status">
-            <span
-              style={{ width: `${Math.round(activity.progress * 100)}%` }}
-            />
-            <strong>{queryPhaseLabel(activity.phase)}</strong>
-            <small>{Math.round(activity.progress * 100)}%</small>
-          </div>
-        ) : null}
+        {!attached || showQueryText ? (
+          <>
+            <div className="query-console-editor">
+              <div aria-hidden="true" className="query-console-gutter">
+                {draft.split("\n").map((_, index) => (
+                  <span key={index}>{index + 1}</span>
+                ))}
+              </div>
+              <textarea
+                aria-describedby="query-console-boundary"
+                aria-label="KQL investigation query"
+                disabled={attached || running || copilotPreparing}
+                maxLength={1024}
+                onChange={(event) => setDraft(event.target.value)}
+                spellCheck={false}
+                value={draft}
+              />
+            </div>
 
-        {rejected && activity.status === "rejected" ? (
-          <p className="query-console-error" role="alert">
-            {activity.summary}
-          </p>
+            <footer className="query-console-footer">
+              <div>
+                <strong id="query-console-boundary">
+                  Case-approved sources only
+                </strong>
+                <span>
+                  {query.sourceScopes
+                    .map((source) => source.sourceLabel)
+                    .join(" · ")}
+                </span>
+                <span>
+                  {searched.toLocaleString("en-US")} records in scope · maximum{" "}
+                  {query.returnedRecordCount} returned
+                </span>
+              </div>
+              <div className="query-console-actions">
+                {!canonicalLoaded && !attached ? (
+                  <button
+                    className="query-console-restore"
+                    onClick={() => setDraft(canonicalText)}
+                    type="button"
+                  >
+                    Restore query
+                  </button>
+                ) : null}
+                <button
+                  className="query-console-run"
+                  disabled={
+                    busy || attached || running || copilotPreparing || !valid
+                  }
+                  onClick={() =>
+                    void onExecute({
+                      expectedRevision: state.revision,
+                      queryId: query.id,
+                      queryText: draft,
+                    })
+                  }
+                  type="button"
+                >
+                  {attached
+                    ? "Result attached"
+                    : running
+                      ? "Searching records"
+                      : copilotPreparing
+                        ? "Preparing approved query"
+                        : "Run query"}
+                </button>
+              </div>
+            </footer>
+
+            {!valid && !copilotPreparing ? (
+              <p className="query-console-error" role="status">
+                This text does not match the selected case query. Restore the
+                approved query before execution.
+              </p>
+            ) : null}
+
+            {running && activity.status === "running" ? (
+              <div className="query-console-progress" role="status">
+                <span
+                  style={{ width: `${Math.round(activity.progress * 100)}%` }}
+                />
+                <strong>{queryPhaseLabel(activity.phase)}</strong>
+                <small>{Math.round(activity.progress * 100)}%</small>
+              </div>
+            ) : null}
+
+            {rejected && activity.status === "rejected" ? (
+              <p className="query-console-error" role="alert">
+                {activity.summary}
+              </p>
+            ) : null}
+          </>
         ) : null}
 
         {attached ? (

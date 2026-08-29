@@ -493,7 +493,7 @@ export const endpointLateralScenario = {
       summary:
         "Unsigned, zero prevalence, first seen from a user-writable path, and observed executing.",
       caveat:
-        "The result is fixed fixture data; no binary was uploaded or executed.",
+        "Stored analysis snapshot only; no binary was uploaded or executed.",
       toolName: "enrich_file",
       payload: {
         kind: "file_context",
@@ -502,6 +502,32 @@ export const endpointLateralScenario = {
         screeningVerdict: "suspicious_untrusted_helper",
         containsRestrictedExport: false,
         executionObserved: true,
+      },
+    },
+    {
+      ...base,
+      id: "ENR-LAT-HASH-04",
+      sequence: 33,
+      status: "supporting",
+      sourceCategory: "static_analysis",
+      sourceLabel: "threat intelligence snapshot",
+      timestamp: "2026-08-28T14:05:24Z",
+      actor: { kind: "system", id: "fixture-hash-intelligence" },
+      entityId: "file:invoice-sync-helper",
+      title: "File hash intelligence",
+      summary:
+        "The exact SHA-256 is classified as malicious with high confidence in the archived intelligence snapshot and has zero enterprise prevalence.",
+      caveat:
+        "Archived hash intelligence only. TRACE did not contact an external reputation service.",
+      toolName: "enrich_file",
+      payload: {
+        kind: "hash_intelligence_fixture",
+        sha256:
+          "65fb21f3b3b11f7a7d45f31965dad35935e6d9c860ca6f618999510db74260b9",
+        verdict: "malicious",
+        confidence: "high",
+        enterprisePrevalence30d: 0,
+        sourceCoverage: "archived_hash_intelligence_only",
       },
     },
     {
@@ -587,7 +613,7 @@ export const endpointLateralScenario = {
       entityId: "file:invoice-sync-helper",
       title: "Static analysis",
       summary:
-        "Fixture metadata shows an unsigned PE32+ file with network-client and service-control API references.",
+        "Archived metadata shows an unsigned PE32+ file with network-client and service-control API references.",
       caveat:
         "Archived static analysis only. Static characteristics do not prove execution, intent, or malware family.",
       toolName: "enrich_file",
@@ -648,7 +674,7 @@ export const endpointLateralScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "EDR process and file lake",
+          sourceLabel: "Endpoint telemetry",
           sourceCategory: "endpoint_telemetry",
           timeRange: {
             start: "2026-07-29T00:00:00Z",
@@ -657,7 +683,7 @@ export const endpointLateralScenario = {
           syntheticRecordCount: 2400,
         },
         {
-          sourceLabel: "file reputation index",
+          sourceLabel: "Enterprise file prevalence",
           sourceCategory: "static_analysis",
           timeRange: {
             start: "2026-05-30T00:00:00Z",
@@ -671,7 +697,7 @@ export const endpointLateralScenario = {
       returnedRecords: [
         returnedRecord(
           "QRR-ENDPOINT-FILE-01",
-          "EDR process and file lake",
+          "Endpoint telemetry",
           "2026-08-28T14:02:11Z",
           "File creation",
           ["file:invoice-sync-helper", "endpoint:fin-ws-044"],
@@ -679,11 +705,14 @@ export const endpointLateralScenario = {
             File: "invoice-sync-helper.exe",
             Host: "FIN-WS-044",
             Source: "C:\\Users\\mchen\\Downloads",
+            SHA256:
+              "65fb21f3b3b11f7a7d45f31965dad35935e6d9c860ca6f618999510db74260b9",
+            "File size": "418,304 bytes",
           },
         ),
         returnedRecord(
           "QRR-ENDPOINT-FILE-02",
-          "EDR process and file lake",
+          "Endpoint telemetry",
           "2026-08-28T14:02:18Z",
           "Process start",
           ["file:invoice-sync-helper", "endpoint:fin-ws-044"],
@@ -691,11 +720,13 @@ export const endpointLateralScenario = {
             Process: "invoice-sync-helper.exe",
             Parent: "explorer.exe",
             Signer: "Unsigned",
+            "Process GUID": "PG-0448-A",
+            Integrity: "Medium",
           },
         ),
         returnedRecord(
           "QRR-ENDPOINT-FILE-03",
-          "EDR process and file lake",
+          "Endpoint telemetry",
           "2026-08-28T14:03:12Z",
           "TLS connection",
           [
@@ -707,11 +738,14 @@ export const endpointLateralScenario = {
             Destination: "203.0.113.91:443",
             Protocol: "TLS",
             Process: "invoice-sync-helper.exe",
+            "Process GUID": "PG-0448-A",
+            "Bytes sent": "4,816",
+            "Bytes received": "1,024",
           },
         ),
         returnedRecord(
           "QRR-ENDPOINT-FILE-04",
-          "EDR process and file lake",
+          "Endpoint telemetry",
           "2026-08-28T14:04:12Z",
           "TLS connection",
           [
@@ -723,23 +757,25 @@ export const endpointLateralScenario = {
             Destination: "203.0.113.91:443",
             Interval: "60 seconds",
             Process: "invoice-sync-helper.exe",
+            "Process GUID": "PG-0448-A",
           },
         ),
         returnedRecord(
           "QRR-ENDPOINT-FILE-05",
-          "file reputation index",
+          "Enterprise file prevalence",
           "2026-08-28T14:05:20Z",
           "Prevalence record",
           ["file:invoice-sync-helper"],
           {
-            SHA256: "b4a1…7e21",
+            SHA256:
+              "65fb21f3b3b11f7a7d45f31965dad35935e6d9c860ca6f618999510db74260b9",
             "Peer prevalence": "0 in 30 days",
             Signer: "Unsigned",
           },
         ),
         returnedRecord(
           "QRR-ENDPOINT-FILE-06",
-          "EDR process and file lake",
+          "Endpoint telemetry",
           "2026-08-28T14:05:20Z",
           "Execution lineage",
           ["file:invoice-sync-helper", "endpoint:fin-ws-044"],
@@ -751,11 +787,89 @@ export const endpointLateralScenario = {
       caveat: "No real binary was uploaded, executed, or detonated.",
     },
     {
+      id: "QRY-ENDPOINT-HASH-10",
+      title: "File hash intelligence",
+      question:
+        "What does archived threat intelligence report for the exact SHA-256?",
+      objective:
+        "Check the immutable sample hash against the archived intelligence snapshot and enterprise prevalence without making an external request.",
+      targetEntityId: "file:invoice-sync-helper",
+      toolName: "enrich_file",
+      resultArtifactId: "ENR-LAT-HASH-04",
+      requiresStageId: null,
+      sourceScopes: [
+        {
+          sourceLabel: "Threat intelligence snapshot",
+          sourceCategory: "static_analysis",
+          timeRange: {
+            start: "2026-05-30T00:00:00Z",
+            end: "2026-08-28T14:05:24Z",
+          },
+          syntheticRecordCount: 412,
+        },
+        {
+          sourceLabel: "Enterprise file prevalence",
+          sourceCategory: "endpoint_telemetry",
+          timeRange: {
+            start: "2026-07-29T00:00:00Z",
+            end: "2026-08-28T14:05:24Z",
+          },
+          syntheticRecordCount: 84,
+        },
+      ],
+      matchedRecordCount: 3,
+      returnedRecordCount: 3,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-ENDPOINT-HASH-01",
+          "Threat intelligence snapshot",
+          "2026-08-28T14:05:24Z",
+          "Exact hash match",
+          ["file:invoice-sync-helper"],
+          {
+            SHA256:
+              "65fb21f3b3b11f7a7d45f31965dad35935e6d9c860ca6f618999510db74260b9",
+            Verdict: "Malicious",
+            Confidence: "High",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-HASH-02",
+          "Threat intelligence snapshot",
+          "2026-08-28T14:05:24Z",
+          "Behavior classification",
+          ["file:invoice-sync-helper"],
+          {
+            "Threat type": "Remote service execution helper",
+            "First cataloged": "2026-08-12T18:22:09Z",
+            Coverage: "Archived intelligence",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-HASH-03",
+          "Enterprise file prevalence",
+          "2026-08-28T14:05:24Z",
+          "Enterprise prevalence",
+          ["file:invoice-sync-helper"],
+          {
+            SHA256:
+              "65fb21f3b3b11f7a7d45f31965dad35935e6d9c860ca6f618999510db74260b9",
+            Devices: "0 in 30 days",
+            "Prior execution": "None observed",
+          },
+        ),
+      ],
+      resultChange:
+        "The exact file hash is classified as malicious with high confidence and has zero enterprise prevalence.",
+      caveat:
+        "This result uses an archived intelligence snapshot; no external OSINT provider was contacted.",
+    },
+    {
       id: "QRY-ENDPOINT-STATIC-08",
       title: "Static file analysis",
-      question: "Which bounded static characteristics warrant follow-up?",
+      question: "Which static characteristics warrant follow-up?",
       objective:
-        "Attach a deterministic file-format and API-reference summary without exposing executable content.",
+        "Attach an archived file-format and API-reference summary without exposing executable content.",
       targetEntityId: "file:invoice-sync-helper",
       toolName: "enrich_file",
       resultArtifactId: "ENR-LAT-STATIC-02",
@@ -814,7 +928,7 @@ export const endpointLateralScenario = {
     },
     {
       id: "QRY-ENDPOINT-SANDBOX-09",
-      title: "Sandbox detonation",
+      title: "Review sandbox behavior",
       question: "Which behaviors were recorded in the archived sandbox run?",
       objective:
         "Attach an archived behavior summary and preserve the boundary between sandbox analysis and observed telemetry.",
@@ -899,7 +1013,7 @@ export const endpointLateralScenario = {
           syntheticRecordCount: 320,
         },
         {
-          sourceLabel: "endpoint heartbeat lake",
+          sourceLabel: "EDR sensor health",
           sourceCategory: "endpoint_telemetry",
           timeRange: {
             start: "2026-08-28T13:05:00Z",
@@ -921,7 +1035,7 @@ export const endpointLateralScenario = {
         ),
         returnedRecord(
           "QRR-ENDPOINT-HOST-02",
-          "endpoint heartbeat lake",
+          "EDR sensor health",
           "2026-08-28T14:05:18Z",
           "EDR heartbeat",
           ["endpoint:fin-ws-044"],
@@ -941,7 +1055,7 @@ export const endpointLateralScenario = {
         ),
         returnedRecord(
           "QRR-ENDPOINT-HOST-04",
-          "endpoint heartbeat lake",
+          "EDR sensor health",
           "2026-08-28T14:05:21Z",
           "Response posture",
           ["endpoint:fin-ws-044"],
@@ -965,7 +1079,7 @@ export const endpointLateralScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Windows authentication lake",
+          sourceLabel: "Windows authentication",
           sourceCategory: "windows_authentication",
           timeRange: {
             start: "2026-05-30T00:00:00Z",
@@ -988,7 +1102,7 @@ export const endpointLateralScenario = {
       returnedRecords: [
         returnedRecord(
           "QRR-ENDPOINT-IDENTITY-01",
-          "Windows authentication lake",
+          "Windows authentication",
           "2026-08-28T14:05:12Z",
           "Network logon",
           [
@@ -1000,6 +1114,10 @@ export const endpointLateralScenario = {
             Account: "svc-fin-reports",
             Source: "FIN-WS-044",
             Target: "APP-SRV-021",
+            "Event ID": "4624",
+            "Logon type": "3",
+            "Authentication package": "Kerberos",
+            "Logon ID": "0xA0448",
           },
         ),
         returnedRecord(
@@ -1016,7 +1134,7 @@ export const endpointLateralScenario = {
         ),
         returnedRecord(
           "QRR-ENDPOINT-IDENTITY-03",
-          "Windows authentication lake",
+          "Windows authentication",
           "2026-08-28T14:05:22Z",
           "Target history",
           ["identity:svc-fin-reports", "endpoint:app-srv-021"],
@@ -1044,7 +1162,7 @@ export const endpointLateralScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "network telemetry lake",
+          sourceLabel: "Network telemetry",
           sourceCategory: "endpoint_telemetry",
           timeRange: {
             start: "2026-07-29T00:00:00Z",
@@ -1067,7 +1185,7 @@ export const endpointLateralScenario = {
       returnedRecords: [
         returnedRecord(
           "QRR-ENDPOINT-EGRESS-01",
-          "network telemetry lake",
+          "Network telemetry",
           "2026-08-28T14:03:12Z",
           "TLS connection",
           ["endpoint:fin-ws-044", "indicator:203.0.113.91"],
@@ -1079,7 +1197,7 @@ export const endpointLateralScenario = {
         ),
         returnedRecord(
           "QRR-ENDPOINT-EGRESS-02",
-          "network telemetry lake",
+          "Network telemetry",
           "2026-08-28T14:04:12Z",
           "Repeated connection",
           ["endpoint:fin-ws-044", "indicator:203.0.113.91"],
@@ -1103,7 +1221,7 @@ export const endpointLateralScenario = {
         ),
         returnedRecord(
           "QRR-ENDPOINT-EGRESS-04",
-          "network telemetry lake",
+          "Network telemetry",
           "2026-08-28T14:05:23Z",
           "Peer history",
           ["endpoint:fin-ws-044", "indicator:203.0.113.91"],
@@ -1174,6 +1292,9 @@ export const endpointLateralScenario = {
             Target: "APP-SRV-021",
             Outcome: "Blocked before execution",
             Process: "invoice-sync-helper.exe",
+            "Detection ID": "DET-REMOTE-SVC-207",
+            "Prevention rule": "Remote service creation",
+            "Target process": "Not created",
           },
         ),
         returnedRecord(
@@ -1194,6 +1315,7 @@ export const endpointLateralScenario = {
             Host: "APP-SRV-021",
             Payload: "Not observed",
             Result: "No execution evidence",
+            "Process review": "No matching process GUID or image load",
           },
         ),
         returnedRecord(
@@ -1235,7 +1357,7 @@ export const endpointLateralScenario = {
           syntheticRecordCount: 184,
         },
         {
-          sourceLabel: "cloud audit corpus",
+          sourceLabel: "Cloud audit",
           sourceCategory: "cloud_audit",
           timeRange: {
             start: "2026-07-29T00:00:00Z",
@@ -1261,7 +1383,7 @@ export const endpointLateralScenario = {
         ),
         returnedRecord(
           "QRR-ENDPOINT-SECRET-02",
-          "cloud audit corpus",
+          "Cloud audit",
           "2026-08-28T14:05:13Z",
           "Credential read",
           ["identity:svc-fin-reports", "secret:ci-deploy-token"],
@@ -1269,6 +1391,9 @@ export const endpointLateralScenario = {
             Principal: "svc-fin-reports",
             Secret: "ci/deploy/production",
             Outcome: "Success",
+            Event: "GetSecretValue",
+            "Request ID": "req-0448-8f21",
+            Source: "FIN-WS-044",
           },
         ),
         returnedRecord(
@@ -1285,7 +1410,7 @@ export const endpointLateralScenario = {
         ),
         returnedRecord(
           "QRR-ENDPOINT-SECRET-04",
-          "cloud audit corpus",
+          "Cloud audit",
           "2026-08-28T14:06:16Z",
           "Deployment activity",
           ["secret:ci-deploy-token", "workload:billing-api"],
@@ -1303,7 +1428,7 @@ export const endpointLateralScenario = {
     {
       id: "QRY-ENDPOINT-WORKLOAD-07",
       title: "Known-good recovery point",
-      question: "Which billing-api image can be used for a bounded rollback?",
+      question: "Which approved billing-api image can restore the workload?",
       objective:
         "Compare the current deployment image with the known-good recovery inventory.",
       targetEntityId: "workload:billing-api",
@@ -1361,17 +1486,17 @@ export const endpointLateralScenario = {
           "QRR-ENDPOINT-WORKLOAD-03",
           "deployment audit history",
           "2026-08-28T14:06:17Z",
-          "Rollback capability",
+          "Recovery capability",
           ["workload:billing-api"],
           {
             Workload: "billing-api",
-            Rollback: "Supported",
+            Redeploy: "Supported",
             Execution: "Requires analyst approval",
           },
         ),
       ],
       resultChange:
-        "billing-api:v2026.08.27.7 is the deterministic known-good recovery point.",
+        "billing-api:v2026.08.27.7 is the approved known-good recovery point.",
       caveat:
         "No malicious deployment is observed and no workload is modified.",
     },
@@ -1438,12 +1563,24 @@ export const endpointLateralScenario = {
         status: "proposed",
         label: "Assess the helper",
         objective:
-          "Attach bounded file analysis before deciding whether the helper meets the synthetic containment threshold.",
+          "Attach file analysis before deciding whether the helper meets the containment threshold.",
         recommendedTool: "enrich_file",
         entityId: "file:invoice-sync-helper",
         evidenceIds: ["EVT-EDR-0448-01"],
         completionArtifactId: "ENR-LAT-FILE-01",
         investigationQueryId: "QRY-ENDPOINT-FILE-01",
+      },
+      {
+        id: "T1-STEP-ENDPOINT-HASH",
+        status: "proposed",
+        label: "Check the exact file hash",
+        objective:
+          "Compare the immutable SHA-256 with bounded threat intelligence and enterprise prevalence before disposition.",
+        recommendedTool: "enrich_file",
+        entityId: "file:invoice-sync-helper",
+        evidenceIds: ["EVT-EDR-0448-01"],
+        completionArtifactId: "ENR-LAT-HASH-04",
+        investigationQueryId: "QRY-ENDPOINT-HASH-10",
       },
       {
         id: "T1-STEP-ENDPOINT-HOST",
@@ -1494,9 +1631,10 @@ export const endpointLateralScenario = {
       "Which controls can halt propagation without erasing evidence?",
     ],
     actionsWithheld: [
-      "No endpoint isolation",
+      "No endpoint collection or isolation",
+      "No egress block",
       "No identity disablement",
-      "No credential rotation or workload rollback",
+      "No credential rotation or workload redeploy",
     ],
   },
   decision: {
@@ -1508,14 +1646,13 @@ export const endpointLateralScenario = {
     sourceLabel: "Analyst decision",
     timestamp: "2026-08-28T14:05:24Z",
     actor: { kind: "analyst", id: "analyst-01" },
-    question:
-      "Does the correlated activity meet the synthetic containment threshold?",
+    question: "Does the correlated activity meet the containment threshold?",
     options: [
       {
         id: "confirmed_malicious",
         label: "Confirm malicious · contain",
         rationale:
-          "Unsigned execution, two TLS connections 60 seconds apart, out-of-scope authentication, a blocked remote service-start attempt, and a production credential read meet the synthetic containment threshold.",
+          "Unsigned execution, two TLS connections 60 seconds apart, out-of-scope authentication, a blocked remote service-start attempt, and a production credential read meet the containment threshold.",
       },
       {
         id: "insufficient_evidence",
@@ -1526,6 +1663,7 @@ export const endpointLateralScenario = {
     ],
     requiresEnrichmentIds: [
       "ENR-LAT-FILE-01",
+      "ENR-LAT-HASH-04",
       "ENR-LAT-ENDPOINT-01",
       "ENR-LAT-IDENTITY-01",
       "ENR-LAT-APP-01",
@@ -1538,8 +1676,7 @@ export const endpointLateralScenario = {
       "EVT-CLOUD-0448-08",
       "EVT-EDR-0448-10",
     ],
-    effect:
-      "Sets the synthetic case disposition. It does not execute containment.",
+    effect: "Records the case disposition. It does not execute containment.",
   },
   reachability: {
     ...base,
@@ -1553,13 +1690,17 @@ export const endpointLateralScenario = {
     model: "graph_reachability_v1",
     sourceEntityId: "endpoint:fin-ws-044",
     assumption:
-      "The service identity scope and deployment credential remain valid until an approved synthetic control severs them.",
+      "The service identity scope and deployment credential remain valid until an approved simulated control severs them.",
     reachableEntityIds: [
       "endpoint:app-srv-021",
       "secret:ci-deploy-token",
       "workload:billing-api",
     ],
     paths: [
+      {
+        id: "PATH-LAT-EGRESS",
+        entityIds: ["endpoint:fin-ws-044", "indicator:203.0.113.91"],
+      },
       {
         id: "PATH-LAT-01",
         entityIds: ["endpoint:fin-ws-044", "identity:svc-fin-reports"],
@@ -1591,7 +1732,7 @@ export const endpointLateralScenario = {
     actor: { kind: "system", id: "control-simulation-v1" },
     control: "isolate_compromised_path",
     changedEntityId: "endpoint:fin-ws-044",
-    severedPathIds: ["PATH-LAT-01"],
+    severedPathIds: ["PATH-LAT-EGRESS", "PATH-LAT-01"],
     remainingPathIds: ["PATH-LAT-02", "PATH-LAT-03", "PATH-LAT-04"],
     caveat:
       "The model does not contact an endpoint, directory, secret store, or deployment system.",
@@ -1686,7 +1827,12 @@ export const endpointLateralScenario = {
             },
           },
         ],
-        responseActionIds: ["contain_endpoint", "disable_service_identity"],
+        responseActionIds: [
+          "collect_endpoint_forensics",
+          "contain_endpoint",
+          "block_network_indicator",
+          "disable_service_identity",
+        ],
       },
       {
         id: "STREAM-LAT-02",
@@ -1800,7 +1946,7 @@ export const endpointLateralScenario = {
             entityId: "workload:billing-api",
             title: "Known-good workload image",
             summary:
-              "A known-good recovery image is available for precautionary rollback.",
+              "A known-good image is available for a precautionary redeploy.",
             caveat:
               "No malicious deployment was observed and no workload is modified.",
             toolName: "enrich_resource",
@@ -1822,15 +1968,44 @@ export const endpointLateralScenario = {
   },
   responseActions: [
     {
+      id: "collect_endpoint_forensics",
+      phase: "containment",
+      title: "Collect forensic triage from FIN-WS-044",
+      targetEntityId: "endpoint:fin-ws-044",
+      requiresStageId: "STREAM-LAT-01",
+      dependsOnActionIds: [],
+      requiresEnrichmentIds: ["ENR-LAT-ENDPOINT-01"],
+      evidenceIds: [
+        "EVT-EDR-0448-01",
+        "EVT-EDR-0448-03",
+        "EVT-AUTH-0448-05",
+        "EVT-EDR-0448-10",
+      ],
+      seversPathIds: [],
+      requiresHumanAuthorization: true,
+      executionScope: "synthetic_demo_only",
+      preconditions: [
+        "Healthy EDR sensor confirmed",
+        "Process and network evidence attached",
+        "Collection retention boundary confirmed",
+      ],
+      proposalReasoning:
+        "Preserve an endpoint triage package before response changes the host state.",
+      simulatedEffect:
+        "A process tree, network summary, persistence triage, and Windows event export would be queued while the EDR channel remains available.",
+      caveat:
+        "No host is contacted, no memory is acquired, and no forensic artifact leaves this application.",
+    },
+    {
       id: "contain_endpoint",
       phase: "containment",
       title: "Contain FIN-WS-044",
       targetEntityId: "endpoint:fin-ws-044",
       requiresStageId: "STREAM-LAT-01",
-      dependsOnActionIds: [],
+      dependsOnActionIds: ["collect_endpoint_forensics"],
       requiresEnrichmentIds: ["ENR-LAT-FILE-01", "ENR-LAT-ENDPOINT-01"],
       evidenceIds: ["EVT-EDR-0448-01", "EVT-EDR-0448-03", "EVT-EDR-0448-10"],
-      seversPathIds: ["PATH-LAT-01"],
+      seversPathIds: ["PATH-LAT-EGRESS", "PATH-LAT-01"],
       requiresHumanAuthorization: true,
       executionScope: "synthetic_demo_only",
       preconditions: [
@@ -1844,6 +2019,30 @@ export const endpointLateralScenario = {
         "FIN-WS-044 would lose non-EDR network access while remaining visible to collection.",
       caveat:
         "No endpoint is isolated and no external EDR system is contacted.",
+    },
+    {
+      id: "block_network_indicator",
+      phase: "containment",
+      title: "Block 203.0.113.91 at egress",
+      targetEntityId: "indicator:203.0.113.91",
+      requiresStageId: "STREAM-LAT-01",
+      dependsOnActionIds: [],
+      requiresEnrichmentIds: ["ENR-LAT-DEST-01"],
+      evidenceIds: ["EVT-EDR-0448-03", "EVT-EDR-0448-04"],
+      seversPathIds: ["PATH-LAT-EGRESS"],
+      requiresHumanAuthorization: true,
+      executionScope: "synthetic_demo_only",
+      preconditions: [
+        "Destination context attached",
+        "Both connections attributed to invoice-sync-helper.exe",
+        "Exact host indicator confirmed",
+      ],
+      proposalReasoning:
+        "Deny new outbound connections to the exact destination after process attribution and destination review.",
+      simulatedEffect:
+        "New egress connections to 203.0.113.91 would be denied while existing evidence remains in the case.",
+      caveat:
+        "No firewall or proxy control is changed and no external system is contacted.",
     },
     {
       id: "disable_service_identity",
@@ -1888,13 +2087,13 @@ export const endpointLateralScenario = {
       proposalReasoning:
         "Rotate the deployment credential after disabling the service identity that read it.",
       simulatedEffect:
-        "The current synthetic credential version would be invalidated and replaced without returning secret material.",
+        "The current credential version would be invalidated and replaced without returning secret material.",
       caveat: "No key is rotated and no secret store is contacted.",
     },
     {
       id: "rollback_workload_image",
       phase: "recovery",
-      title: "Rollback billing-api image",
+      title: "Redeploy known-good billing-api image",
       targetEntityId: "workload:billing-api",
       requiresStageId: "STREAM-LAT-02",
       dependsOnActionIds: ["rotate_deployment_credential"],
@@ -1909,9 +2108,9 @@ export const endpointLateralScenario = {
         "Modeled effect attached",
       ],
       proposalReasoning:
-        "Restore the known-good billing-api image as a precautionary recovery step after credential rotation.",
+        "Redeploy the known-good billing-api image as a precaution after rotating the exposed deployment credential.",
       simulatedEffect:
-        "billing-api would move from v2026.08.28.3 to known-good v2026.08.27.7.",
+        "billing-api would be redeployed from the approved v2026.08.27.7 image without claiming that the current image is malicious.",
       caveat:
         "No malicious deployment was observed and no workload is changed.",
     },
@@ -1921,13 +2120,13 @@ export const endpointLateralScenario = {
     graphWidth: 1320,
     graphHeight: 720,
     nodes: [
-      { entityId: "file:invoice-sync-helper", x: 60, y: 160, lane: "entry" },
-      { entityId: "endpoint:fin-ws-044", x: 300, y: 160, lane: "execution" },
-      { entityId: "indicator:203.0.113.91", x: 560, y: 50, lane: "impact" },
-      { entityId: "identity:svc-fin-reports", x: 560, y: 300, lane: "access" },
-      { entityId: "endpoint:app-srv-021", x: 820, y: 120, lane: "lateral" },
-      { entityId: "secret:ci-deploy-token", x: 820, y: 380, lane: "access" },
-      { entityId: "workload:billing-api", x: 1080, y: 380, lane: "impact" },
+      { entityId: "file:invoice-sync-helper", x: 60, y: 130, lane: "entry" },
+      { entityId: "endpoint:fin-ws-044", x: 300, y: 130, lane: "execution" },
+      { entityId: "indicator:203.0.113.91", x: 560, y: 10, lane: "impact" },
+      { entityId: "identity:svc-fin-reports", x: 560, y: 250, lane: "access" },
+      { entityId: "endpoint:app-srv-021", x: 820, y: 90, lane: "lateral" },
+      { entityId: "secret:ci-deploy-token", x: 820, y: 250, lane: "access" },
+      { entityId: "workload:billing-api", x: 1080, y: 250, lane: "impact" },
     ],
     stageQuestions: [
       "Which observed execution, login, and command evidence proves the active chain before containment?",
@@ -1937,7 +2136,7 @@ export const endpointLateralScenario = {
     coverageNotes: [
       "Observed: helper execution, two TLS connections 60 seconds apart, service-account authentication, service-control commands, and a deployment-credential read. No remote payload execution, deployment, or exfiltration is claimed.",
       "The remote service start was blocked before execution. APP-SRV-021 remains affected by authentication evidence, not confirmed payload execution.",
-      "Recovery inventory is observed fixture context. Credential rotation and image rollback are simulated controls.",
+      "Recovery inventory comes from the case snapshot. Credential rotation and image redeployment are simulated controls.",
     ],
     command: {
       observed: "Unsigned helper executed on FIN-WS-044",
@@ -1964,7 +2163,7 @@ export const endpointLateralScenario = {
     initialHeadline:
       "1 execution host · 1 targeted host · propagation scope pending",
     modeledHeadline:
-      "1 execution host · 1 targeted host · 4 modeled risk segments",
+      "1 execution host · 1 targeted host · 5 modeled risk segments",
     containedHeadline:
       "Propagation halted in the response model · recovery evidence retained",
   },
@@ -1972,14 +2171,14 @@ export const endpointLateralScenario = {
     reportId: "REPORT-ENDPOINT-0448",
     reportVersion: "case-report-v1",
     disposition: "confirmed_malicious_synthetic",
-    title: "multi-stage endpoint incident contained in the response model",
+    title: "Multi-stage endpoint incident contained in the response model",
     executiveSummary:
-      "telemetry shows unsigned helper execution on FIN-WS-044, two TLS connections 60 seconds apart, an unexpected svc-fin-reports logon to APP-SRV-021, a blocked remote service-start attempt, and a production deployment-credential read. Endpoint isolation, identity disablement, credential rotation, and workload rollback were recorded as simulated approvals. No external system was contacted.",
+      "Telemetry shows unsigned helper execution on FIN-WS-044, two TLS connections 60 seconds apart, an unexpected svc-fin-reports logon to APP-SRV-021, a blocked remote service-start attempt, and a production deployment-credential read. Forensic triage collection, endpoint isolation, destination blocking, identity disablement, credential rotation, and a known-good image redeploy were recorded as simulated approvals. No external system was contacted.",
     confirmedFindings: [
       "The unsigned helper executed on FIN-WS-044 and made two observed TLS connections separated by 60 seconds.",
       "svc-fin-reports authenticated to APP-SRV-021 outside its expected scope.",
       "APP-SRV-021 blocked the remote service-start attempt before execution.",
-      "svc-fin-reports read the synthetic production deployment credential.",
+      "svc-fin-reports read the production deployment credential.",
     ],
     limitations: [
       "Destination ownership and connection content are unknown.",
@@ -1994,6 +2193,7 @@ export const endpointLateralScenario = {
     requiredDecision: "confirmed_malicious",
     requiredEnrichmentIds: [
       "ENR-LAT-FILE-01",
+      "ENR-LAT-HASH-04",
       "ENR-LAT-ENDPOINT-01",
       "ENR-LAT-IDENTITY-01",
       "ENR-LAT-DEST-01",
@@ -2002,7 +2202,9 @@ export const endpointLateralScenario = {
       "ENR-LAT-WORKLOAD-01",
     ],
     requiredActionIds: [
+      "collect_endpoint_forensics",
       "contain_endpoint",
+      "block_network_indicator",
       "disable_service_identity",
       "rotate_deployment_credential",
       "rollback_workload_image",

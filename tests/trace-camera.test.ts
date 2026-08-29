@@ -47,6 +47,21 @@ test("pointer-centered zoom preserves the world point under the pointer", () => 
   );
 });
 
+test("pointer-centered zoom respects a case readability floor", () => {
+  let camera = { x: 0, y: 0, scale: 1 };
+  for (let index = 0; index < 10; index += 1) {
+    camera = zoomTraceCameraAt(
+      camera,
+      camera.scale * 0.7,
+      { x: 500, y: 350 },
+      { width: 1000, height: 700 },
+      { width: 1320, height: 720 },
+      0.82,
+    );
+  }
+  assert.equal(camera.scale, 0.82);
+});
+
 test("fit camera returns a bounded deterministic view", () => {
   assert.deepEqual(
     fitTraceCamera({ width: 900, height: 600 }, { width: 1200, height: 800 }),

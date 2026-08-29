@@ -26,6 +26,7 @@ import type {
   OperationReceipt,
 } from "@/domain/types";
 import { formatUtcTime, humanizeEntityKind } from "@/lib/format";
+import { layoutTraceResultPackets } from "@/lib/trace-result-layout";
 import {
   selectionContainsEntity,
   useTraceCamera,
@@ -83,7 +84,7 @@ interface MapEdge {
 }
 
 const nodeWidth = 220;
-const nodeHeight = 136;
+const nodeHeight = 152;
 
 export function EvidenceMap({
   fixture,
@@ -449,6 +450,13 @@ export function EvidenceMap({
     if (targetQueries) targetQueries.push(query);
     else attachedQueriesByTarget.set(query.targetEntityId, [query]);
   }
+  const queryResultPlacements = layoutTraceResultPackets(
+    [...attachedQueriesByTarget.keys()],
+    fixture.presentation.nodes,
+    mapEntityIds,
+    fixture.presentation.graphWidth,
+    fixture.presentation.graphHeight,
+  );
   const nextStep = getDerivedNextStep(fixture, state);
   const nextGapEntityId =
     nextStep.phase === "inspect" ? nextStep.targetEntityId : null;
@@ -514,8 +522,9 @@ export function EvidenceMap({
     zoomBy,
   } = useTraceCamera(
     selection,
-    state.revision * 2 + (view === "impact" ? 1 : 0),
-    82,
+    state.revision * 100 + replayCursor * 2 + (view === "impact" ? 1 : 0),
+    132,
+    0.82,
   );
   const focusFromDrawer = useCallback(
     (nextSelection: TraceSelection) => {
@@ -1186,8 +1195,10 @@ export function EvidenceMap({
 
             {[...attachedQueriesByTarget.entries()].map(
               ([targetEntityId, targetQueries]) => {
-                const position = positions.get(targetEntityId);
-                if (!position) return null;
+                if (!positions.has(targetEntityId)) return null;
+                const resultPlacement =
+                  queryResultPlacements.get(targetEntityId);
+                if (!resultPlacement) return null;
                 const target = mapEntities.find(
                   (entity) => entity.id === targetEntityId,
                 );
@@ -1210,10 +1221,11 @@ export function EvidenceMap({
                 return (
                   <div
                     className="query-result-stack"
+                    data-placement={resultPlacement.edge}
                     key={`query-results-${targetEntityId}`}
                     style={{
-                      left: position.x + 12,
-                      top: position.y + nodeHeight + 16,
+                      left: resultPlacement.x,
+                      top: resultPlacement.y,
                     }}
                   >
                     <button
@@ -1602,7 +1614,7 @@ function TraceSequenceRail({
         </div>
         <ol
           className="trace-sequence-rail timeline-observed-track"
-          aria-label="Recorded activity"
+          aria-label={`Recorded activity. Horizontal timeline with ${orderedJoins.length} events; scroll for more.`}
         >
           {orderedJoins.map((join, index) => {
             const blocked = fixture.impact.blockedJoinIds.includes(join.id);
@@ -1639,6 +1651,9 @@ function TraceSequenceRail({
             );
           })}
         </ol>
+        <span aria-hidden="true" className="timeline-overflow-cue">
+          {orderedJoins.length} events →
+        </span>
         <ol
           className="timeline-query-track"
           aria-label="Investigation activity"
@@ -1861,11 +1876,12 @@ function activityCategory(toolName: string): string {
 }
 
 function authorizedEntityStateLabel(actionId: string): string {
+  if (actionId === "collect_endpoint_forensics") return "Collection approved";
   if (actionId === "contain_endpoint") return "Isolation approved";
   if (actionId === "block_network_indicator") return "Block approved";
   if (actionId === "disable_service_identity") return "Disable approved";
   if (actionId === "rotate_deployment_credential") return "Rotation approved";
-  if (actionId === "rollback_workload_image") return "Rollback approved";
+  if (actionId === "rollback_workload_image") return "Redeploy approved";
   return "Control approved";
 }
 

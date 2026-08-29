@@ -13,6 +13,21 @@ export function CaseReportPanel({ fixture, state }: CaseReportPanelProps) {
   const report = state.report.report;
   if (!report) return null;
   const approved = state.report.status === "approved_in_demo";
+  const recordedActions = report.actionIds.flatMap((actionId) => {
+    const action = fixture.responseActions.find(
+      (candidate) => candidate.id === actionId,
+    );
+    return action ? [action] : [];
+  });
+  const hashArtifact = fixture.enrichments.find(
+    (artifact) =>
+      report.evidenceIds.includes(artifact.id) &&
+      artifact.payload.kind === "hash_intelligence_fixture",
+  );
+  const keyHash =
+    hashArtifact?.payload.kind === "hash_intelligence_fixture"
+      ? hashArtifact.payload.sha256
+      : null;
 
   return (
     <section
@@ -29,10 +44,23 @@ export function CaseReportPanel({ fixture, state }: CaseReportPanelProps) {
         </div>
         <span>{approved ? "Approved" : "Drafted"}</span>
       </div>
+      <p className="report-receipt">
+        {report.confirmedFindings.length} confirmed findings ·{" "}
+        {recordedActions.length} simulated controls ·{" "}
+        {report.limitations.length} stated limits ·{" "}
+        {approved ? "Analyst approved" : "Analyst approval required"}
+      </p>
       <div className="report-verdict">
         <span>Conclusion</span>
         <strong>{formatReportDisposition(report.disposition)}</strong>
         <p>{report.executiveSummary}</p>
+        {keyHash ? (
+          <div className="report-key-indicator">
+            <span>Key IOC · SHA-256</span>
+            <code>{keyHash}</code>
+            <small>Archived threat intelligence snapshot</small>
+          </div>
+        ) : null}
       </div>
       <dl className="report-counts">
         <div>
@@ -69,7 +97,30 @@ export function CaseReportPanel({ fixture, state }: CaseReportPanelProps) {
             ))}
           </ul>
         </section>
+        <section>
+          <span>Recorded response</span>
+          <ul className="report-action-list">
+            {recordedActions.map((action) => (
+              <li key={action.id}>
+                <strong>{action.title}</strong>
+                <small>
+                  {action.targetEntityId} · simulated approval · no external
+                  execution
+                </small>
+              </li>
+            ))}
+          </ul>
+        </section>
       </div>
+      <details className="report-provenance">
+        <summary>Evidence and action provenance</summary>
+        <p>
+          Generated {report.generatedAt} from {report.evidenceIds.length}{" "}
+          immutable case references and {report.actionIds.length}{" "}
+          analyst-approved response records.
+        </p>
+        <code>{report.evidenceIds.join(" · ")}</code>
+      </details>
       <details className="report-limitations">
         <summary>{report.limitations.length} evidence limitations</summary>
         <ul>

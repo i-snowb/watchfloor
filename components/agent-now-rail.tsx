@@ -219,7 +219,7 @@ function getAgentNowContent(
   return {
     state: "idle",
     label: "Copilot · Ready",
-    headline: "Select an entity to investigate",
+    headline: "Select an entity",
     detail: "Run a bounded query here or ask the copilot to investigate it",
   };
 }

@@ -254,6 +254,10 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     { expectedRevision: endpoint.revision },
     "analyst_control",
   );
+  endpoint = web(endpointLateralScenario, endpoint, "run_investigation_query", {
+    expectedRevision: endpoint.revision,
+    queryId: "QRY-ENDPOINT-HASH-10",
+  });
   endpoint = web(endpointLateralScenario, endpoint, "enrich_file", {
     expectedRevision: endpoint.revision,
     entityId: "file:invoice-sync-helper",
@@ -266,6 +270,15 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     expectedRevision: endpoint.revision,
     entityId: "identity:svc-fin-reports",
   });
+  endpoint = web(
+    endpointLateralScenario,
+    endpoint,
+    "enrich_network_indicator",
+    {
+      expectedRevision: endpoint.revision,
+      entityId: "indicator:203.0.113.91",
+    },
+  );
   endpoint = web(endpointLateralScenario, endpoint, "enrich_endpoint", {
     expectedRevision: endpoint.revision,
     entityId: "endpoint:app-srv-021",
@@ -297,8 +310,8 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
   assert.equal(bundleProbe.responseBundle?.bundleId, "containment");
   endpoint = web(endpointLateralScenario, endpoint, "propose_response_action", {
     expectedRevision: endpoint.revision,
-    actionId: "contain_endpoint",
-    reasoning: "Contain the observed endpoint in the synthetic fixture.",
+    actionId: "collect_endpoint_forensics",
+    reasoning: "Preserve the bounded endpoint evidence before containment.",
   });
   endpoint = web(
     endpointLateralScenario,
@@ -306,10 +319,15 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     "simulate_response_action",
     {
       expectedRevision: endpoint.revision,
-      actionId: "contain_endpoint",
+      actionId: "collect_endpoint_forensics",
     },
   );
-  assert.equal(endpoint.responseActions[0]?.status, "simulated");
+  assert.equal(
+    endpoint.responseActions.find(
+      (action) => action.actionId === "collect_endpoint_forensics",
+    )?.status,
+    "simulated",
+  );
 
   assert.deepEqual([...successful].sort(), [...exposed].sort());
   for (const analystOnly of [
@@ -345,6 +363,10 @@ test("WebMCP keeps one stable case-scoped registration across revisions", async 
     "analyst_control",
   );
 
+  state = invoke(endpointLateralScenario, state, "run_investigation_query", {
+    expectedRevision: state.revision,
+    queryId: "QRY-ENDPOINT-HASH-10",
+  });
   state = invoke(endpointLateralScenario, state, "enrich_file", {
     expectedRevision: state.revision,
     entityId: "file:invoice-sync-helper",

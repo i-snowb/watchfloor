@@ -21,6 +21,7 @@ import {
   matchesQueryConsoleContract,
 } from "../domain/query-console";
 import { createCaseToolDefinitions, registerCaseTools } from "../webmcp/tools";
+import { layoutTraceResultPackets } from "../lib/trace-result-layout";
 
 function execute(
   fixture: CaseFixture,
@@ -159,7 +160,56 @@ test("both fixtures satisfy the shared deterministic scenario contract", () => {
   assert.equal(endpointLateralScenario.events.length, 9);
   assert.equal(endpointLateralScenario.joins.length, 5);
   assert.equal(endpointLateralScenario.stream.stages.length, 2);
-  assert.equal(endpointLateralScenario.responseActions.length, 4);
+  assert.equal(endpointLateralScenario.responseActions.length, 6);
+});
+
+test("endpoint result packets do not cover another investigation entity", () => {
+  const nodeWidth = 220;
+  const nodeHeight = 152;
+  const packetWidth = 196;
+  const packetHeight = 96;
+  const nodes = endpointLateralScenario.presentation.nodes;
+  const nodeById = new Map(nodes.map((node) => [node.entityId, node]));
+  const visibleEntityIds = new Set(nodes.map((node) => node.entityId));
+  const targetEntityIds = [
+    ...new Set(
+      endpointLateralScenario.investigationQueries.map(
+        (query) => query.targetEntityId,
+      ),
+    ),
+  ];
+  const placements = layoutTraceResultPackets(
+    targetEntityIds,
+    nodes,
+    visibleEntityIds,
+    endpointLateralScenario.presentation.graphWidth,
+    endpointLateralScenario.presentation.graphHeight,
+  );
+
+  for (const targetEntityId of targetEntityIds) {
+    const placement = placements.get(targetEntityId);
+    assert.ok(placement);
+    const packet = {
+      left: placement.x,
+      top: placement.y,
+      right: placement.x + packetWidth,
+      bottom: placement.y + packetHeight,
+    };
+
+    for (const [entityId, node] of nodeById) {
+      if (entityId === targetEntityId) continue;
+      const overlaps =
+        packet.left < node.x + nodeWidth &&
+        packet.right > node.x &&
+        packet.top < node.y + nodeHeight &&
+        packet.bottom > node.y;
+      assert.equal(
+        overlaps,
+        false,
+        `${targetEntityId} result packet overlaps ${entityId}`,
+      );
+    }
+  }
 });
 
 test("human and agent run the same deterministic investigation query", () => {
@@ -219,6 +269,27 @@ test("human and agent run the same deterministic investigation query", () => {
   );
   assert.equal(duplicate.ok, false);
   if (!duplicate.ok) assert.equal(duplicate.error.code, "ALREADY_ATTACHED");
+});
+
+test("raw query execution requires the visible canonical query text", () => {
+  const state = createInitialCaseState(cloudIdentityScenario);
+  const outcome = executeCaseTool(cloudIdentityScenario, state, {
+    requestId: "test-query-text-required",
+    toolName: "run_investigation_query",
+    reportedSurface: "webmcp_callback",
+    input: {
+      expectedRevision: state.revision,
+      queryId: "QRY-CLOUD-IDENTITY-01",
+    },
+  });
+  assert.equal(outcome.ok, false);
+  if (!outcome.ok) {
+    assert.equal(outcome.error.code, "VALIDATION_ERROR");
+    assert.equal(
+      outcome.error.message,
+      "Missing required input field 'queryText'.",
+    );
+  }
 });
 
 test("copilot can prepare a shared visible query without attaching evidence", () => {
@@ -524,7 +595,7 @@ test("query workset withholds unreleased results and fails closed", () => {
       blockedCount: number;
     };
   };
-  assert.equal(data.queryWorkset.available.length, 6);
+  assert.equal(data.queryWorkset.available.length, 7);
   assert.equal(data.queryWorkset.blockedCount, 3);
   assert.equal(
     data.queryWorkset.available.some(
@@ -575,9 +646,9 @@ test("investigation plans attach one available finding in deterministic order", 
   assert.equal(firstData.queryId, "QRY-ENDPOINT-FILE-01");
   assert.equal(firstData.targetEntityId, "file:invoice-sync-helper");
   assert.equal(firstData.completedCount, 1);
-  assert.equal(firstData.totalCount, 4);
-  assert.equal(firstData.remainingCount, 3);
-  assert.equal(firstData.nextQueryId, "QRY-ENDPOINT-HOST-02");
+  assert.equal(firstData.totalCount, 5);
+  assert.equal(firstData.remainingCount, 4);
+  assert.equal(firstData.nextQueryId, "QRY-ENDPOINT-HASH-10");
   assert.equal(firstData.artifact.id, "ENR-LAT-FILE-01");
   assert.equal(firstData.execution.syntheticRecordCount, 2496);
   assert.equal(firstData.execution.matchedRecordCount, 11);
@@ -585,10 +656,11 @@ test("investigation plans attach one available finding in deterministic order", 
   assert.equal(firstData.returnedRecords[0]?.id, "QRR-ENDPOINT-FILE-01");
   assert.equal(first.receipt.title, "Helper behavior and prevalence");
   assert.equal(first.receipt.target, "invoice-sync-helper.exe");
-  assert.match(first.receipt.resultSummary, /^1\/4 results added/);
+  assert.match(first.receipt.resultSummary, /^1\/5 results added/);
 
   let state = first.state;
   const expected = [
+    ["QRY-ENDPOINT-HASH-10", "ENR-LAT-HASH-04"],
     ["QRY-ENDPOINT-HOST-02", "ENR-LAT-ENDPOINT-01"],
     ["QRY-ENDPOINT-IDENTITY-03", "ENR-LAT-IDENTITY-01"],
     ["QRY-ENDPOINT-EGRESS-04", "ENR-LAT-DEST-01"],
@@ -613,14 +685,18 @@ test("investigation plans attach one available finding in deterministic order", 
   }
   assert.deepEqual(state.attachedEnrichmentIds, [
     "ENR-LAT-FILE-01",
+    "ENR-LAT-HASH-04",
     "ENR-LAT-ENDPOINT-01",
     "ENR-LAT-IDENTITY-01",
     "ENR-LAT-DEST-01",
   ]);
 
   const nextStep = getDerivedNextStep(fixture, state);
-  assert.equal(nextStep.recommendedTool, "prepare_investigation_query");
-  assert.equal(nextStep.objective, "Static file analysis");
+  assert.equal(nextStep.recommendedTool, "request_next_observation");
+  assert.equal(
+    nextStep.objective,
+    "Request the next bounded observation required for disposition.",
+  );
 
   const repeated = execute(
     fixture,
@@ -678,9 +754,9 @@ test("investigation plans skip findings already attached by an analyst query", (
     completedCount: number;
     remainingCount: number;
   };
-  assert.equal(data.queryId, "QRY-ENDPOINT-HOST-02");
+  assert.equal(data.queryId, "QRY-ENDPOINT-HASH-10");
   assert.equal(data.completedCount, 2);
-  assert.equal(data.remainingCount, 2);
+  assert.equal(data.remainingCount, 3);
 });
 
 test("endpoint forensic pivot attaches bounded static and sandbox fixtures", () => {
@@ -694,6 +770,18 @@ test("endpoint forensic pivot attaches bounded static and sandbox fixtures", () 
       {
         expectedRevision: state.revision,
         queryId: "QRY-ENDPOINT-FILE-01",
+      },
+      "webmcp_callback",
+    ),
+  );
+  state = succeed(
+    execute(
+      fixture,
+      state,
+      "run_investigation_query",
+      {
+        expectedRevision: state.revision,
+        queryId: "QRY-ENDPOINT-HASH-10",
       },
       "webmcp_callback",
     ),
@@ -723,9 +811,10 @@ test("endpoint forensic pivot attaches bounded static and sandbox fixtures", () 
   assert.equal(sandbox.ok, true);
   if (!sandbox.ok) return;
   state = sandbox.state;
-  assert.equal(state.revision, 4);
+  assert.equal(state.revision, 5);
   assert.deepEqual(state.attachedEnrichmentIds, [
     "ENR-LAT-FILE-01",
+    "ENR-LAT-HASH-04",
     "ENR-LAT-STATIC-02",
     "ENR-LAT-SANDBOX-03",
   ]);
@@ -739,6 +828,18 @@ test("endpoint forensic pivot attaches bounded static and sandbox fixtures", () 
   assert.equal(result.execution.syntheticRecordCount, 8);
   assert.equal(result.artifact.payload.kind, "sandbox_behavior_fixture");
   assert.equal(result.artifact.payload.externalExecution, false);
+  const hashQuery = fixture.investigationQueries.find(
+    (query) => query.id === "QRY-ENDPOINT-HASH-10",
+  );
+  const hashEntity = fixture.entities.find(
+    (entity) => entity.id === "file:invoice-sync-helper",
+  );
+  assert.equal(
+    hashQuery?.returnedRecords[0]?.fields.find(
+      (field) => field.label === "SHA256",
+    )?.value,
+    hashEntity?.kind === "file" ? hashEntity.sha256 : undefined,
+  );
 });
 
 test("an agent can request but cannot release the next observation", () => {
@@ -856,8 +957,16 @@ test("response bundles prepare atomically and require analyst authorization", ()
   state = prepared.state;
   assert.equal(state.responseBundle?.bundleId, "containment");
   assert.deepEqual(
-    state.responseActions.slice(0, 2).map((action) => action.status),
-    ["simulated", "simulated"],
+    state.responseActions
+      .filter((action) =>
+        fixture.responseActions.find(
+          (definition) =>
+            definition.id === action.actionId &&
+            definition.phase === "containment",
+        ),
+      )
+      .map((action) => action.status),
+    Array(4).fill("simulated"),
   );
 
   const agentAuthorization = execute(
@@ -887,8 +996,16 @@ test("response bundles prepare atomically and require analyst authorization", ()
   );
   assert.deepEqual(state.authorizedResponseBundleIds, ["containment"]);
   assert.deepEqual(
-    state.responseActions.slice(0, 2).map((action) => action.status),
-    ["authorized_in_demo", "authorized_in_demo"],
+    state.responseActions
+      .filter((action) =>
+        fixture.responseActions.find(
+          (definition) =>
+            definition.id === action.actionId &&
+            definition.phase === "containment",
+        ),
+      )
+      .map((action) => action.status),
+    Array(4).fill("authorized_in_demo"),
   );
 
   state = succeed(
@@ -921,7 +1038,15 @@ test("response bundles prepare atomically and require analyst authorization", ()
   );
   assert.equal(state.responseBundle?.bundleId, "recovery");
   assert.deepEqual(
-    state.responseActions.slice(2).map((action) => action.status),
+    state.responseActions
+      .filter((action) =>
+        fixture.responseActions.find(
+          (definition) =>
+            definition.id === action.actionId &&
+            definition.phase !== "containment",
+        ),
+      )
+      .map((action) => action.status),
     ["simulated", "simulated"],
   );
   state = succeed(
@@ -1291,6 +1416,18 @@ test("malicious case completes staged containment, recovery, report, and closure
   const fixture = endpointLateralScenario;
   let state = createInitialCaseState(fixture);
   state = enrich(fixture, state, "enrich_file", "file:invoice-sync-helper");
+  state = succeed(
+    execute(
+      fixture,
+      state,
+      "run_investigation_query",
+      {
+        expectedRevision: state.revision,
+        queryId: "QRY-ENDPOINT-HASH-10",
+      },
+      "webmcp_callback",
+    ),
+  );
   state = enrich(fixture, state, "enrich_endpoint", "endpoint:fin-ws-044");
   state = enrich(fixture, state, "enrich_identity", "identity:svc-fin-reports");
   state = enrich(
@@ -1338,7 +1475,9 @@ test("malicious case completes staged containment, recovery, report, and closure
       "webmcp_callback",
     ),
   );
+  state = completeResponse(fixture, state, "collect_endpoint_forensics");
   state = completeResponse(fixture, state, "contain_endpoint");
+  state = completeResponse(fixture, state, "block_network_indicator");
   state = completeResponse(fixture, state, "disable_service_identity");
   state = succeed(
     execute(fixture, state, "release_next_synthetic_signal", {
@@ -1360,7 +1499,7 @@ test("malicious case completes staged containment, recovery, report, and closure
       "webmcp_callback",
     ),
   );
-  assert.equal(state.report.report?.actionIds.length, 4);
+  assert.equal(state.report.report?.actionIds.length, 6);
   assert.equal(state.report.report?.limitations.length, 3);
   state = succeed(
     execute(fixture, state, "approve_case_report", {
@@ -1413,6 +1552,18 @@ test("decision, model, response dependency, and report gates are enforced", () =
   const fixture = endpointLateralScenario;
   let state = createInitialCaseState(fixture);
   state = enrich(fixture, state, "enrich_file", "file:invoice-sync-helper");
+  state = succeed(
+    execute(
+      fixture,
+      state,
+      "run_investigation_query",
+      {
+        expectedRevision: state.revision,
+        queryId: "QRY-ENDPOINT-HASH-10",
+      },
+      "webmcp_callback",
+    ),
+  );
   state = enrich(fixture, state, "enrich_endpoint", "endpoint:fin-ws-044");
   state = enrich(fixture, state, "enrich_identity", "identity:svc-fin-reports");
   const earlyDecision = execute(fixture, state, "record_evidence_decision", {
@@ -1447,8 +1598,9 @@ test("decision, model, response dependency, and report gates are enforced", () =
       expectedRevision: state.revision,
       actionId: "contain_endpoint",
       reasoning:
-        fixture.responseActions[0]?.proposalReasoning ??
-        "Contain the endpoint safely.",
+        fixture.responseActions.find(
+          (action) => action.id === "contain_endpoint",
+        )?.proposalReasoning ?? "Contain the endpoint safely.",
     },
     "webmcp_callback",
   );

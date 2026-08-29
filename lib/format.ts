@@ -346,6 +346,17 @@ export function enrichmentFields(artifact: EnrichmentArtifact): DisplayField[] {
         },
         { label: "Coverage", value: "Deterministic fixture summary only" },
       ];
+    case "hash_intelligence_fixture":
+      return [
+        { label: "SHA-256", value: payload.sha256 },
+        { label: "Verdict", value: payload.verdict },
+        { label: "Confidence", value: payload.confidence },
+        {
+          label: "Enterprise prevalence · 30d",
+          value: String(payload.enterprisePrevalence30d),
+        },
+        { label: "Coverage", value: "Archived hash intelligence only" },
+      ];
     case "sandbox_behavior_fixture":
       return [
         { label: "Fixture run", value: payload.fixtureRunId },
@@ -407,7 +418,7 @@ export function enrichmentFields(artifact: EnrichmentArtifact): DisplayField[] {
         { label: "Current image", value: payload.currentImage },
         { label: "Known-good image", value: payload.knownGoodImage },
         {
-          label: "Rollback supported",
+          label: "Known-good redeploy supported",
           value: payload.rollbackSupported ? "Yes" : "No",
         },
       ];

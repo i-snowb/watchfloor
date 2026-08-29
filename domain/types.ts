@@ -333,6 +333,14 @@ export type EnrichmentPayload =
       analysisCoverage: "deterministic_fixture_summary_only";
     }
   | {
+      kind: "hash_intelligence_fixture";
+      sha256: string;
+      verdict: "malicious";
+      confidence: "high";
+      enterprisePrevalence30d: number;
+      sourceCoverage: "archived_hash_intelligence_only";
+    }
+  | {
       kind: "sandbox_behavior_fixture";
       fixtureRunId: string;
       profile: "windows_11_enterprise_fixture";
@@ -515,6 +523,7 @@ export interface CounterfactualDefinition extends ArtifactBase {
 }
 
 export type ResponseActionId =
+  | "collect_endpoint_forensics"
   | "contain_endpoint"
   | "block_network_indicator"
   | "disable_service_identity"

@@ -751,10 +751,10 @@ type QueueTraceKind =
   | "environment";
 
 const queueTraceKinds: Readonly<Record<string, readonly QueueTraceKind[]>> = {
-  "queue-endpoint-0448": ["endpoint", "process", "network"],
+  "queue-endpoint-0448": ["endpoint", "identity", "endpoint"],
   "queue-oauth-0437": ["identity", "application", "permission"],
-  "queue-k8s-0414": ["workload", "namespace", "secret"],
-  "queue-cicd-0392": ["workflow", "runner", "environment"],
+  "queue-k8s-0414": ["workload", "namespace", "network"],
+  "queue-cicd-0392": ["workflow", "file", "workload"],
 };
 
 const queueTraceLabels: Readonly<Record<QueueTraceKind, string>> = {

@@ -74,6 +74,7 @@ export function useTraceCamera(
   selection: TraceSelection,
   worldRevision: number,
   viewportBottomInset = 0,
+  minimumReadableScale = 1,
 ) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const planeRef = useRef<HTMLDivElement>(null);
@@ -92,8 +93,9 @@ export function useTraceCamera(
     world: TraceSize;
   } | null>(null);
   const initializedRef = useRef(false);
+  const worldRevisionRef = useRef(worldRevision);
   const reducedMotionRef = useRef(false);
-  const lastSelectionRef = useRef("");
+  const lastSelectionRef = useRef(`${selection.kind}:${selection.id}`);
   const [camera, setCamera] = useState(initialTraceCamera);
   const [dragging, setDragging] = useState(false);
   const [focusing, setFocusing] = useState(false);
@@ -152,10 +154,16 @@ export function useTraceCamera(
     const activeBounds = measureActiveTraceBounds(planeRef.current);
     commitCamera(
       activeBounds
-        ? fitTraceCameraToBounds(sizes.viewport, sizes.world, activeBounds)
+        ? fitTraceCameraToBounds(
+            sizes.viewport,
+            sizes.world,
+            activeBounds,
+            undefined,
+            minimumReadableScale,
+          )
         : fitTraceCamera(sizes.viewport, sizes.world),
     );
-  }, [cancelInertia, commitCamera, measureSizes]);
+  }, [cancelInertia, commitCamera, measureSizes, minimumReadableScale]);
 
   const zoomAt = useCallback(
     (scale: number, point: TracePoint) => {
@@ -169,10 +177,11 @@ export function useTraceCamera(
           point,
           sizes.viewport,
           sizes.world,
+          minimumReadableScale,
         ),
       );
     },
-    [cancelInertia, commitCamera, measureSizes],
+    [cancelInertia, commitCamera, measureSizes, minimumReadableScale],
   );
 
   const zoomBy = useCallback(
@@ -396,6 +405,7 @@ export function useTraceCamera(
           },
           geometry.viewport,
           geometry.world,
+          minimumReadableScale,
         ),
       );
       if (wheelCommitTimerRef.current !== null) {
@@ -416,7 +426,7 @@ export function useTraceCamera(
       }
       wheelGeometryRef.current = null;
     };
-  }, [applyCamera, cancelInertia, measureSizes]);
+  }, [applyCamera, cancelInertia, measureSizes, minimumReadableScale]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -425,14 +435,27 @@ export function useTraceCamera(
     const updateBounds = () => {
       const sizes = measureSizes();
       if (!sizes) return;
+      const previousSizes = sizesRef.current;
       sizesRef.current = sizes;
       wheelGeometryRef.current = null;
-      if (!initializedRef.current) {
+      const viewportChanged =
+        previousSizes !== null &&
+        (Math.abs(previousSizes.viewport.width - sizes.viewport.width) > 8 ||
+          Math.abs(previousSizes.viewport.height - sizes.viewport.height) > 8);
+      const worldChanged = worldRevisionRef.current !== worldRevision;
+      worldRevisionRef.current = worldRevision;
+      if (!initializedRef.current || viewportChanged || worldChanged) {
         initializedRef.current = true;
         const activeBounds = measureActiveTraceBounds(plane);
         commitCamera(
           activeBounds
-            ? fitTraceCameraToBounds(sizes.viewport, sizes.world, activeBounds)
+            ? fitTraceCameraToBounds(
+                sizes.viewport,
+                sizes.world,
+                activeBounds,
+                undefined,
+                minimumReadableScale,
+              )
             : fitTraceCamera(sizes.viewport, sizes.world),
         );
       } else {
@@ -449,7 +472,7 @@ export function useTraceCamera(
       observer.disconnect();
       window.cancelAnimationFrame(frame);
     };
-  }, [commitCamera, measureSizes, worldRevision]);
+  }, [commitCamera, measureSizes, minimumReadableScale, worldRevision]);
 
   useEffect(() => {
     const plane = planeRef.current;

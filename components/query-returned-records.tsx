@@ -19,7 +19,7 @@ export function QueryReturnedRecords({
   return (
     <details className="query-returned-records">
       <summary>
-        <span>Source records</span>
+        <span>View {query.returnedRecords.length} source records</span>
         <strong>{query.returnedRecords.length}</strong>
         <small>
           of {query.matchedRecordCount} matched · {formatCount(scanned)}{" "}

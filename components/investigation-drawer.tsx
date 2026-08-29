@@ -114,7 +114,9 @@ export function InvestigationDrawer({
       onToggle={(event) => onOpenChange(event.currentTarget.open)}
       open={open}
     >
-      <summary>
+      <summary
+        aria-label={`Evidence and case notes, ${findings.length} ${findings.length === 1 ? "result" : "results"}`}
+      >
         <span className="drawer-summary-label">Results &amp; notes</span>
         <strong>
           {findings.length === 0
@@ -190,6 +192,19 @@ export function InvestigationDrawer({
           )}
         </section>
 
+        {state.report.status !== "unavailable" ? (
+          <section className="drawer-section findings-tray-report">
+            <header className="drawer-section-heading">
+              <div>
+                <span>Case closure</span>
+                <h2>Evidence report</h2>
+              </div>
+              <small>Review before approval</small>
+            </header>
+            <CaseReportPanel fixture={fixture} state={state} />
+          </section>
+        ) : null}
+
         <section className="drawer-section drawer-activity-notes">
           <header className="drawer-section-heading">
             <div>
@@ -230,19 +245,6 @@ export function InvestigationDrawer({
             </p>
           )}
         </section>
-
-        {state.report.status !== "unavailable" ? (
-          <section className="drawer-section findings-tray-report">
-            <header className="drawer-section-heading">
-              <div>
-                <span>Case closure</span>
-                <h2>Evidence report</h2>
-              </div>
-              <small>Review before approval</small>
-            </header>
-            <CaseReportPanel fixture={fixture} state={state} />
-          </section>
-        ) : null}
 
         {selectionDetails ? (
           <details className="findings-context-disclosure">

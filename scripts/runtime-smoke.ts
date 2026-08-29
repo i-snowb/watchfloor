@@ -221,112 +221,145 @@ async function endpointPath(): Promise<void> {
   );
   await op(endpoint, 5, "run_investigation_query", "webmcp_callback", {
     expectedRevision: 2,
-    queryId: "QRY-ENDPOINT-HOST-02",
+    queryId: "QRY-ENDPOINT-HASH-10",
   });
   await op(endpoint, 6, "run_investigation_query", "webmcp_callback", {
     expectedRevision: 3,
-    queryId: "QRY-ENDPOINT-IDENTITY-03",
+    queryId: "QRY-ENDPOINT-HOST-02",
   });
   await op(endpoint, 7, "run_investigation_query", "webmcp_callback", {
     expectedRevision: 4,
+    queryId: "QRY-ENDPOINT-IDENTITY-03",
+  });
+  await op(endpoint, 8, "run_investigation_query", "webmcp_callback", {
+    expectedRevision: 5,
     queryId: "QRY-ENDPOINT-EGRESS-04",
   });
-  await op(endpoint, 8, "release_next_synthetic_signal", "analyst_control", {
-    expectedRevision: 5,
-  });
-  await op(endpoint, 9, "run_investigation_query", "webmcp_callback", {
+  await op(endpoint, 9, "release_next_synthetic_signal", "analyst_control", {
     expectedRevision: 6,
+  });
+  await op(endpoint, 10, "run_investigation_query", "webmcp_callback", {
+    expectedRevision: 7,
     queryId: "QRY-ENDPOINT-APP-05",
   });
   rejected(
     await op(
       endpoint,
-      10,
+      11,
       "record_evidence_decision",
       "webmcp_callback",
       {
-        expectedRevision: 7,
+        expectedRevision: 8,
         decision: "confirmed_malicious",
         rationale: "Analyst-only decision boundary.",
       },
       false,
     ),
     "SURFACE_NOT_ALLOWED",
-    7,
+    8,
   );
-  await op(endpoint, 11, "record_evidence_decision", "analyst_control", {
-    expectedRevision: 7,
+  await op(endpoint, 12, "record_evidence_decision", "analyst_control", {
+    expectedRevision: 8,
     decision: "confirmed_malicious",
     rationale:
       "Unsigned execution, repeated egress, out-of-scope authentication, blocked remote service control, and a credential read meet the synthetic containment threshold.",
   });
-  await op(endpoint, 12, "calculate_reachability", "webmcp_callback", {
-    expectedRevision: 8,
+  await op(endpoint, 13, "calculate_reachability", "webmcp_callback", {
+    expectedRevision: 9,
     fromEntityId: "endpoint:fin-ws-044",
     maxDepth: 6,
   });
-  await op(endpoint, 13, "simulate_control", "webmcp_callback", {
-    expectedRevision: 9,
+  await op(endpoint, 14, "simulate_control", "webmcp_callback", {
+    expectedRevision: 10,
     control: "isolate_compromised_path",
   });
 
-  const contain = await responsePath(endpoint, 14, 10, "contain_endpoint");
+  const containment = await op(
+    endpoint,
+    15,
+    "prepare_response_bundle",
+    "webmcp_callback",
+    { expectedRevision: 11, bundleId: "containment" },
+  );
+  const containmentProposalId = containment.snapshot.state.responseBundle?.id;
+  assert.equal(typeof containmentProposalId, "string");
   rejected(
     await op(
       endpoint,
-      17,
-      "authorize_response_action",
+      16,
+      "authorize_response_bundle",
       "webmcp_callback",
       {
         expectedRevision: 12,
-        actionId: "contain_endpoint",
-        proposalId: contain,
-        acknowledgement: "AUTHORIZE_SYNTHETIC_RESPONSE",
+        bundleId: "containment",
+        proposalId: containmentProposalId,
+        acknowledgement: "AUTHORIZE_SYNTHETIC_BUNDLE",
       },
       false,
     ),
     "SURFACE_NOT_ALLOWED",
     12,
   );
-  await authorize(endpoint, 18, 12, "contain_endpoint", contain);
-  const identity = await responsePath(
-    endpoint,
-    19,
-    13,
-    "disable_service_identity",
-  );
-  await authorize(endpoint, 22, 15, "disable_service_identity", identity);
-  await op(endpoint, 23, "release_next_synthetic_signal", "analyst_control", {
-    expectedRevision: 16,
+  await op(endpoint, 17, "authorize_response_bundle", "analyst_control", {
+    expectedRevision: 12,
+    bundleId: "containment",
+    proposalId: containmentProposalId,
+    acknowledgement: "AUTHORIZE_SYNTHETIC_BUNDLE",
   });
-  await op(endpoint, 24, "run_investigation_query", "webmcp_callback", {
-    expectedRevision: 17,
+  await op(endpoint, 18, "request_next_observation", "webmcp_callback", {
+    expectedRevision: 13,
+    stageId: "STREAM-LAT-02",
+    rationale: "Request credential and workload recovery evidence.",
+  });
+  await op(endpoint, 19, "release_next_synthetic_signal", "analyst_control", {
+    expectedRevision: 14,
+  });
+  await op(endpoint, 20, "run_investigation_query", "webmcp_callback", {
+    expectedRevision: 15,
     queryId: "QRY-ENDPOINT-SECRET-06",
   });
-  await op(endpoint, 25, "run_investigation_query", "webmcp_callback", {
-    expectedRevision: 18,
+  await op(endpoint, 21, "run_investigation_query", "webmcp_callback", {
+    expectedRevision: 16,
     queryId: "QRY-ENDPOINT-WORKLOAD-07",
   });
-  const rotate = await responsePath(
+  const recovery = await op(
     endpoint,
-    26,
-    19,
-    "rotate_deployment_credential",
-  );
-  await authorize(endpoint, 29, 21, "rotate_deployment_credential", rotate);
-  const rollback = await responsePath(
-    endpoint,
-    30,
     22,
-    "rollback_workload_image",
+    "prepare_response_bundle",
+    "webmcp_callback",
+    { expectedRevision: 17, bundleId: "recovery" },
   );
-  await authorize(endpoint, 33, 24, "rollback_workload_image", rollback);
+  const recoveryProposalId = recovery.snapshot.state.responseBundle?.id;
+  assert.equal(typeof recoveryProposalId, "string");
+  rejected(
+    await op(
+      endpoint,
+      23,
+      "authorize_response_bundle",
+      "webmcp_callback",
+      {
+        expectedRevision: 18,
+        bundleId: "recovery",
+        proposalId: recoveryProposalId,
+        acknowledgement: "AUTHORIZE_SYNTHETIC_BUNDLE",
+      },
+      false,
+    ),
+    "SURFACE_NOT_ALLOWED",
+    18,
+  );
+  await op(endpoint, 24, "authorize_response_bundle", "analyst_control", {
+    expectedRevision: 18,
+    bundleId: "recovery",
+    proposalId: recoveryProposalId,
+    acknowledgement: "AUTHORIZE_SYNTHETIC_BUNDLE",
+  });
   const drafted = await op(
     endpoint,
-    34,
+    25,
     "generate_case_report",
     "webmcp_callback",
-    { expectedRevision: 25 },
+    { expectedRevision: 19 },
   );
   assert.equal(
     drafted.snapshot.state.report.report?.id,
@@ -335,32 +368,32 @@ async function endpointPath(): Promise<void> {
   rejected(
     await op(
       endpoint,
-      35,
+      26,
       "approve_case_report",
       "webmcp_callback",
       {
-        expectedRevision: 26,
+        expectedRevision: 20,
         reportId: "REPORT-ENDPOINT-0448",
         acknowledgement: "APPROVE_SYNTHETIC_REPORT",
       },
       false,
     ),
     "SURFACE_NOT_ALLOWED",
-    26,
+    20,
   );
   const final = await op(
     endpoint,
-    36,
+    27,
     "approve_case_report",
     "analyst_control",
     {
-      expectedRevision: 26,
+      expectedRevision: 20,
       reportId: "REPORT-ENDPOINT-0448",
       acknowledgement: "APPROVE_SYNTHETIC_REPORT",
     },
   );
   const { state } = final.snapshot;
-  assert.equal(state.revision, 27);
+  assert.equal(state.revision, 21);
   assert.equal(state.lifecycle, "closed_in_demo");
   assert.equal(state.decision.status, "confirmed_malicious");
   assert.deepEqual(state.releasedStreamStageIds, [
@@ -371,7 +404,7 @@ async function endpointPath(): Promise<void> {
   assert.equal(state.counterfactualAttached, true);
   assert.deepEqual(
     state.responseActions.map((action) => action.status),
-    Array(4).fill("authorized_in_demo"),
+    Array(6).fill("authorized_in_demo"),
   );
   assert.equal(state.report.status, "approved_in_demo");
   assert.equal(state.report.report?.id, "REPORT-ENDPOINT-0448");
@@ -380,55 +413,14 @@ async function endpointPath(): Promise<void> {
     "confirmed_malicious_synthetic",
   );
   assert.deepEqual(state.report.report?.actionIds, [
+    "collect_endpoint_forensics",
     "contain_endpoint",
+    "block_network_indicator",
     "disable_service_identity",
     "rotate_deployment_credential",
     "rollback_workload_image",
   ]);
-  assert.equal(state.report.report?.evidenceIds.length, 26);
-}
-
-async function responsePath(
-  caseId: string,
-  n: number,
-  revision: number,
-  actionId: string,
-): Promise<string> {
-  const proposal = await op(
-    caseId,
-    n,
-    "propose_response_action",
-    "webmcp_callback",
-    {
-      expectedRevision: revision,
-      actionId,
-      reasoning: `Fixture-defined synthetic response for ${actionId}.`,
-    },
-  );
-  const proposalId = proposal.snapshot.state.responseProposal?.id;
-  if (typeof proposalId !== "string") {
-    throw new Error(`Missing proposal ID for ${actionId}.`);
-  }
-  await op(caseId, n + 1, "simulate_response_action", "webmcp_callback", {
-    expectedRevision: revision + 1,
-    actionId,
-  });
-  return proposalId;
-}
-
-async function authorize(
-  caseId: string,
-  n: number,
-  revision: number,
-  actionId: string,
-  proposalId: string,
-): Promise<void> {
-  await op(caseId, n, "authorize_response_action", "analyst_control", {
-    expectedRevision: revision,
-    actionId,
-    proposalId,
-    acknowledgement: "AUTHORIZE_SYNTHETIC_RESPONSE",
-  });
+  assert.equal(state.report.report?.evidenceIds.length, 27);
 }
 
 await request<CaseApiResponse>(`/api/cases/${cloud}`);

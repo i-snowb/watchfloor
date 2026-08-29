@@ -101,8 +101,9 @@ export function zoomTraceCameraAt(
   pointer: TracePoint,
   viewport: TraceSize,
   world: TraceSize,
+  minimumScale = TRACE_MIN_SCALE,
 ): TraceCamera {
-  const scale = clampTraceScale(nextScale);
+  const scale = clampTraceScale(Math.max(minimumScale, nextScale));
   const worldX = (pointer.x - camera.x) / camera.scale;
   const worldY = (pointer.y - camera.y) / camera.scale;
 

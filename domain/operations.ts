@@ -381,23 +381,27 @@ export function getResponseBundles(
   if (containment.length > 0) {
     bundles.push({
       id: "containment",
-      title: "Contain origin and exposed identity",
+      title: "Preserve evidence and contain exposed paths",
       actionIds: containment.map((action) => action.id),
-      targetEntityIds: containment.map((action) => action.targetEntityId),
+      targetEntityIds: [
+        ...new Set(containment.map((action) => action.targetEntityId)),
+      ],
       reasoning:
-        "Prepare the currently supported containment controls and model their combined effect before analyst authorization.",
-      approvalPrompt: "Authorize the prepared simulated containment package?",
+        "Prepare forensic collection, endpoint isolation, exact-indicator blocking, and identity disablement before analyst approval.",
+      approvalPrompt: "Approve the prepared simulated containment package?",
     });
   }
   if (recovery.length > 0) {
     bundles.push({
       id: "recovery",
-      title: "Rotate exposed access and restore known-good state",
+      title: "Rotate exposed access and restore known-good service",
       actionIds: recovery.map((action) => action.id),
-      targetEntityIds: recovery.map((action) => action.targetEntityId),
+      targetEntityIds: [
+        ...new Set(recovery.map((action) => action.targetEntityId)),
+      ],
       reasoning:
         "Prepare the supported credential and workload recovery controls in dependency order before analyst authorization.",
-      approvalPrompt: "Authorize the prepared simulated recovery package?",
+      approvalPrompt: "Approve the prepared simulated recovery package?",
     });
   }
   return bundles;
@@ -583,30 +587,6 @@ export function getDerivedNextStep(
     };
   }
 
-  const nextVisibleEnrichment = visibleEnrichments.find(
-    (artifact) => !attached.has(artifact.id),
-  );
-  if (nextVisibleEnrichment) {
-    const query = fixture.investigationQueries.find(
-      (candidate) =>
-        candidate.resultArtifactId === nextVisibleEnrichment.id &&
-        (candidate.requiresStageId === null ||
-          state.releasedStreamStageIds.includes(candidate.requiresStageId)),
-    );
-    return {
-      phase: "inspect",
-      objective: query
-        ? query.title
-        : `Attach ${nextVisibleEnrichment.title.toLowerCase()} for ${labelForEntity(fixture, nextVisibleEnrichment.entityId)}.`,
-      recommendedTool: query
-        ? state.preparedQuery?.queryId === query.id
-          ? "run_investigation_query"
-          : "prepare_investigation_query"
-        : nextVisibleEnrichment.toolName,
-      targetEntityId: nextVisibleEnrichment.entityId,
-    };
-  }
-
   if (state.decision.status === "pending") {
     const hiddenDecisionContext = fixture.decision.requiresEnrichmentIds.some(
       (artifactId) =>
@@ -635,6 +615,30 @@ export function getDerivedNextStep(
       objective: fixture.decision.question,
       recommendedTool: null,
       targetEntityId: fixture.reachability.sourceEntityId,
+    };
+  }
+
+  const nextVisibleEnrichment = visibleEnrichments.find(
+    (artifact) => !attached.has(artifact.id),
+  );
+  if (nextVisibleEnrichment) {
+    const query = fixture.investigationQueries.find(
+      (candidate) =>
+        candidate.resultArtifactId === nextVisibleEnrichment.id &&
+        (candidate.requiresStageId === null ||
+          state.releasedStreamStageIds.includes(candidate.requiresStageId)),
+    );
+    return {
+      phase: "inspect",
+      objective: query
+        ? query.title
+        : `Attach ${nextVisibleEnrichment.title.toLowerCase()} for ${labelForEntity(fixture, nextVisibleEnrichment.entityId)}.`,
+      recommendedTool: query
+        ? state.preparedQuery?.queryId === query.id
+          ? "run_investigation_query"
+          : "prepare_investigation_query"
+        : nextVisibleEnrichment.toolName,
+      targetEntityId: nextVisibleEnrichment.entityId,
     };
   }
 

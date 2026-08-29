@@ -64,6 +64,19 @@ DeviceProcessEvents
 | order by Timestamp desc
 | take 100`,
   },
+  "QRY-ENDPOINT-HASH-10": {
+    language: "KQL",
+    text: `let sample_sha256 = "65fb21f3b3b11f7a7d45f31965dad35935e6d9c860ca6f618999510db74260b9";
+let start_time = datetime(2026-05-30T00:00:00Z);
+let end_time = datetime(2026-08-28T14:05:24Z);
+ArchivedThreatIntelligenceSnapshot
+| where Timestamp between (start_time .. end_time)
+| where FileHashValue == sample_sha256
+| join kind=leftouter EnterpriseFilePrevalenceSnapshot on $left.FileHashValue == $right.SHA256
+| project Timestamp, FileHashValue, ThreatType, ConfidenceScore, DeviceCount30d, FirstSeen
+| order by Timestamp desc
+| take 50`,
+  },
   "QRY-ENDPOINT-STATIC-08": {
     language: "KQL",
     text: `let start_time = datetime(2026-08-28T14:05:20Z);

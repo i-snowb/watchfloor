@@ -99,6 +99,16 @@ export function CaseCommandBar({
   );
   const investigationOpen =
     state.decision.status === "pending" && !decisionReady;
+  const nextTier1Step = fixture.tier1Escalation.recommendedSteps.find(
+    (step) =>
+      step.completionArtifactId === null ||
+      !state.attachedEnrichmentIds.includes(step.completionArtifactId),
+  );
+  const nextTier1Entity = nextTier1Step
+    ? getAllEntities(fixture).find(
+        (entity) => entity.id === nextTier1Step.entityId,
+      )
+    : null;
   const [preferredQueryId, setPreferredQueryId] = useState<string | null>(null);
   const activityQuery =
     investigationActivity.status !== "idle"
@@ -160,10 +170,31 @@ export function CaseCommandBar({
 
   if (investigationOpen) {
     return (
-      <div className="query-console-cue" role="status">
-        <span>Investigation query</span>
-        <strong>Select an entity on the map to open its queries.</strong>
-      </div>
+      <button
+        className="query-console-cue"
+        disabled={!nextTier1Step}
+        onClick={() => {
+          if (nextTier1Step) {
+            onSelect({ kind: "entity", id: nextTier1Step.entityId });
+          }
+        }}
+        title={fixture.tier1Escalation.escalationReason}
+        type="button"
+      >
+        <span>Tier 1 handoff</span>
+        <strong>
+          {nextTier1Step
+            ? `${nextTier1Step.label}${nextTier1Entity ? ` · ${nextTier1Entity.label}` : ""}`
+            : "Review escalation evidence"}
+        </strong>
+        <small>
+          {fixture.tier1Escalation.observations
+            .slice(0, 2)
+            .map((observation) => observation.title)
+            .join(" · ")}
+        </small>
+        <em>Response locked</em>
+      </button>
     );
   }
 
@@ -352,7 +383,7 @@ function CommandControls({
         }
         type="button"
       >
-        Authorize {bundle?.id ?? "response"} package
+        Approve simulated {bundle?.id ?? "response"} package
       </button>
     );
   }
@@ -487,7 +518,7 @@ function CommandControls({
           }
           type="button"
         >
-          Run copilot evidence plan
+          Run evidence plan
         </button>
       );
     }
@@ -876,19 +907,25 @@ function impactSummary(fixture: CaseFixture, state: CaseState): string {
 }
 
 function authorizationLabel(action: ResponseActionDefinition): string {
+  if (action.id === "collect_endpoint_forensics") {
+    return "Approve collection: FIN-WS-044 forensic triage";
+  }
   if (action.id === "contain_endpoint") {
-    return "Authorize containment: FIN-WS-044";
+    return "Approve isolation: FIN-WS-044";
+  }
+  if (action.id === "block_network_indicator") {
+    return "Approve egress block: 203.0.113.91";
   }
   if (action.id === "disable_service_identity") {
-    return "Authorize identity disablement: svc-fin-reports";
+    return "Approve identity disablement: svc-fin-reports";
   }
   if (action.id === "rotate_deployment_credential") {
-    return "Authorize credential rotation: ci/deploy/production";
+    return "Approve credential rotation: ci/deploy/production";
   }
   if (action.id === "rollback_workload_image") {
-    return "Authorize recovery: billing-api";
+    return "Approve known-good redeploy: billing-api";
   }
-  return `Authorize: ${action.title}`;
+  return `Approve: ${action.title}`;
 }
 
 function commandOwnerLabel(owner: CommandOwner): string {
