@@ -34,6 +34,7 @@ interface CaseCommandBarProps {
   onReset: () => void;
   onSelect: (selection: TraceSelection) => void;
   selection: TraceSelection;
+  showInvestigationControls: boolean;
 }
 
 type CommandOwner = "agent" | "analyst" | "evidence" | "complete";
@@ -49,6 +50,7 @@ export function CaseCommandBar({
   onReset,
   onSelect,
   selection,
+  showInvestigationControls,
 }: CaseCommandBarProps) {
   const nextStep = getDerivedNextStep(fixture, state);
   const releasedStageCount = state.releasedStreamStageIds.length;
@@ -95,19 +97,10 @@ export function CaseCommandBar({
     state,
     selection,
   );
-  const recommendedQuery = findNextInvestigationQuery(
-    fixture,
-    state,
-    nextStep.recommendedTool,
-    derivedTarget?.id ?? null,
-  );
   const investigationOpen =
     state.decision.status === "pending" && !decisionReady;
-  const nextQuery = investigationOpen
-    ? (selectedQuery ?? recommendedQuery)
-    : null;
-  const analystPivot =
-    selectedQuery !== null && selectedQuery.id !== recommendedQuery?.id;
+  const nextQuery =
+    investigationOpen && showInvestigationControls ? selectedQuery : null;
   const nextTarget = nextQuery
     ? (getAllEntities(fixture).find(
         (entity) => entity.id === nextQuery.targetEntityId,
@@ -133,20 +126,19 @@ export function CaseCommandBar({
       >
         <div className="case-command-next">
           <div className="case-command-label">
-            <span>{analystPivot ? "Selected investigation" : "Next step"}</span>
+            <span>Investigate selection</span>
             <small>
-              {requiredContextCount}/
-              {fixture.decision.requiresEnrichmentIds.length} required checks
-              complete
+              {nextTarget
+                ? humanizeSelectionTarget(nextTarget.kind)
+                : "Evidence"}
             </small>
           </div>
           <div className="case-command-copy">
             <h2 id="case-command-heading">{nextQuery.title}</h2>
             <p>
               {nextTarget?.label ?? "Selected item"} ·{" "}
-              {nextQuery.sourceScopes.length} data source
-              {nextQuery.sourceScopes.length === 1 ? "" : "s"} · shared
-              investigation query
+              {nextQuery.sourceScopes.length} source
+              {nextQuery.sourceScopes.length === 1 ? "" : "s"} · bounded query
             </p>
           </div>
           <div className="case-command-control">
@@ -164,17 +156,15 @@ export function CaseCommandBar({
               }}
               type="button"
             >
-              {busy
-                ? "Running investigation"
-                : analystPivot
-                  ? "Run selected query"
-                  : "Run investigation"}
+              {busy ? "Running query" : "Run query"}
             </button>
           </div>
         </div>
       </section>
     );
   }
+
+  if (investigationOpen) return null;
 
   return (
     <section
@@ -496,7 +486,7 @@ function CommandControls({
           }
           type="button"
         >
-          Run next Tier 1 check
+          Run copilot evidence plan
         </button>
       );
     }
@@ -641,36 +631,6 @@ function CommandControls({
   return null;
 }
 
-function findNextInvestigationQuery(
-  fixture: CaseFixture,
-  state: CaseState,
-  nextTool: CaseToolName | null,
-  targetEntityId: string | null,
-) {
-  if (!nextTool) return null;
-  if (nextTool === "run_investigation_plan") {
-    return (
-      fixture.investigationQueries.find(
-        (query) =>
-          !state.attachedEnrichmentIds.includes(query.resultArtifactId) &&
-          (query.requiresStageId === null ||
-            state.releasedStreamStageIds.includes(query.requiresStageId)),
-      ) ?? null
-    );
-  }
-  if (!targetEntityId) return null;
-  return (
-    fixture.investigationQueries.find(
-      (query) =>
-        query.targetEntityId === targetEntityId &&
-        query.toolName === nextTool &&
-        !state.attachedEnrichmentIds.includes(query.resultArtifactId) &&
-        (query.requiresStageId === null ||
-          state.releasedStreamStageIds.includes(query.requiresStageId)),
-    ) ?? null
-  );
-}
-
 function findSelectedInvestigationQuery(
   fixture: CaseFixture,
   state: CaseState,
@@ -685,6 +645,10 @@ function findSelectedInvestigationQuery(
         selectionContainsEntity(fixture, selection, query.targetEntityId),
     ) ?? null
   );
+}
+
+function humanizeSelectionTarget(kind: string): string {
+  return kind.replaceAll("_", " ");
 }
 
 function ResponsePlan({
@@ -856,7 +820,7 @@ function commandDetail(
       )
     : null;
   if (activeState?.status === "simulated") {
-    return `${activeAction?.simulatedEffect ?? ""} Demo authorization only — no external system is contacted.`;
+    return `${activeAction?.simulatedEffect ?? ""} Approval records the simulated response; no external system is contacted.`;
   }
   if (state.decision.status === "pending") {
     return `${requiredContextCount}/${fixture.decision.requiresEnrichmentIds.length} required context records attached.`;
@@ -865,7 +829,7 @@ function commandDetail(
     if (state.observationRequest?.status === "pending") {
       return state.observationRequest.rationale;
     }
-    return `Demo replay · ${state.releasedStreamStageIds.length}/${fixture.stream.stages.length} updates received.`;
+    return `Case replay · ${state.releasedStreamStageIds.length}/${fixture.stream.stages.length} updates received.`;
   }
   if (agentStatus.state === "available") {
     return "Copilot ready. It can run the next case operation through WebMCP.";
@@ -937,7 +901,7 @@ function commandOwnerLabel(owner: CommandOwner): string {
   if (owner === "analyst") return "Analyst approval required";
   if (owner === "evidence") return "Telemetry update";
   if (owner === "complete") return "Case complete";
-  return "Next step";
+  return "Copilot operation";
 }
 
 function commandSequenceLabel(fixture: CaseFixture, state: CaseState): string {

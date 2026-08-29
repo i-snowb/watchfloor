@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ToolApiResponse } from "@/domain/api";
 import {
   createInitialCaseState,
-  getDerivedNextStep,
   getInvestigationPlans,
   getResponseBundles,
   type CaseToolName,
@@ -42,6 +41,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
   const [selection, setSelection] = useState<TraceSelection>(initialSelection);
+  const [analystSelectionActive, setAnalystSelectionActive] = useState(false);
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
   const mainRef = useRef<HTMLElement>(null);
@@ -65,6 +65,9 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     useState<InvestigationActivity>({ status: "idle" });
   const [investigationResult, setInvestigationResult] =
     useState<InvestigationResultView | null>(null);
+  const [liveReceipt, setLiveReceipt] = useState<
+    CaseSnapshot["receipts"][number] | null
+  >(null);
   const [syntheticExpansion, setSyntheticExpansion] = useState<{
     stageId: string;
     revision: number;
@@ -116,13 +119,9 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         const response = await loadCase(fixture.id);
         if (!active) return;
         setSnapshot(response.snapshot);
-        setSelection(
-          getSelectionForState(
-            fixture,
-            response.snapshot.state,
-            initialSelection,
-          ),
-        );
+        setSelection(initialSelection);
+        setAnalystSelectionActive(false);
+        setLiveReceipt(null);
         setBackendReady(true);
       } catch (loadError) {
         if (!active) return;
@@ -210,6 +209,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       });
       if (requestedFocusEntityId) {
         setAgentFocusEntityId(requestedFocusEntityId);
+        setAnalystSelectionActive(false);
         setSelection({ kind: "entity", id: requestedFocusEntityId });
       }
       try {
@@ -235,6 +235,13 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
           setError(response.result.ok ? null : response.result.error.message);
         }
         const receipt = response.snapshot.receipts.at(-1);
+        if (
+          agentRunSequence.current === runSequence &&
+          response.result.ok &&
+          receipt?.status === "completed"
+        ) {
+          setLiveReceipt(receipt);
+        }
         const completedExecution =
           readResponseInvestigationExecution(response) ?? requestedExecution;
         const summary =
@@ -288,6 +295,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         const focusEntityId = readFocusEntityId(response);
         if (focusEntityId && agentRunSequence.current === runSequence) {
           setAgentFocusEntityId(focusEntityId);
+          setAnalystSelectionActive(false);
           setSelection({ kind: "entity", id: focusEntityId });
         }
         return withSharedViewContext(
@@ -419,6 +427,10 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
           input,
         );
         setSnapshot(response.snapshot);
+        const receipt = response.snapshot.receipts.at(-1);
+        if (response.result.ok && receipt?.status === "completed") {
+          setLiveReceipt(receipt);
+        }
         if (
           toolName === "release_next_synthetic_signal" &&
           response.result.ok
@@ -442,7 +454,6 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         }
         if (!response.result.ok) setError(operationErrorMessage(response));
         if (investigation) {
-          const receipt = response.snapshot.receipts.at(-1);
           const completedExecution =
             readResponseInvestigationExecution(response) ?? requestedExecution;
           const summary =
@@ -517,8 +528,10 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     setError(null);
     setInvestigationActivity({ status: "idle" });
     setInvestigationResult(null);
+    setLiveReceipt(null);
     setSyntheticExpansion(null);
     setAgentDrawerOpen(false);
+    setAnalystSelectionActive(false);
     try {
       const response = await resetCase(fixture.id);
       setSnapshot(response.snapshot);
@@ -533,7 +546,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       setError(
         resetError instanceof Error
           ? resetError.message
-          : "The demo could not be reset.",
+          : "The case could not be reset.",
       );
     } finally {
       setBusy(false);
@@ -568,19 +581,17 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
 
   const selectAsAnalyst = useCallback((next: TraceSelection) => {
     setAgentFocusEntityId(null);
+    setAnalystSelectionActive(true);
     setSelection(next);
   }, []);
 
   const latestReceipt = snapshot.receipts.at(-1) ?? null;
   const latestAuthorizationReceipt =
-    [...snapshot.receipts]
-      .reverse()
-      .find(
-        (receipt) =>
-          (receipt.toolName === "authorize_response_action" ||
-            receipt.toolName === "authorize_response_bundle") &&
-          receipt.status === "completed",
-      ) ?? null;
+    liveReceipt &&
+    (liveReceipt.toolName === "authorize_response_action" ||
+      liveReceipt.toolName === "authorize_response_bundle")
+      ? liveReceipt
+      : null;
   const latestStage = fixture.stream.stages[releasedStageCount - 1] ?? null;
   const liveAnnouncement = latestStage
     ? `New telemetry: ${latestStage.title}.`
@@ -622,6 +633,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
                   onReset={() => void handleReset()}
                   onSelect={selectAsAnalyst}
                   selection={selection}
+                  showInvestigationControls={analystSelectionActive}
                   state={snapshot.state}
                   streamPlaying={streamPlaying}
                 />
@@ -632,10 +644,11 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
               fixture={fixture}
               key={`${fixture.id}-workbench-${workbenchEpoch}`}
               latestAuthorizationReceipt={latestAuthorizationReceipt}
-              latestReceipt={latestReceipt}
+              latestReceipt={liveReceipt}
               onSelect={selectAsAnalyst}
               receipts={snapshot.receipts}
               selection={selection}
+              showInvestigationActions={analystSelectionActive}
               state={snapshot.state}
               syntheticExpansion={syntheticExpansion}
             >
@@ -875,20 +888,10 @@ function requireInitialEventId(fixture: CaseFixture): string {
 }
 
 function getInitialSelection(fixture: CaseFixture): TraceSelection {
-  const initialState = createInitialCaseState(fixture);
-  return getSelectionForState(fixture, initialState, {
+  return {
     kind: "event",
     id: requireInitialEventId(fixture),
-  });
-}
-
-function getSelectionForState(
-  fixture: CaseFixture,
-  state: CaseSnapshot["state"],
-  fallback: TraceSelection,
-): TraceSelection {
-  const targetEntityId = getDerivedNextStep(fixture, state).targetEntityId;
-  return targetEntityId ? { kind: "entity", id: targetEntityId } : fallback;
+  };
 }
 
 function withSharedViewContext(

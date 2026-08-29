@@ -178,7 +178,7 @@ export function ReferenceCaseWorkbench({
         setActivity({
           status: "running",
           actor,
-          headline: "Running Tier 1 evidence plan",
+          headline: "Running copilot evidence plan",
           detail: `${formatCount(dossier.queries.reduce((sum, query) => sum + recordsInScope(query), 0))} records`,
         });
         for (const query of dossier.queries) {
@@ -365,7 +365,7 @@ export function ReferenceCaseWorkbench({
               <strong>
                 {attachedQueryIds.length}/{dossier.queries.length} attached
               </strong>
-              <small>Demo analysis sources</small>
+              <small>Synthetic analysis sources</small>
             </header>
             <div>
               {dossier.queries.map((query) => {
@@ -398,7 +398,7 @@ export function ReferenceCaseWorkbench({
                       </dl>
                       <small>
                         {query.workspace === "fixture_artifact"
-                          ? "Malware analysis workspace · demo file · no binary executed"
+                          ? "Malware analysis workspace · synthetic file · no binary executed"
                           : query.caveat}
                       </small>
                     </div>
@@ -685,7 +685,7 @@ function ReferenceCapabilityDrawer({
           <article>
             <span>Can query</span>
             <strong>{dossier.queries.length} evidence insights</strong>
-            <small>Demo data sources</small>
+            <small>Synthetic data sources</small>
           </article>
           <article>
             <span>Can lead</span>
@@ -866,7 +866,7 @@ function createReferenceToolDefinitions(
     create(
       "run_reference_query",
       "Run reference query",
-      "Run one demo query and add its deterministic result to the shared brief.",
+      "Run one bounded query and add its deterministic result to the shared brief.",
       {
         queryId: {
           type: "string",

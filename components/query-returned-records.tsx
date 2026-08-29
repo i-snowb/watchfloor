@@ -19,7 +19,7 @@ export function QueryReturnedRecords({
   return (
     <details className="query-returned-records">
       <summary>
-        <span>View raw query records</span>
+        <span>Source records</span>
         <strong>{query.returnedRecords.length}</strong>
         <small>
           of {query.matchedRecordCount} matched · {formatCount(scanned)}{" "}
@@ -27,7 +27,7 @@ export function QueryReturnedRecords({
         </small>
       </summary>
       <div className="query-returned-records-body">
-        <p>Exact fields returned by this demo query.</p>
+        <p>Exact fields returned by this investigation.</p>
         <ol>
           {query.returnedRecords.map((record) => {
             const entityId = record.entityIds[0] ?? null;

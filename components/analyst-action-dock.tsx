@@ -40,7 +40,7 @@ export function AnalystActionDock({
         className="analyst-action-dock analyst-action-dock-complete"
         aria-label="Case closed"
       >
-        <p>Case closed in demo</p>
+        <p>Case closed</p>
         <Link href="/alerts">Return to case queue</Link>
       </aside>
     );
@@ -50,8 +50,7 @@ export function AnalystActionDock({
     return (
       <DockFrame eyebrow="Analyst approval" title="Approve evidence report">
         <p>
-          The copilot drafted the evidence record. Approval closes this demo
-          case.
+          The copilot drafted the evidence record. Approval closes this case.
         </p>
         <button
           disabled={busy}
@@ -92,7 +91,9 @@ export function AnalystActionDock({
         >
           Authorize package
         </button>
-        <small>Recorded in demo only. No external control is executed.</small>
+        <small>
+          Recorded against synthetic case data. No external control is executed.
+        </small>
       </DockFrame>
     );
   }

@@ -62,6 +62,7 @@ interface EvidenceMapProps {
   latestReceipt?: OperationReceipt | null;
   latestAuthorizationReceipt?: OperationReceipt | null;
   receipts?: readonly OperationReceipt[];
+  showInvestigationActions?: boolean;
   syntheticExpansion?: {
     stageId: string;
     revision: number;
@@ -96,6 +97,7 @@ export function EvidenceMap({
   latestReceipt = null,
   latestAuthorizationReceipt = null,
   receipts = [],
+  showInvestigationActions = false,
   syntheticExpansion = null,
   children,
 }: EvidenceMapProps) {
@@ -435,9 +437,6 @@ export function EvidenceMap({
     mapEntityIds.has(query.targetEntityId),
   );
   const attachedFindingCount = allAttachedQueries.length;
-  const requiredAttachedCount = fixture.decision.requiresEnrichmentIds.filter(
-    (artifactId) => state.attachedEnrichmentIds.includes(artifactId),
-  ).length;
   const visibleEnrichmentById = new Map(
     getVisibleEnrichments(fixture, state).map((artifact) => [
       artifact.id,
@@ -468,6 +467,7 @@ export function EvidenceMap({
     });
   }, []);
   const activeWorkQuery =
+    showInvestigationActions &&
     state.decision.status === "pending" &&
     fixture.decision.requiresEnrichmentIds.some(
       (artifactId) => !state.attachedEnrichmentIds.includes(artifactId),
@@ -633,6 +633,7 @@ export function EvidenceMap({
           fixture={fixture}
           latestReceipt={latestReceipt}
           result={investigationResult}
+          selectedQuery={activeWorkQuery}
           state={state}
         />
         <button
@@ -644,10 +645,7 @@ export function EvidenceMap({
         >
           <span>Findings</span>
           <strong>{attachedFindingCount}</strong>
-          <small>
-            {requiredAttachedCount}/
-            {fixture.decision.requiresEnrichmentIds.length} checks complete
-          </small>
+          <small>Open evidence</small>
         </button>
         <div className="evidence-view-switch" aria-label="Evidence view">
           <button
@@ -703,12 +701,8 @@ export function EvidenceMap({
                 ? "Copilot update"
                 : "Analyst update"}
             </span>
-            <strong>{latestReceipt.resultSummary}</strong>
-            <small>
-              {isQueryExecutionReceipt(latestReceipt)
-                ? "Open returned records"
-                : latestReceipt.title}
-            </small>
+            <strong>{receiptUpdateTitle(latestReceipt)}</strong>
+            <small>{receiptUpdateAction(latestReceipt)}</small>
           </button>
         ) : null}
         <button className="map-skip-link" onClick={openFindings} type="button">
@@ -1322,11 +1316,9 @@ export function EvidenceMap({
                   ? "Copilot"
                   : "Analyst"}
               </span>
-              <code>{latestReceipt.toolName}</code>
-              <small>
-                r{latestReceipt.baseRevision}→r{latestReceipt.resultRevision}
-              </small>
-              <strong>{latestReceipt.resultSummary}</strong>
+              <code>{activityCategory(latestReceipt.toolName)}</code>
+              <small>{formatUtcTime(latestReceipt.occurredAt)}</small>
+              <strong>{receiptUpdateTitle(latestReceipt)}</strong>
             </div>
           ) : null}
         </div>
@@ -1707,7 +1699,7 @@ function TraceSequenceRail({
           ) : null}
           {investigationReceipts.length === 0 && !activeQuery ? (
             <li className="timeline-query-empty">
-              Select an investigation lead to begin.
+              Select an entity to run scoped queries.
             </li>
           ) : null}
         </ol>
@@ -1903,7 +1895,7 @@ function impactAnnouncement(
   severedSegmentCount: number,
 ): string {
   if (authorizedActionCount > 0) {
-    return `Demo controls approved: ${authorizedActionCount} of ${fixture.responseActions.length}. ${severedSegmentCount} risk path${severedSegmentCount === 1 ? "" : "s"} blocked. No external action executed.`;
+    return `Controls approved: ${authorizedActionCount} of ${fixture.responseActions.length}. ${severedSegmentCount} risk path${severedSegmentCount === 1 ? "" : "s"} blocked. No external action executed.`;
   }
   if (state.counterfactualAttached) {
     const count = fixture.counterfactual.severedPathIds.length;
@@ -1913,6 +1905,47 @@ function impactAnnouncement(
     return `Exposure model added: ${fixture.reachability.paths.length} modeled risk paths and ${fixture.impact.atRiskEntityIds.length} entities at risk but not observed.`;
   }
   return "No exposure model is available. The graph shows observed evidence only.";
+}
+
+function receiptUpdateTitle(receipt: OperationReceipt): string {
+  if (
+    isQueryExecutionReceipt(receipt) ||
+    receipt.toolName.startsWith("enrich_")
+  ) {
+    return "New finding attached";
+  }
+  if (receipt.toolName === "calculate_reachability") {
+    return "Exposure map updated";
+  }
+  if (
+    receipt.toolName === "request_next_observation" ||
+    receipt.toolName === "release_next_synthetic_signal"
+  ) {
+    return "New telemetry added";
+  }
+  if (
+    receipt.toolName === "simulate_control" ||
+    receipt.toolName === "simulate_response_action"
+  ) {
+    return "Containment model updated";
+  }
+  if (receipt.toolName.includes("response")) {
+    return "Response plan updated";
+  }
+  if (receipt.toolName === "record_evidence_decision") {
+    return "Decision recorded";
+  }
+  if (receipt.toolName.includes("report")) {
+    return "Evidence report updated";
+  }
+  return "Case updated";
+}
+
+function receiptUpdateAction(receipt: OperationReceipt): string {
+  return isQueryExecutionReceipt(receipt) ||
+    receipt.toolName.startsWith("enrich_")
+    ? "Open findings and source records"
+    : "Open activity notes";
 }
 
 function entityEvidenceState(

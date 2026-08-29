@@ -35,7 +35,7 @@ export function AgentDrawer({
   const registeredCount = outcomes.filter(
     (outcome) => outcome.status === "registered",
   ).length;
-  const authorizedDemoResponses = receipts.filter(
+  const authorizedResponses = receipts.filter(
     (receipt) =>
       receipt.toolName === "authorize_response_action" ||
       receipt.toolName === "authorize_response_bundle",
@@ -109,15 +109,15 @@ export function AgentDrawer({
           </button>
         </div>
         <p className="attribution-note">
-          Operation source labels are client-reported. This public demo does not
-          authenticate analysts or WebMCP callbacks.
+          Operation source labels are client-reported. This case environment
+          does not authenticate analysts or WebMCP callbacks.
         </p>
         <div className="agent-execution-summary">
           <span>
             {registeredCount}/{definitions.length} capabilities registered
           </span>
           <span>{callbackCount} callback receipts</span>
-          <span>{authorizedDemoResponses} response approvals recorded</span>
+          <span>{authorizedResponses} response approvals recorded</span>
           <strong>0 external controls executed</strong>
         </div>
 
@@ -174,7 +174,7 @@ export function AgentDrawer({
                       </div>
                       <div>
                         <dt>Attribution</dt>
-                        <dd>Client-reported · unauthenticated demo</dd>
+                        <dd>Client-reported · unauthenticated attribution</dd>
                       </div>
                       <div>
                         <dt>Status</dt>
@@ -207,7 +207,7 @@ export function AgentDrawer({
               <article>
                 <span>Can simulate</span>
                 <strong>Reach and control effects</strong>
-                <small>Demo models; no external execution</small>
+                <small>Simulated controls; no external execution</small>
               </article>
               <article className="capability-matrix-analyst">
                 <span>Analyst only</span>
@@ -267,7 +267,7 @@ function capabilityEffect(toolName: string): string {
 
 function receiptSurfaceLabel(receipt: OperationReceipt): string {
   if (receipt.toolName === "release_next_synthetic_signal") {
-    return "Demo replay";
+    return "Case replay";
   }
   return receipt.reportedSurface === "webmcp_callback"
     ? "WebMCP callback"

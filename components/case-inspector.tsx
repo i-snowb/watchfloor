@@ -339,7 +339,7 @@ function getSelectionContent(
               .find((action) => action.id === actionState.actionId)
               ?.seversPathIds.includes(path.id);
           })
-            ? "Approved in demo"
+            ? "Recorded approval"
             : "Not authorized",
         },
       ],

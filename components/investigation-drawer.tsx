@@ -94,6 +94,19 @@ export function InvestigationDrawer({
   const evidenceReady =
     requiredAttached === fixture.decision.requiresEnrichmentIds.length;
   const decisionRecorded = state.decision.status !== "pending";
+  const showCaseGate =
+    evidenceReady || decisionRecorded || state.lifecycle === "closed_in_demo";
+  const caseGate =
+    state.lifecycle === "closed_in_demo"
+      ? { label: "Case status", value: "Closed" }
+      : decisionRecorded && handoff.pendingGate
+        ? {
+            label: "Next approval",
+            value: handoff.pendingGate.replaceAll("_", " "),
+          }
+        : decisionRecorded
+          ? { label: "Decision", value: "Recorded" }
+          : { label: "Evidence complete", value: "Analyst review required" };
 
   return (
     <details
@@ -119,45 +132,17 @@ export function InvestigationDrawer({
       </summary>
 
       <div className="investigation-drawer-body findings-tray-body">
-        <nav className="findings-decision-ladder" aria-label="Decision path">
-          <span className={evidenceReady ? "is-complete" : "is-current"}>
-            <small>Required evidence</small>
-            <strong>
-              {requiredAttached}/{fixture.decision.requiresEnrichmentIds.length}{" "}
-              required
-            </strong>
-          </span>
-          <span
-            className={
-              decisionRecorded
-                ? "is-complete"
-                : evidenceReady
-                  ? "is-current"
-                  : ""
-            }
+        {showCaseGate ? (
+          <div
+            className="findings-decision-ladder"
+            aria-label="Current case gate"
           >
-            <small>Decision</small>
-            <strong>{decisionRecorded ? "Recorded" : "Review required"}</strong>
-          </span>
-          <span
-            className={
-              handoff.pendingGate !== null && decisionRecorded
-                ? "is-current"
-                : state.lifecycle === "closed_in_demo"
-                  ? "is-complete"
-                  : ""
-            }
-          >
-            <small>Approval</small>
-            <strong>
-              {handoff.pendingGate
-                ? handoff.pendingGate.replaceAll("_", " ")
-                : state.lifecycle === "closed_in_demo"
-                  ? "Complete"
-                  : "Waiting for evidence"}
-            </strong>
-          </span>
-        </nav>
+            <span className="is-current">
+              <small>{caseGate.label}</small>
+              <strong>{caseGate.value}</strong>
+            </span>
+          </div>
+        ) : null}
         <section
           aria-labelledby="attached-findings-heading"
           className="drawer-section drawer-findings findings-tray-results"
@@ -165,15 +150,15 @@ export function InvestigationDrawer({
         >
           <header className="drawer-section-heading">
             <div>
-              <span>Evidence added by investigation</span>
+              <span>Investigation evidence</span>
               <h2 id="attached-findings-heading" tabIndex={-1}>
-                Query results
+                Findings
               </h2>
             </div>
             <small>
               {findings.length === 0
                 ? "Run a query to add evidence"
-                : "Exact returned records available"}
+                : "Source records available"}
             </small>
           </header>
           {findings.length > 0 ? (
@@ -199,8 +184,8 @@ export function InvestigationDrawer({
             </ol>
           ) : (
             <p className="drawer-empty-state drawer-findings-empty">
-              Select an item in the graph and run an investigation. Results will
-              appear here.
+              No findings are attached. Select an entity and run a scoped query
+              to add evidence and source records.
             </p>
           )}
         </section>
@@ -241,7 +226,7 @@ export function InvestigationDrawer({
             </ol>
           ) : (
             <p className="drawer-empty-state">
-              Copilot work and analyst approvals will appear here.
+              Copilot work and analyst actions will appear here.
             </p>
           )}
         </section>
@@ -339,7 +324,7 @@ function FindingRow({
                 <dt>Attached</dt>
                 <dd>
                   {formatUtcTime(receipt?.occurredAt ?? artifact.timestamp)} ·{" "}
-                  {receipt ? `r${receipt.resultRevision}` : "demo data"}
+                  {receipt ? `r${receipt.resultRevision}` : "case data"}
                 </dd>
               </div>
             </dl>

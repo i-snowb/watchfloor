@@ -4,6 +4,7 @@ import {
   getInvestigationPlans,
   getResponseBundles,
 } from "@/domain/operations";
+import { getAllEntities } from "@/domain/incident-stream";
 import type { CaseFixture, CaseState, OperationReceipt } from "@/domain/types";
 import type {
   InvestigationActivity,
@@ -16,12 +17,14 @@ export function AgentNowRail({
   activity,
   result,
   latestReceipt,
+  selectedQuery,
 }: {
   fixture: CaseFixture;
   state: CaseState;
   activity: InvestigationActivity;
   result: InvestigationResultView | null;
   latestReceipt: OperationReceipt | null;
+  selectedQuery: CaseFixture["investigationQueries"][number] | null;
 }) {
   const content = getAgentNowContent(
     fixture,
@@ -29,6 +32,7 @@ export function AgentNowRail({
     activity,
     result,
     latestReceipt,
+    selectedQuery,
   );
   return (
     <div
@@ -59,6 +63,7 @@ function getAgentNowContent(
   activity: InvestigationActivity,
   result: InvestigationResultView | null,
   latestReceipt: OperationReceipt | null,
+  selectedQuery: CaseFixture["investigationQueries"][number] | null,
 ): {
   state: "idle" | "running" | "result" | "waiting" | "approval" | "closed";
   label: string;
@@ -74,8 +79,7 @@ function getAgentNowContent(
     };
   }
   const next = getDerivedNextStep(fixture, state);
-  const readyQuery = getReadyInvestigationQuery(fixture, state);
-  const nextObjective = readyQuery?.title ?? next.objective;
+  const nextObjective = next.objective;
   if (activity.status === "running") {
     const planProgress =
       activity.toolName === "run_investigation_plan"
@@ -149,7 +153,7 @@ function getAgentNowContent(
             result.receipt,
             planProgress.nextQuery
               ? `Next planned: ${planProgress.nextQuery.title}`
-              : "Tier 1 plan complete",
+              : "Investigation plan complete",
           )
         : aggregate
           ? formatReceiptDetail(
@@ -173,23 +177,23 @@ function getAgentNowContent(
       detail: `Next: ${nextObjective}`,
     };
   }
+  if (selectedQuery) {
+    const target = getAllEntities(fixture).find(
+      (entity) => entity.id === selectedQuery.targetEntityId,
+    );
+    return {
+      state: "idle",
+      label: "Shared focus",
+      headline: `${target?.label ?? "Entity"} selected`,
+      detail: `${selectedQuery.title} is ready`,
+    };
+  }
   return {
     state: "idle",
     label: "Copilot · Ready",
-    headline: "Next step ready",
-    detail: `${requiredEvidenceProgress(fixture, state)} · Run the card or select another item to pivot`,
+    headline: "Select an entity to investigate",
+    detail: "Run a bounded query here or ask the copilot to investigate it",
   };
-}
-
-function getReadyInvestigationQuery(fixture: CaseFixture, state: CaseState) {
-  return (
-    fixture.investigationQueries.find(
-      (query) =>
-        !state.attachedEnrichmentIds.includes(query.resultArtifactId) &&
-        (query.requiresStageId === null ||
-          state.releasedStreamStageIds.includes(query.requiresStageId)),
-    ) ?? null
-  );
 }
 
 function formatReceiptDetail(
@@ -213,16 +217,6 @@ function runningPhaseLabel(
   if (phase === "scope") return "Selecting data sources";
   if (phase === "search") return "Searching case records";
   return "Reviewing matches";
-}
-
-function requiredEvidenceProgress(
-  fixture: CaseFixture,
-  state: CaseState,
-): string {
-  const attached = fixture.decision.requiresEnrichmentIds.filter((id) =>
-    state.attachedEnrichmentIds.includes(id),
-  ).length;
-  return `${attached}/${fixture.decision.requiresEnrichmentIds.length} required checks complete`;
 }
 
 function resultHeadline(

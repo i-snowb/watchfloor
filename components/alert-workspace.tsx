@@ -23,7 +23,9 @@ export function AlertWorkspace({
 }) {
   const fixture = fixtures[0];
   if (!fixture) {
-    throw new Error("The alert queue requires at least one demo fixture.");
+    throw new Error(
+      "The alert queue requires at least one synthetic case fixture.",
+    );
   }
   const router = useRouter();
   const [snapshots, setSnapshots] = useState<Record<string, CaseSnapshot>>(() =>
@@ -550,7 +552,7 @@ function CaseLedgerDetail({
               ),
           ).length;
           return openChecks === 0
-            ? "Evidence checks complete"
+            ? "Evidence review ready"
             : `${openChecks} evidence check${openChecks === 1 ? "" : "s"} open`;
         })(),
         reason: fixture.tier1Escalation.escalationReason,
@@ -695,7 +697,7 @@ function CaseLedgerDetail({
         <footer className="case-sheet-footer">
           <p>
             {item.investigationDepth === "full_response"
-              ? "Complete evidence, response, and report lifecycle. Demo authorization never executes an external control."
+              ? "Complete evidence, response, and report lifecycle. Recorded approval never executes an external control."
               : "Explorable local evidence brief with typed entities, available queries, and explicit limitations. It is not part of the shared response lifecycle."}
           </p>
           {routableCase ? (
@@ -855,8 +857,8 @@ function formatQueueStatus(status: CaseQueueItem["status"]): string {
   if (status === "tier1_triage") return "Tier 1 triage";
   if (status === "investigating") return "Investigating";
   if (status === "response_pending") return "Response pending";
-  if (status === "contained_in_demo") return "Contained in demo";
-  return "Closed in demo";
+  if (status === "contained_in_demo") return "Contained · simulated";
+  return "Closed";
 }
 
 function createAlertToolDefinitions(
@@ -875,7 +877,7 @@ function createAlertToolDefinitions(
       name: "list_case_queue",
       title: "List security case queue",
       description:
-        "Return the demo cases and Tier 1 states visible in the queue.",
+        "Return the synthetic cases and Tier 1 states visible in the queue.",
       inputSchema: {
         type: "object",
         properties: { requestId },

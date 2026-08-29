@@ -502,7 +502,7 @@ function receiptLimitResponse(
       error: {
         code: "RECEIPT_LIMIT_REACHED",
         message:
-          "This demo session reached its 64-operation activity limit. Reset the case to continue.",
+          "This case session reached its 64-operation activity limit. Reset the case to continue.",
         retryable: false,
       },
     },

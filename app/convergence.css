@@ -6555,3 +6555,55 @@ body {
     transition: none;
   }
 }
+
+/* Evidence-first investigation controls. */
+
+.case-view .map-command-dock:empty {
+  display: none;
+}
+
+.case-view .map-command-dock:has(.case-command-query-gate) {
+  bottom: 148px;
+  max-width: 390px;
+  right: 18px;
+  top: auto;
+  width: min(390px, calc(100% - 36px));
+}
+
+.case-view .map-command-dock:has(.case-command-query-gate) .case-command-bar {
+  background: rgba(7, 16, 18, 0.97);
+  border-color: rgba(101, 204, 211, 0.68);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.44);
+}
+
+.case-view .map-command-dock:has(.case-command-query-gate) .case-command-next {
+  min-height: 88px;
+  padding: 11px 12px 12px 14px;
+}
+
+.case-view .map-command-dock:has(.case-command-query-gate) .case-command-label {
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.case-view
+  .map-command-dock:has(.case-command-query-gate)
+  .case-command-label
+  small {
+  color: var(--field-muted);
+  text-transform: capitalize;
+}
+
+.case-view .map-moment {
+  max-width: min(410px, calc(100% - 36px));
+}
+
+@media (max-width: 900px) {
+  .case-view .map-command-dock:has(.case-command-query-gate) {
+    bottom: 152px;
+    left: 18px;
+    right: 18px;
+    top: auto;
+    width: auto;
+  }
+}

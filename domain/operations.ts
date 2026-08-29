@@ -352,7 +352,7 @@ export function getInvestigationPlans(
     id: key === "initial" ? "tier1_initial" : `stage_${index}_verification`,
     title:
       key === "initial"
-        ? "Investigate Tier 1 questions"
+        ? "Resolve escalation evidence gaps"
         : `Investigate ${fixture.stream.stages.find((stage) => stage.id === key)?.title ?? "released telemetry"}`,
     queryIds: queries.map((query) => query.id),
     requiresStageId: key === "initial" ? null : key,
@@ -378,8 +378,7 @@ export function getResponseBundles(
       targetEntityIds: containment.map((action) => action.targetEntityId),
       reasoning:
         "Prepare the currently supported containment controls and model their combined effect before analyst authorization.",
-      approvalPrompt:
-        "Authorize the prepared containment package in this synthetic demo?",
+      approvalPrompt: "Authorize the prepared simulated containment package?",
     });
   }
   if (recovery.length > 0) {
@@ -390,8 +389,7 @@ export function getResponseBundles(
       targetEntityIds: recovery.map((action) => action.targetEntityId),
       reasoning:
         "Prepare the supported credential and workload recovery controls in dependency order before analyst authorization.",
-      approvalPrompt:
-        "Authorize the prepared recovery package in this synthetic demo?",
+      approvalPrompt: "Authorize the prepared simulated recovery package?",
     });
   }
   return bundles;
@@ -463,13 +461,13 @@ export function getCollaborationHandoff(
                     : pendingGate === "report_approval"
                       ? "The evidence-bound report is drafted and awaits analyst approval."
                       : state.lifecycle === "closed_in_demo"
-                        ? "The evidence report and demo actions are approved."
+                        ? "The evidence report and simulated actions are approved."
                         : "The shared case revision determines the next bounded operation.";
   const lastAnalystAction =
     state.report.status === "approved_in_demo"
       ? "Approved the evidence report"
       : authorizedCount > 0
-        ? `Authorized ${authorizedCount} demo control${authorizedCount === 1 ? "" : "s"}`
+        ? `Authorized ${authorizedCount} simulated control${authorizedCount === 1 ? "" : "s"}`
         : state.decision.status !== "pending"
           ? "Recorded the evidence disposition"
           : state.releasedStreamStageIds.length > 0
@@ -2300,7 +2298,7 @@ function executeWrite(
       return fail(
         state,
         toolName,
-        "The demo disposition is immutable after it is recorded. Reset the case to choose a different disposition.",
+        "The recorded disposition is immutable. Reset the case to choose a different disposition.",
         "DECISION_STATE_CONFLICT",
       );
     }

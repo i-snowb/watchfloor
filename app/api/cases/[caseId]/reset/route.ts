@@ -32,7 +32,7 @@ export async function POST(
       {
         error: {
           code: "RESET_UNAVAILABLE",
-          message: "The demo could not be reset.",
+          message: "The case could not be reset.",
         },
       },
       503,

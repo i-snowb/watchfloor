@@ -843,7 +843,7 @@ const cicdCase: ReferenceCase = {
       id: "indicator:203.0.113.42",
       kind: "network",
       label: "203.0.113.42",
-      summary: "Demo self-hosted runner egress",
+      summary: "Self-hosted runner egress",
       x: 510,
       y: 460,
       attributes: [

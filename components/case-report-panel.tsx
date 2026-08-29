@@ -84,7 +84,7 @@ export function CaseReportPanel({ fixture, state }: CaseReportPanelProps) {
         </p>
       ) : (
         <div className="report-closed-state">
-          <strong>Case closed in demo</strong>
+          <strong>Case closed</strong>
           <span>No external system was contacted.</span>
           {fixture.id === "case-cloud-0421" ? (
             <Link href="/cases/case-endpoint-0448">
@@ -104,5 +104,5 @@ function formatReportDisposition(
 ): string {
   return disposition === "authorized_activity_policy_exception"
     ? "Authorized activity · policy exception"
-    : "Confirmed malicious · contained in demo";
+    : "Confirmed malicious · controls authorized";
 }

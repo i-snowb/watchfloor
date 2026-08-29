@@ -96,9 +96,9 @@ export const cloudIdentityScenario = {
       label: "Federated session 921",
       provider: "Okta",
       summary: "WebAuthn-verified session; source approval is unverified",
-      externalSessionId: "00sDEMO921",
+      externalSessionId: "00s9R7K2M921",
       sourceIp: "198.51.100.24",
-      deviceId: "device-demo-391",
+      deviceId: "device-391-jd",
     },
     {
       id: "indicator:198.51.100.24",
@@ -125,7 +125,7 @@ export const cloudIdentityScenario = {
       provider: "AWS Secrets Manager",
       summary: "Database credential read during the privileged export path",
       secretArn:
-        "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db/primary-DEMO",
+        "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db/primary-7F3K",
       classification: "production_credential",
     },
     {
@@ -134,7 +134,7 @@ export const cloudIdentityScenario = {
       label: "customer-export.csv",
       provider: "Amazon S3",
       summary: "Restricted export accessed; change scope unverified",
-      bucket: "trace-demo-customer-exports",
+      bucket: "trace-customer-exports",
       objectKey: "2026-08-27/customer-export.csv",
       classification: "restricted_customer_data",
     },
@@ -154,7 +154,7 @@ export const cloudIdentityScenario = {
       summary: "Jordan Doe started an Okta session.",
       payload: {
         kind: "okta_session_start",
-        externalSessionId: "00sDEMO921",
+        externalSessionId: "00s9R7K2M921",
         clientIp: "198.51.100.24",
         outcome: "SUCCESS",
       },
@@ -173,7 +173,7 @@ export const cloudIdentityScenario = {
       summary: "WebAuthn verification completed for the session.",
       payload: {
         kind: "okta_mfa_verify",
-        externalSessionId: "00sDEMO921",
+        externalSessionId: "00s9R7K2M921",
         factor: "webauthn",
         outcome: "SUCCESS",
       },
@@ -196,7 +196,7 @@ export const cloudIdentityScenario = {
       summary: "Sign-on policy allowed a session with new-country risk.",
       payload: {
         kind: "okta_policy_evaluation",
-        externalSessionId: "00sDEMO921",
+        externalSessionId: "00s9R7K2M921",
         clientIp: "198.51.100.24",
         geoRisk: "new_country",
         outcome: "ALLOW",
@@ -217,7 +217,7 @@ export const cloudIdentityScenario = {
       payload: {
         kind: "aws_assume_role",
         roleArn: "arn:aws:iam::111122223333:role/prod-admin",
-        principalId: "AROADEMO1:jdoe-00sDEMO921",
+        principalId: "AROA7F3K9:jdoe-00s9R7K2M921",
         sourceIdentity: "jdoe",
         sourceIp: "198.51.100.24",
         outcome: "SUCCESS",
@@ -238,9 +238,9 @@ export const cloudIdentityScenario = {
         "The assumed role read the database credential used by the export runbook.",
       payload: {
         kind: "aws_get_secret",
-        principalId: "AROADEMO1:jdoe-00sDEMO921",
+        principalId: "AROA7F3K9:jdoe-00s9R7K2M921",
         secretArn:
-          "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db/primary-DEMO",
+          "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db/primary-7F3K",
         outcome: "SUCCESS",
       },
     },
@@ -258,8 +258,8 @@ export const cloudIdentityScenario = {
       summary: "The assumed role listed the customer-export bucket.",
       payload: {
         kind: "aws_list_bucket",
-        principalId: "AROADEMO1:jdoe-00sDEMO921",
-        bucketName: "trace-demo-customer-exports",
+        principalId: "AROA7F3K9:jdoe-00s9R7K2M921",
+        bucketName: "trace-customer-exports",
         outcome: "SUCCESS",
       },
     },
@@ -277,8 +277,8 @@ export const cloudIdentityScenario = {
       summary: "The assumed role accessed customer-export.csv.",
       payload: {
         kind: "aws_get_object",
-        principalId: "AROADEMO1:jdoe-00sDEMO921",
-        bucketName: "trace-demo-customer-exports",
+        principalId: "AROA7F3K9:jdoe-00s9R7K2M921",
+        bucketName: "trace-customer-exports",
         objectKey: "2026-08-27/customer-export.csv",
         bytesTransferred: 24810392,
         outcome: "SUCCESS",
@@ -306,7 +306,7 @@ export const cloudIdentityScenario = {
       toEntityId: "session:okta-921",
       relation: "authenticated_as",
       matchField: "externalSessionId",
-      matchValue: "00sDEMO921",
+      matchValue: "00s9R7K2M921",
       evidenceIds: ["EVT-OKTA-0001", "EVT-OKTA-0002"],
       label: "Session identifier continuity",
       limitation: "The records identify the account, not the physical user.",
@@ -324,7 +324,7 @@ export const cloudIdentityScenario = {
       toEntityId: "role:prod-admin",
       relation: "federated_into",
       matchField: "principalId",
-      matchValue: "AROADEMO1:jdoe-00sDEMO921",
+      matchValue: "AROA7F3K9:jdoe-00s9R7K2M921",
       evidenceIds: ["EVT-OKTA-0001", "EVT-AWS-0004"],
       label: "Federated principal continuity",
       limitation: "The match links the session and role, not the user intent.",
@@ -342,7 +342,7 @@ export const cloudIdentityScenario = {
       toEntityId: "secret:prod-db-primary",
       relation: "read_secret",
       matchField: "principalId",
-      matchValue: "AROADEMO1:jdoe-00sDEMO921",
+      matchValue: "AROA7F3K9:jdoe-00s9R7K2M921",
       evidenceIds: ["EVT-AWS-0004", "EVT-AWS-0005"],
       label: "Role principal to secret access",
       limitation: "CloudTrail proves the read, not use of the secret value.",
@@ -360,7 +360,7 @@ export const cloudIdentityScenario = {
       toEntityId: "object:customer-export",
       relation: "accessed_object",
       matchField: "principalId",
-      matchValue: "AROADEMO1:jdoe-00sDEMO921",
+      matchValue: "AROA7F3K9:jdoe-00s9R7K2M921",
       evidenceIds: ["EVT-AWS-0004", "EVT-AWS-0007"],
       label: "Role principal to object access",
       limitation: "GetObject proves access, not downstream transfer.",
@@ -373,14 +373,14 @@ export const cloudIdentityScenario = {
       sequence: 12,
       status: "supporting",
       sourceCategory: "identity_directory",
-      sourceLabel: "Demo directory snapshot",
+      sourceLabel: "directory snapshot",
       timestamp: "2026-08-27T09:44:00Z",
       actor: { kind: "system", id: "fixture-directory" },
       entityId: "identity:jdoe",
       title: "Identity and change baseline",
       summary:
         "Jordan owns CHG-2941 and used the assigned device; this supports operator continuity but does not authorize prod-admin.",
-      caveat: "Demo records only; no live identity provider was queried.",
+      caveat: "records only; no live identity provider was queried.",
       toolName: "enrich_identity",
       payload: {
         kind: "identity_baseline",
@@ -396,7 +396,7 @@ export const cloudIdentityScenario = {
       sequence: 13,
       status: "supporting",
       sourceCategory: "network_inventory",
-      sourceLabel: "Demo network inventory",
+      sourceLabel: "network inventory",
       timestamp: "2026-08-27T09:44:15Z",
       actor: { kind: "system", id: "fixture-network-inventory" },
       entityId: "indicator:198.51.100.24",
@@ -421,7 +421,7 @@ export const cloudIdentityScenario = {
       sequence: 14,
       status: "disputed",
       sourceCategory: "cloud_configuration",
-      sourceLabel: "Demo IAM snapshot",
+      sourceLabel: "IAM snapshot",
       timestamp: "2026-08-27T09:44:30Z",
       actor: { kind: "system", id: "fixture-iam" },
       entityId: "role:prod-admin",
@@ -445,7 +445,7 @@ export const cloudIdentityScenario = {
       sequence: 15,
       status: "supporting",
       sourceCategory: "asset_inventory",
-      sourceLabel: "Demo object inventory",
+      sourceLabel: "object inventory",
       timestamp: "2026-08-27T09:44:45Z",
       actor: { kind: "system", id: "fixture-object-inventory" },
       entityId: "object:customer-export",
@@ -478,7 +478,7 @@ export const cloudIdentityScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Demo identity directory",
+          sourceLabel: "identity directory",
           sourceCategory: "identity_directory",
           timeRange: {
             start: "2026-05-29T09:00:00Z",
@@ -487,7 +487,7 @@ export const cloudIdentityScenario = {
           syntheticRecordCount: 420,
         },
         {
-          sourceLabel: "Demo Okta event lake",
+          sourceLabel: "Okta event lake",
           sourceCategory: "identity_telemetry",
           timeRange: {
             start: "2026-07-28T09:00:00Z",
@@ -501,7 +501,7 @@ export const cloudIdentityScenario = {
       returnedRecords: [
         returnedRecord(
           "QRR-CLOUD-IDENTITY-01",
-          "Demo identity directory",
+          "identity directory",
           "2026-08-27T09:22:31Z",
           "Directory assignment",
           ["identity:jdoe"],
@@ -513,7 +513,7 @@ export const cloudIdentityScenario = {
         ),
         returnedRecord(
           "QRR-CLOUD-IDENTITY-02",
-          "Demo Okta event lake",
+          "Okta event lake",
           "2026-08-27T09:22:31Z",
           "Session baseline",
           ["identity:jdoe", "session:okta-921"],
@@ -541,7 +541,7 @@ export const cloudIdentityScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Demo VPN inventory",
+          sourceLabel: "VPN inventory",
           sourceCategory: "network_inventory",
           timeRange: {
             start: "2026-08-20T00:00:00Z",
@@ -550,7 +550,7 @@ export const cloudIdentityScenario = {
           syntheticRecordCount: 86,
         },
         {
-          sourceLabel: "Demo identity session index",
+          sourceLabel: "identity session index",
           sourceCategory: "identity_telemetry",
           timeRange: {
             start: "2026-07-28T00:00:00Z",
@@ -564,7 +564,7 @@ export const cloudIdentityScenario = {
       returnedRecords: [
         returnedRecord(
           "QRR-CLOUD-EGRESS-01",
-          "Demo VPN inventory",
+          "VPN inventory",
           "2026-08-27T09:22:31Z",
           "VPN point of presence",
           ["indicator:198.51.100.24"],
@@ -576,7 +576,7 @@ export const cloudIdentityScenario = {
         ),
         returnedRecord(
           "QRR-CLOUD-EGRESS-02",
-          "Demo identity session index",
+          "identity session index",
           "2026-08-27T09:22:31Z",
           "Session source",
           ["session:okta-921", "indicator:198.51.100.24"],
@@ -605,7 +605,7 @@ export const cloudIdentityScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Demo IAM policy graph",
+          sourceLabel: "IAM policy graph",
           sourceCategory: "cloud_configuration",
           timeRange: {
             start: "2026-08-01T00:00:00Z",
@@ -614,7 +614,7 @@ export const cloudIdentityScenario = {
           syntheticRecordCount: 440,
         },
         {
-          sourceLabel: "Demo CloudTrail role corpus",
+          sourceLabel: "CloudTrail role corpus",
           sourceCategory: "cloud_audit",
           timeRange: {
             start: "2026-05-29T00:00:00Z",
@@ -628,7 +628,7 @@ export const cloudIdentityScenario = {
       returnedRecords: [
         returnedRecord(
           "QRR-CLOUD-ROLE-01",
-          "Demo IAM policy graph",
+          "IAM policy graph",
           "2026-08-27T09:43:00Z",
           "Role policy",
           ["role:prod-admin"],
@@ -640,7 +640,7 @@ export const cloudIdentityScenario = {
         ),
         returnedRecord(
           "QRR-CLOUD-ROLE-02",
-          "Demo IAM policy graph",
+          "IAM policy graph",
           "2026-08-27T09:43:00Z",
           "Approved workflow role",
           ["role:prod-admin"],
@@ -652,7 +652,7 @@ export const cloudIdentityScenario = {
         ),
         returnedRecord(
           "QRR-CLOUD-ROLE-03",
-          "Demo CloudTrail role corpus",
+          "CloudTrail role corpus",
           "2026-08-27T09:43:00Z",
           "Comparable role use",
           ["identity:jdoe", "role:prod-admin"],
@@ -665,7 +665,8 @@ export const cloudIdentityScenario = {
       ],
       resultChange:
         "prod-admin exceeds the scoped export role; the change reference alone cannot authorize that role.",
-      caveat: "This demo does not evaluate every AWS policy condition.",
+      caveat:
+        "This bounded analysis does not evaluate every AWS policy condition.",
     },
     {
       id: "QRY-CLOUD-EXPORT-04",
@@ -679,7 +680,7 @@ export const cloudIdentityScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Demo restricted-object audit",
+          sourceLabel: "restricted-object audit",
           sourceCategory: "cloud_audit",
           timeRange: {
             start: "2026-08-27T08:30:00Z",
@@ -688,7 +689,7 @@ export const cloudIdentityScenario = {
           syntheticRecordCount: 218,
         },
         {
-          sourceLabel: "Demo change and object inventory",
+          sourceLabel: "change and object inventory",
           sourceCategory: "asset_inventory",
           timeRange: {
             start: "2026-05-29T00:00:00Z",
@@ -702,7 +703,7 @@ export const cloudIdentityScenario = {
       returnedRecords: [
         returnedRecord(
           "QRR-CLOUD-EXPORT-01",
-          "Demo restricted-object audit",
+          "restricted-object audit",
           "2026-08-27T09:43:00Z",
           "Object access",
           ["role:prod-admin", "object:customer-export"],
@@ -714,7 +715,7 @@ export const cloudIdentityScenario = {
         ),
         returnedRecord(
           "QRR-CLOUD-EXPORT-02",
-          "Demo change and object inventory",
+          "change and object inventory",
           "2026-08-27T09:43:00Z",
           "Change scope",
           ["identity:jdoe", "object:customer-export"],
@@ -851,7 +852,7 @@ export const cloudIdentityScenario = {
     sourceCategory: "analyst_judgment",
     sourceLabel: "Analyst decision",
     timestamp: "2026-08-27T09:45:00Z",
-    actor: { kind: "analyst", id: "demo-analyst" },
+    actor: { kind: "analyst", id: "analyst-01" },
     question:
       "Does CHG-2941 authorize this export after correcting for prod-admin use?",
     options: [

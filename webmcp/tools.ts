@@ -280,7 +280,7 @@ export function createCaseToolDefinitions(
     definition(
       "get_case_context",
       "Read case context",
-      "Return case revision, Tier 1 observations and recommendations, attached context, blockers, and the derived next investigation step.",
+      "Return the case revision, Tier 1 observations and unresolved gaps, attached evidence, blockers, and available investigations.",
       {},
       [],
       true,
@@ -413,15 +413,15 @@ export function createCaseToolDefinitions(
       ? [
           definition(
             "run_investigation_plan",
-            "Run next planned investigation",
-            "Advance the selected Tier 1 plan with its next unresolved bounded evidence step over released synthetic data. Use a specific investigation query when the analyst asks to test one named question.",
+            "Run copilot investigation plan",
+            "Run the next unresolved bounded query selected by the copilot over released case data. Use a specific investigation query when the analyst asks to test one named question.",
             {
               expectedRevision: revision,
               planId: {
                 type: "string",
                 enum: availablePlans.map((plan) => plan.id),
                 description:
-                  "Available question set returned by get_case_context; Tier 1 recommends it but does not execute it.",
+                  "Available evidence plan returned by get_case_context. Tier 1 supplied the gaps; the copilot chooses and runs the queries.",
               },
             },
             ["expectedRevision", "planId"],
@@ -671,7 +671,7 @@ export function createCaseToolDefinitions(
           definition(
             "generate_case_report",
             "Generate case evidence report",
-            "Assemble the deterministic visible evidence, disposition, limitations, and authorized demo actions into a draft report. Analyst approval remains required.",
+            "Assemble the visible evidence, disposition, limitations, and approved simulated actions into a draft report. Analyst approval remains required.",
             { expectedRevision: revision },
             ["expectedRevision"],
             false,

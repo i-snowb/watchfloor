@@ -59,7 +59,7 @@ export function PlatformShell({
               ? `Cases · ${queueCount ?? fixture.alerts.length}`
               : "All cases"}
           </Link>
-          <span className="environment-chip">Demo data</span>
+          <span className="environment-chip">Synthetic case data</span>
           <button
             aria-label={agentStatusLabel(agentStatus)}
             className={`agent-chip agent-chip-${agentStatus.state}`}
@@ -85,7 +85,7 @@ export function PlatformShell({
                   }}
                   type="button"
                 >
-                  Reset demo
+                  Reset case
                 </button>
               </div>
             </details>

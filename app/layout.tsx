@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   metadataBase,
   title: "TRACE//LAB · Shared security investigation",
   description:
-    "A deterministic WebMCP security investigation demo for analysts and agents.",
+    "A deterministic WebMCP security investigation workbench for analysts and agents.",
   openGraph: {
     title: "TRACE//LAB",
     description: "Human-led. Agent-speed incident response.",
