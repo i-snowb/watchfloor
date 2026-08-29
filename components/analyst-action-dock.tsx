@@ -48,23 +48,11 @@ export function AnalystActionDock({
 
   if (state.report.status === "drafted" && state.report.report) {
     return (
-      <DockFrame eyebrow="Analyst approval" title="Approve evidence report">
+      <DockFrame eyebrow="Analyst review" title="Evidence report ready">
         <p>
-          The copilot drafted the evidence record. Approval closes this case.
+          Review evidence coverage, recorded response, and known limits in the
+          case report before approval.
         </p>
-        <button
-          disabled={busy}
-          onClick={() =>
-            void onExecute("approve_case_report", {
-              expectedRevision: state.revision,
-              reportId: state.report.report?.id,
-              acknowledgement: "APPROVE_SYNTHETIC_REPORT",
-            })
-          }
-          type="button"
-        >
-          Approve and close
-        </button>
       </DockFrame>
     );
   }

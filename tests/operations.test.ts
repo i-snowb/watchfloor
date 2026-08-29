@@ -5,6 +5,7 @@ import {
   createInitialCaseState,
   executeCaseTool,
   getDerivedNextStep,
+  getInvestigationPlans,
   type CaseToolName,
   type ToolOutcome,
   type ToolSurface,
@@ -56,6 +57,65 @@ function succeed(outcome: ToolOutcome): CaseState {
   return outcome.state;
 }
 
+function runPreparedQuery(
+  fixture: CaseFixture,
+  state: CaseState,
+  queryId: string,
+  reportedSurface: ToolSurface = "webmcp_callback",
+): ToolOutcome {
+  const prepared =
+    state.preparedQuery?.queryId === queryId
+      ? state
+      : succeed(
+          execute(
+            fixture,
+            state,
+            "prepare_investigation_query",
+            { expectedRevision: state.revision, queryId },
+            reportedSurface,
+          ),
+        );
+  return execute(
+    fixture,
+    prepared,
+    "run_investigation_query",
+    { expectedRevision: prepared.revision, queryId },
+    reportedSurface,
+  );
+}
+
+function runPreparedPlan(
+  fixture: CaseFixture,
+  state: CaseState,
+  planId: string,
+  queryId: string,
+  reportedSurface: ToolSurface = "webmcp_callback",
+): ToolOutcome {
+  const prepared = succeed(
+    execute(
+      fixture,
+      state,
+      "prepare_investigation_query",
+      { expectedRevision: state.revision, queryId },
+      reportedSurface,
+    ),
+  );
+  return execute(
+    fixture,
+    prepared,
+    "run_investigation_plan",
+    { expectedRevision: prepared.revision, planId },
+    reportedSurface,
+  );
+}
+
+const completeReportReview = {
+  acknowledgement: "APPROVE_SYNTHETIC_REPORT",
+  evidenceCoverageAcknowledged: true,
+  responseProvenanceAcknowledged: true,
+  limitationsAndResidualRiskAcknowledged: true,
+} as const;
+
 function enrich(
   fixture: CaseFixture,
   state: CaseState,
@@ -80,13 +140,20 @@ function completeInvestigationPlan(
 ): CaseState {
   let current = state;
   while (true) {
-    const outcome = execute(
-      fixture,
-      current,
-      "run_investigation_plan",
-      { expectedRevision: current.revision, planId },
-      "webmcp_callback",
+    const plan = getInvestigationPlans(fixture).find(
+      (candidate) => candidate.id === planId,
     );
+    const queryId = plan?.queryIds.find((candidateId) => {
+      const query = fixture.investigationQueries.find(
+        (candidate) => candidate.id === candidateId,
+      );
+      return (
+        query !== undefined &&
+        !current.attachedEnrichmentIds.includes(query.resultArtifactId)
+      );
+    });
+    assert.ok(queryId, `No unresolved query exists for ${planId}`);
+    const outcome = runPreparedPlan(fixture, current, planId, queryId);
     assert.equal(
       outcome.ok,
       true,
@@ -214,22 +281,16 @@ test("endpoint result packets do not cover another investigation entity", () => 
 
 test("human and agent run the same deterministic investigation query", () => {
   const initial = createInitialCaseState(cloudIdentityScenario);
-  const input = {
-    expectedRevision: initial.revision,
-    queryId: "QRY-CLOUD-IDENTITY-01",
-  };
-  const human = execute(
+  const human = runPreparedQuery(
     cloudIdentityScenario,
     initial,
-    "run_investigation_query",
-    input,
+    "QRY-CLOUD-IDENTITY-01",
     "analyst_control",
   );
-  const agent = execute(
+  const agent = runPreparedQuery(
     cloudIdentityScenario,
     initial,
-    "run_investigation_query",
-    input,
+    "QRY-CLOUD-IDENTITY-01",
     "webmcp_callback",
   );
   assert.equal(human.ok, true);
@@ -290,6 +351,24 @@ test("raw query execution requires the visible canonical query text", () => {
       "Missing required input field 'queryText'.",
     );
   }
+});
+
+test("canonical query text still requires shared preparation", () => {
+  const state = createInitialCaseState(cloudIdentityScenario);
+  const queryId = "QRY-CLOUD-IDENTITY-01";
+  const queryText = getQueryConsoleContract(queryId)?.text;
+  assert.equal(typeof queryText, "string");
+  const outcome = executeCaseTool(cloudIdentityScenario, state, {
+    requestId: "test-query-preparation-required",
+    toolName: "run_investigation_query",
+    reportedSurface: "webmcp_callback",
+    input: { expectedRevision: state.revision, queryId, queryText },
+  });
+  assert.equal(outcome.ok, false);
+  if (outcome.ok) return;
+  assert.equal(outcome.error.code, "QUERY_PREPARATION_REQUIRED");
+  assert.equal(outcome.state.revision, state.revision);
+  assert.deepEqual(outcome.state.attachedEnrichmentIds, []);
 });
 
 test("copilot can prepare a shared visible query without attaching evidence", () => {
@@ -446,7 +525,7 @@ test("query console accepts only the selected canonical case query", () => {
   );
 });
 
-test("running a different query preserves the shared prepared query", () => {
+test("a prepared query cannot authorize a different query", () => {
   const fixture = cloudIdentityScenario;
   const prepared = succeed(
     execute(
@@ -460,21 +539,87 @@ test("running a different query preserves the shared prepared query", () => {
       "webmcp_callback",
     ),
   );
-  const executed = succeed(
+  const executed = execute(
+    fixture,
+    prepared,
+    "run_investigation_query",
+    {
+      expectedRevision: prepared.revision,
+      queryId: "QRY-CLOUD-EGRESS-02",
+    },
+    "webmcp_callback",
+  );
+
+  assert.equal(executed.ok, false);
+  if (executed.ok) return;
+  assert.equal(executed.error.code, "QUERY_PREPARATION_REQUIRED");
+  assert.equal(executed.state.preparedQuery?.queryId, "QRY-CLOUD-IDENTITY-01");
+  assert.deepEqual(
+    parseCaseState(JSON.stringify(executed.state), fixture),
+    executed.state,
+  );
+});
+
+test("a prepared query cannot execute after the shared case advances", () => {
+  const fixture = cloudIdentityScenario;
+  const prepared = succeed(
     execute(
       fixture,
-      prepared,
-      "run_investigation_query",
+      createInitialCaseState(fixture),
+      "prepare_investigation_query",
       {
-        expectedRevision: prepared.revision,
-        queryId: "QRY-CLOUD-EGRESS-02",
+        expectedRevision: 1,
+        queryId: "QRY-CLOUD-IDENTITY-01",
       },
       "webmcp_callback",
     ),
   );
+  const advanced = succeed(
+    execute(
+      fixture,
+      prepared,
+      "enrich_network_indicator",
+      {
+        expectedRevision: prepared.revision,
+        entityId: "indicator:198.51.100.24",
+      },
+      "webmcp_callback",
+    ),
+  );
+  const outcome = execute(
+    fixture,
+    advanced,
+    "run_investigation_query",
+    {
+      expectedRevision: advanced.revision,
+      queryId: "QRY-CLOUD-IDENTITY-01",
+    },
+    "webmcp_callback",
+  );
 
-  assert.equal(executed.preparedQuery?.queryId, "QRY-CLOUD-IDENTITY-01");
-  assert.deepEqual(parseCaseState(JSON.stringify(executed), fixture), executed);
+  assert.equal(outcome.ok, false);
+  if (outcome.ok) return;
+  assert.equal(outcome.error.code, "QUERY_PREPARATION_STALE");
+  assert.equal(outcome.state.revision, advanced.revision);
+  assert.equal(outcome.state.preparedQuery?.queryId, "QRY-CLOUD-IDENTITY-01");
+});
+
+test("an investigation plan requires its next query in the shared console", () => {
+  const fixture = endpointLateralScenario;
+  const state = createInitialCaseState(fixture);
+  const outcome = execute(
+    fixture,
+    state,
+    "run_investigation_plan",
+    { expectedRevision: state.revision, planId: "tier1_initial" },
+    "webmcp_callback",
+  );
+
+  assert.equal(outcome.ok, false);
+  if (!outcome.ok) {
+    assert.equal(outcome.error.code, "QUERY_PREPARATION_REQUIRED");
+    assert.equal(outcome.state.revision, state.revision);
+  }
 });
 
 test("an investigation plan clears a prepared query only when it executes it", () => {
@@ -521,13 +666,7 @@ test("every catalog query executes through the shared WebMCP operation", () => {
     }
 
     for (const query of fixture.investigationQueries) {
-      const outcome = execute(
-        fixture,
-        state,
-        "run_investigation_query",
-        { expectedRevision: state.revision, queryId: query.id },
-        "webmcp_callback",
-      );
+      const outcome = runPreparedQuery(fixture, state, query.id);
       assert.equal(
         outcome.ok,
         true,
@@ -616,19 +755,15 @@ test("query workset withholds unreleased results and fails closed", () => {
 test("investigation plans attach one available finding in deterministic order", () => {
   const fixture = endpointLateralScenario;
   const initial = createInitialCaseState(fixture);
-  const first = execute(
+  const first = runPreparedPlan(
     fixture,
     initial,
-    "run_investigation_plan",
-    {
-      expectedRevision: initial.revision,
-      planId: "tier1_initial",
-    },
-    "webmcp_callback",
+    "tier1_initial",
+    "QRY-ENDPOINT-FILE-01",
   );
   assert.equal(first.ok, true);
   if (!first.ok) return;
-  assert.equal(first.state.revision, initial.revision + 1);
+  assert.equal(first.state.revision, initial.revision + 2);
   assert.deepEqual(first.state.attachedEnrichmentIds, ["ENR-LAT-FILE-01"]);
   const firstData = first.data as {
     planId: string;
@@ -666,13 +801,7 @@ test("investigation plans attach one available finding in deterministic order", 
     ["QRY-ENDPOINT-EGRESS-04", "ENR-LAT-DEST-01"],
   ] as const;
   for (const [queryId, artifactId] of expected) {
-    const outcome = execute(
-      fixture,
-      state,
-      "run_investigation_plan",
-      { expectedRevision: state.revision, planId: "tier1_initial" },
-      "webmcp_callback",
-    );
+    const outcome = runPreparedPlan(fixture, state, "tier1_initial", queryId);
     assert.equal(outcome.ok, true);
     if (!outcome.ok) return;
     const data = outcome.data as {
@@ -728,24 +857,19 @@ test("investigation plans attach one available finding in deterministic order", 
 test("investigation plans skip findings already attached by an analyst query", () => {
   const fixture = endpointLateralScenario;
   const initial = createInitialCaseState(fixture);
-  const direct = execute(
+  const direct = runPreparedQuery(
     fixture,
     initial,
-    "run_investigation_query",
-    {
-      expectedRevision: initial.revision,
-      queryId: "QRY-ENDPOINT-FILE-01",
-    },
+    "QRY-ENDPOINT-FILE-01",
     "analyst_control",
   );
   assert.equal(direct.ok, true);
   if (!direct.ok) return;
-  const planned = execute(
+  const planned = runPreparedPlan(
     fixture,
     direct.state,
-    "run_investigation_plan",
-    { expectedRevision: direct.state.revision, planId: "tier1_initial" },
-    "webmcp_callback",
+    "tier1_initial",
+    "QRY-ENDPOINT-HASH-10",
   );
   assert.equal(planned.ok, true);
   if (!planned.ok) return;
@@ -762,56 +886,14 @@ test("investigation plans skip findings already attached by an analyst query", (
 test("endpoint forensic pivot attaches bounded static and sandbox fixtures", () => {
   const fixture = endpointLateralScenario;
   let state = createInitialCaseState(fixture);
-  state = succeed(
-    execute(
-      fixture,
-      state,
-      "run_investigation_query",
-      {
-        expectedRevision: state.revision,
-        queryId: "QRY-ENDPOINT-FILE-01",
-      },
-      "webmcp_callback",
-    ),
-  );
-  state = succeed(
-    execute(
-      fixture,
-      state,
-      "run_investigation_query",
-      {
-        expectedRevision: state.revision,
-        queryId: "QRY-ENDPOINT-HASH-10",
-      },
-      "webmcp_callback",
-    ),
-  );
-  state = succeed(
-    execute(
-      fixture,
-      state,
-      "run_investigation_query",
-      {
-        expectedRevision: state.revision,
-        queryId: "QRY-ENDPOINT-STATIC-08",
-      },
-      "webmcp_callback",
-    ),
-  );
-  const sandbox = execute(
-    fixture,
-    state,
-    "run_investigation_query",
-    {
-      expectedRevision: state.revision,
-      queryId: "QRY-ENDPOINT-SANDBOX-09",
-    },
-    "webmcp_callback",
-  );
+  state = succeed(runPreparedQuery(fixture, state, "QRY-ENDPOINT-FILE-01"));
+  state = succeed(runPreparedQuery(fixture, state, "QRY-ENDPOINT-HASH-10"));
+  state = succeed(runPreparedQuery(fixture, state, "QRY-ENDPOINT-STATIC-08"));
+  const sandbox = runPreparedQuery(fixture, state, "QRY-ENDPOINT-SANDBOX-09");
   assert.equal(sandbox.ok, true);
   if (!sandbox.ok) return;
   state = sandbox.state;
-  assert.equal(state.revision, 5);
+  assert.equal(state.revision, 9);
   assert.deepEqual(state.attachedEnrichmentIds, [
     "ENR-LAT-FILE-01",
     "ENR-LAT-HASH-04",
@@ -1334,7 +1416,7 @@ test("Jordan closes with an authorized exception and agent-drafted report", () =
     {
       expectedRevision: state.revision,
       reportId: fixture.conclusion.reportId,
-      acknowledgement: "APPROVE_SYNTHETIC_REPORT",
+      ...completeReportReview,
     },
     "webmcp_callback",
   );
@@ -1343,11 +1425,56 @@ test("Jordan closes with an authorized exception and agent-drafted report", () =
     assert.equal(rejectedApproval.error.code, "SURFACE_NOT_ALLOWED");
   }
 
+  const incompleteApproval = execute(
+    fixture,
+    state,
+    "approve_case_report",
+    {
+      expectedRevision: state.revision,
+      reportId: fixture.conclusion.reportId,
+      acknowledgement: "APPROVE_SYNTHETIC_REPORT",
+      evidenceCoverageAcknowledged: true,
+      responseProvenanceAcknowledged: true,
+    },
+    "analyst_control",
+  );
+  assert.equal(incompleteApproval.ok, false);
+  if (!incompleteApproval.ok) {
+    assert.equal(incompleteApproval.error.code, "VALIDATION_ERROR");
+    assert.equal(incompleteApproval.state.lifecycle, "report_drafted");
+    assert.equal(incompleteApproval.state.revision, state.revision);
+  }
+
+  for (const field of [
+    "evidenceCoverageAcknowledged",
+    "responseProvenanceAcknowledged",
+    "limitationsAndResidualRiskAcknowledged",
+  ] as const) {
+    const unreviewedApproval = execute(
+      fixture,
+      state,
+      "approve_case_report",
+      {
+        expectedRevision: state.revision,
+        reportId: fixture.conclusion.reportId,
+        ...completeReportReview,
+        [field]: false,
+      },
+      "analyst_control",
+    );
+    assert.equal(unreviewedApproval.ok, false);
+    if (!unreviewedApproval.ok) {
+      assert.equal(unreviewedApproval.error.code, "REPORT_REVIEW_REQUIRED");
+      assert.equal(unreviewedApproval.state.lifecycle, "report_drafted");
+      assert.equal(unreviewedApproval.state.revision, state.revision);
+    }
+  }
+
   state = succeed(
     execute(fixture, state, "approve_case_report", {
       expectedRevision: state.revision,
       reportId: fixture.conclusion.reportId,
-      acknowledgement: "APPROVE_SYNTHETIC_REPORT",
+      ...completeReportReview,
     }),
   );
   assert.equal(state.lifecycle, "closed_in_demo");
@@ -1416,18 +1543,7 @@ test("malicious case completes staged containment, recovery, report, and closure
   const fixture = endpointLateralScenario;
   let state = createInitialCaseState(fixture);
   state = enrich(fixture, state, "enrich_file", "file:invoice-sync-helper");
-  state = succeed(
-    execute(
-      fixture,
-      state,
-      "run_investigation_query",
-      {
-        expectedRevision: state.revision,
-        queryId: "QRY-ENDPOINT-HASH-10",
-      },
-      "webmcp_callback",
-    ),
-  );
+  state = succeed(runPreparedQuery(fixture, state, "QRY-ENDPOINT-HASH-10"));
   state = enrich(fixture, state, "enrich_endpoint", "endpoint:fin-ws-044");
   state = enrich(fixture, state, "enrich_identity", "identity:svc-fin-reports");
   state = enrich(
@@ -1505,7 +1621,7 @@ test("malicious case completes staged containment, recovery, report, and closure
     execute(fixture, state, "approve_case_report", {
       expectedRevision: state.revision,
       reportId: fixture.conclusion.reportId,
-      acknowledgement: "APPROVE_SYNTHETIC_REPORT",
+      ...completeReportReview,
     }),
   );
   assert.equal(state.lifecycle, "closed_in_demo");
@@ -1552,18 +1668,7 @@ test("decision, model, response dependency, and report gates are enforced", () =
   const fixture = endpointLateralScenario;
   let state = createInitialCaseState(fixture);
   state = enrich(fixture, state, "enrich_file", "file:invoice-sync-helper");
-  state = succeed(
-    execute(
-      fixture,
-      state,
-      "run_investigation_query",
-      {
-        expectedRevision: state.revision,
-        queryId: "QRY-ENDPOINT-HASH-10",
-      },
-      "webmcp_callback",
-    ),
-  );
+  state = succeed(runPreparedQuery(fixture, state, "QRY-ENDPOINT-HASH-10"));
   state = enrich(fixture, state, "enrich_endpoint", "endpoint:fin-ws-044");
   state = enrich(fixture, state, "enrich_identity", "identity:svc-fin-reports");
   const earlyDecision = execute(fixture, state, "record_evidence_decision", {

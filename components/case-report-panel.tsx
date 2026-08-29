@@ -1,12 +1,31 @@
+"use client";
+
 import Link from "next/link";
-import type { CaseFixture, CaseState } from "@/domain/types";
+import { useState } from "react";
+import type {
+  CaseFixture,
+  CaseState,
+  ReportReviewAcknowledgements,
+} from "@/domain/types";
 
 interface CaseReportPanelProps {
+  busy: boolean;
   fixture: CaseFixture;
+  onApprove: (review: ReportReviewAcknowledgements) => Promise<void>;
+  reportId: string;
   state: CaseState;
 }
 
-export function CaseReportPanel({ fixture, state }: CaseReportPanelProps) {
+export function CaseReportPanel({
+  busy,
+  fixture,
+  onApprove,
+  reportId,
+  state,
+}: CaseReportPanelProps) {
+  const [evidenceReviewed, setEvidenceReviewed] = useState(false);
+  const [responseReviewed, setResponseReviewed] = useState(false);
+  const [limitsReviewed, setLimitsReviewed] = useState(false);
   if (state.decision.status === "pending") return null;
   if (state.report.status === "unavailable") return null;
 
@@ -34,13 +53,14 @@ export function CaseReportPanel({ fixture, state }: CaseReportPanelProps) {
       aria-label="Case evidence report"
       aria-live="polite"
       className={`case-report-card ${approved ? "case-report-approved" : ""}`}
+      id={reportId}
     >
       <div className="report-heading">
         <div>
           <p className="eyebrow">
             {report.id} · {report.version}
           </p>
-          <h3>{report.title}</h3>
+          <h3 tabIndex={-1}>{report.title}</h3>
         </div>
         <span>{approved ? "Approved" : "Drafted"}</span>
       </div>
@@ -130,9 +150,72 @@ export function CaseReportPanel({ fixture, state }: CaseReportPanelProps) {
         </ul>
       </details>
       {!approved ? (
-        <p className="report-command-note">
-          Review this evidence record before using the analyst approval gate.
-        </p>
+        <form
+          className="report-review-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (evidenceReviewed && responseReviewed && limitsReviewed) {
+              void onApprove({
+                evidenceCoverageAcknowledged: evidenceReviewed,
+                responseProvenanceAcknowledged: responseReviewed,
+                limitationsAndResidualRiskAcknowledged: limitsReviewed,
+              });
+            }
+          }}
+        >
+          <div className="report-review-heading" tabIndex={-1}>
+            <span>Analyst review</span>
+            <h4>Approve the case record</h4>
+            <p>
+              Verify the evidence, recorded response, and known limits before
+              closure.
+            </p>
+          </div>
+          <label>
+            <input
+              checked={evidenceReviewed}
+              onChange={(event) => setEvidenceReviewed(event.target.checked)}
+              type="checkbox"
+            />
+            <span>I reviewed the evidence coverage and source records.</span>
+          </label>
+          <label>
+            <input
+              checked={responseReviewed}
+              onChange={(event) => setResponseReviewed(event.target.checked)}
+              type="checkbox"
+            />
+            <span>
+              I reviewed the simulated response record. No external control was
+              executed.
+            </span>
+          </label>
+          <label>
+            <input
+              checked={limitsReviewed}
+              onChange={(event) => setLimitsReviewed(event.target.checked)}
+              type="checkbox"
+            />
+            <span>I reviewed the evidence limits and residual risk.</span>
+          </label>
+          <div className="report-review-submit">
+            <p>
+              Approval records this review and closes the case. It does not
+              contact an external system.
+            </p>
+            <button
+              disabled={
+                busy ||
+                !evidenceReviewed ||
+                !responseReviewed ||
+                !limitsReviewed
+              }
+              type="submit"
+            >
+              {busy ? "Recording approval" : "Approve report and close case"}
+            </button>
+          </div>
+        </form>
       ) : (
         <div className="report-closed-state">
           <strong>Case closed</strong>

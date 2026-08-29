@@ -65,14 +65,14 @@ See [JUDGE_GUIDE.md](./JUDGE_GUIDE.md) for the 90-second hands-on path, three-mi
 The endpoint case uses this sequence:
 
 1. Read the Tier 1 handoff and current revision.
-2. Prepare a bounded query. The visible editor displays its exact text and sources.
-3. Run that exact query. Modified or unknown query text fails closed.
+2. Prepare a bounded query through the analyst control or WebMCP. This creates a shared case-state transition and loads its exact text and sources.
+3. Run that exact prepared query. Direct execution and plan execution both reject missing, mismatched, or stale preparation; modified or unknown query text also fails closed.
 4. Inspect returned source records. The result attaches to the map and activity timeline.
 5. Release a fixed later observation only through the analyst control.
 6. Record the analyst disposition.
 7. Let the copilot calculate exposure and simulate the allowlisted control.
 8. Let the copilot prepare response packages. The analyst approves them.
-9. Let the copilot draft the evidence report. The analyst approves closure.
+9. Let the copilot draft the evidence report. The analyst reviews evidence coverage, response provenance, limitations, and residual risk before approving closure.
 
 The exact file hash is `65fb21f3b3b11f7a7d45f31965dad35935e6d9c860ca6f618999510db74260b9` everywhere it appears. Its intelligence result is an archived deterministic fixture, not live OSINT. `QRY-ENDPOINT-STATIC-08` and `QRY-ENDPOINT-SANDBOX-09` are optional supporting pivots. The latter reviews an archived sandbox behavior record; it does not detonate a sample.
 

@@ -6301,10 +6301,9 @@ body {
 .case-view .agent-now-rail > strong {
   font-size: 15px;
   grid-column: 2;
+  line-height: 1.25;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .case-view .agent-now-rail > small {
@@ -7417,5 +7416,180 @@ body {
     position: absolute;
     width: 96px;
     z-index: 4;
+  }
+}
+
+/* Shared query preparation and analyst report review. */
+
+.case-view .query-console-editor textarea:disabled:placeholder-shown {
+  color: rgba(172, 198, 200, 0.64);
+  font-style: normal;
+}
+
+.case-view .query-console-prepare {
+  background: rgba(91, 191, 201, 0.12);
+  border: 1px solid rgba(101, 204, 211, 0.68);
+  color: var(--field-cyan);
+}
+
+.case-view .report-review-cue {
+  align-items: center;
+  background: rgba(7, 15, 17, 0.98);
+  border: 1px solid rgba(232, 179, 95, 0.72);
+  color: var(--field-ink);
+  display: grid;
+  gap: 4px 14px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 68px;
+  padding: 11px 14px;
+  text-align: left;
+  width: 100%;
+}
+
+.case-view .report-review-cue span,
+.case-view .report-review-cue small,
+.case-view .report-review-cue em {
+  font-family: var(--font-mono);
+  font-style: normal;
+}
+
+.case-view .report-review-cue span {
+  color: var(--field-amber);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.case-view .report-review-cue strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.case-view .report-review-cue small {
+  color: var(--field-muted);
+  font-size: 10px;
+  grid-column: 2;
+}
+
+.case-view .report-review-cue em {
+  color: var(--field-amber);
+  font-size: 11px;
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  text-transform: uppercase;
+}
+
+.case-view .report-review-cue:hover,
+.case-view .report-review-cue:focus-visible {
+  background: rgba(232, 179, 95, 0.08);
+  border-color: rgba(232, 179, 95, 0.96);
+}
+
+.case-view .report-review-form {
+  border-top: 2px solid #8b6d36;
+  display: grid;
+  gap: 0;
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+.case-view .report-review-heading {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 12px;
+  outline: none;
+}
+
+.case-view .report-review-heading:focus-visible {
+  box-shadow: 0 0 0 2px #477b82;
+}
+
+.case-view .report-review-heading > span {
+  color: #745922;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.case-view .report-review-heading h4 {
+  color: var(--docket-ink);
+  font-size: 18px;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.case-view .report-review-heading p,
+.case-view .report-review-submit p {
+  color: #4d534b;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.case-view .report-review-form > label {
+  align-items: start;
+  border-top: 1px solid #c7c7bc;
+  color: #252a25;
+  cursor: pointer;
+  display: grid;
+  font-size: 13px;
+  gap: 10px;
+  grid-template-columns: 18px minmax(0, 1fr);
+  line-height: 1.45;
+  padding: 12px 2px;
+}
+
+.case-view .report-review-form input[type="checkbox"] {
+  accent-color: #285f57;
+  height: 16px;
+  margin: 1px 0 0;
+  width: 16px;
+}
+
+.case-view .report-review-submit {
+  align-items: center;
+  border-top: 1px solid #9f9f94;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-top: 14px;
+}
+
+.case-view .report-review-submit button {
+  background: #121712;
+  border: 1px solid #121712;
+  color: #f1f0e8;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  min-height: 42px;
+  padding: 0 16px;
+  text-transform: uppercase;
+}
+
+.case-view .report-review-submit button:disabled {
+  background: #d2d2c8;
+  border-color: #abab9f;
+  color: #777b73;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .case-view .report-review-cue {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .case-view .report-review-cue span,
+  .case-view .report-review-cue strong,
+  .case-view .report-review-cue small {
+    grid-column: 1;
+  }
+
+  .case-view .report-review-cue em {
+    grid-column: 2;
+  }
+
+  .case-view .report-review-submit {
+    grid-template-columns: 1fr;
   }
 }

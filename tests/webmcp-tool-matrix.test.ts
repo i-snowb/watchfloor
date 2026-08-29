@@ -165,6 +165,15 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
   assert.equal(queryProbe.preparedQuery, null);
 
   let planProbe = createInitialCaseState(cloudIdentityScenario);
+  planProbe = web(
+    cloudIdentityScenario,
+    planProbe,
+    "prepare_investigation_query",
+    {
+      expectedRevision: planProbe.revision,
+      queryId: "QRY-CLOUD-IDENTITY-01",
+    },
+  );
   planProbe = web(cloudIdentityScenario, planProbe, "run_investigation_plan", {
     expectedRevision: planProbe.revision,
     planId: "tier1_initial",
@@ -253,6 +262,15 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     "release_next_synthetic_signal",
     { expectedRevision: endpoint.revision },
     "analyst_control",
+  );
+  endpoint = web(
+    endpointLateralScenario,
+    endpoint,
+    "prepare_investigation_query",
+    {
+      expectedRevision: endpoint.revision,
+      queryId: "QRY-ENDPOINT-HASH-10",
+    },
   );
   endpoint = web(endpointLateralScenario, endpoint, "run_investigation_query", {
     expectedRevision: endpoint.revision,
@@ -363,6 +381,15 @@ test("WebMCP keeps one stable case-scoped registration across revisions", async 
     "analyst_control",
   );
 
+  state = invoke(
+    endpointLateralScenario,
+    state,
+    "prepare_investigation_query",
+    {
+      expectedRevision: state.revision,
+      queryId: "QRY-ENDPOINT-HASH-10",
+    },
+  );
   state = invoke(endpointLateralScenario, state, "run_investigation_query", {
     expectedRevision: state.revision,
     queryId: "QRY-ENDPOINT-HASH-10",

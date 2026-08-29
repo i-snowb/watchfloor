@@ -24,6 +24,7 @@ import type {
   EvidenceJoin,
   EvidenceView,
   OperationReceipt,
+  ReportReviewAcknowledgements,
 } from "@/domain/types";
 import { formatUtcTime, humanizeEntityKind } from "@/lib/format";
 import { layoutTraceResultPackets } from "@/lib/trace-result-layout";
@@ -52,10 +53,12 @@ import {
 } from "./evidence-visualization";
 
 interface EvidenceMapProps {
+  busy: boolean;
   fixture: CaseFixture;
   state: CaseState;
   selection: TraceSelection;
   onSelect: (selection: TraceSelection) => void;
+  onApproveReport: (review: ReportReviewAcknowledgements) => Promise<void>;
   actionDock?: ReactNode;
   investigationActivity: InvestigationActivity;
   investigationResult?: InvestigationResultView | null;
@@ -69,6 +72,7 @@ interface EvidenceMapProps {
     revision: number;
     token: number;
   } | null;
+  reportReviewRequestToken?: number;
   children?: ReactNode;
 }
 
@@ -87,10 +91,12 @@ const nodeWidth = 220;
 const nodeHeight = 152;
 
 export function EvidenceMap({
+  busy,
   fixture,
   state,
   selection,
   onSelect,
+  onApproveReport,
   actionDock,
   investigationActivity,
   investigationResult = null,
@@ -100,6 +106,7 @@ export function EvidenceMap({
   receipts = [],
   showInvestigationActions = false,
   syntheticExpansion = null,
+  reportReviewRequestToken = 0,
   children,
 }: EvidenceMapProps) {
   const [view, setView] = useState<EvidenceView>(
@@ -461,6 +468,7 @@ export function EvidenceMap({
   const nextGapEntityId =
     nextStep.phase === "inspect" ? nextStep.targetEntityId : null;
   const findingsSectionId = `${fixture.id}-attached-findings`;
+  const reportReviewId = `${fixture.id}-report-review`;
   const openFindings = useCallback(() => {
     setDrawerOpen(true);
     window.requestAnimationFrame(() => {
@@ -474,6 +482,35 @@ export function EvidenceMap({
       });
     });
   }, []);
+  const openedReportId = useRef<string | null>(null);
+  const openReportReview = useCallback(() => {
+    setDrawerOpen(true);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const report = document.getElementById(reportReviewId);
+        report?.querySelector<HTMLElement>(".report-heading h3")?.focus({
+          preventScroll: true,
+        });
+        report?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  }, [reportReviewId]);
+  useEffect(() => {
+    const reportId = state.report.report?.id ?? null;
+    if (state.report.status !== "drafted" || !reportId) {
+      openedReportId.current = null;
+      return;
+    }
+    if (openedReportId.current === reportId) return;
+    openedReportId.current = reportId;
+    const timer = window.setTimeout(openReportReview, 0);
+    return () => window.clearTimeout(timer);
+  }, [openReportReview, state.report.report?.id, state.report.status]);
+  useEffect(() => {
+    if (reportReviewRequestToken <= 0) return;
+    const timer = window.setTimeout(openReportReview, 0);
+    return () => window.clearTimeout(timer);
+  }, [openReportReview, reportReviewRequestToken]);
   const activeWorkQuery =
     showInvestigationActions &&
     state.decision.status === "pending" &&
@@ -1441,11 +1478,14 @@ export function EvidenceMap({
       </div>
 
       <InvestigationDrawer
+        busy={busy}
         fixture={fixture}
         findingsSectionId={findingsSectionId}
+        onApproveReport={onApproveReport}
         onSelect={focusFromDrawer}
         onOpenChange={setDrawerOpen}
         open={drawerOpen}
+        reportReviewId={reportReviewId}
         receipts={receipts}
         selectionDetails={children}
         state={state}

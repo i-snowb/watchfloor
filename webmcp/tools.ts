@@ -295,7 +295,7 @@ export function createCaseToolDefinitions(
           definition(
             "run_investigation_query",
             "Run bounded investigation query",
-            "Compile and run one recommended evidence question across released synthetic sources, then attach the bounded result to shared case state.",
+            "Run the exact KQL currently prepared in shared case state across released synthetic sources, then attach the bounded result and source records. Call prepare_investigation_query first for the same queryId and use its returned queryText.",
             {
               expectedRevision: revision,
               queryId: {
@@ -308,7 +308,7 @@ export function createCaseToolDefinitions(
                 minLength: 40,
                 maxLength: 1024,
                 description:
-                  "Exact KQL returned by prepare_investigation_query or the current get_case_context workset. The server validates it against the selected query contract.",
+                  "Exact KQL returned by prepare_investigation_query for the currently prepared queryId. The server rejects unprepared, modified, or unknown query text.",
               },
             },
             ["expectedRevision", "queryId", "queryText"],
@@ -322,7 +322,7 @@ export function createCaseToolDefinitions(
           definition(
             "run_investigation_plan",
             "Run copilot investigation plan",
-            "Run the next unresolved bounded query selected by the copilot over released case data. Use a specific investigation query when the analyst asks to test one named question.",
+            "Run the plan's next unresolved bounded query after prepare_investigation_query has placed that exact query in the shared console. Use a specific investigation query when the analyst asks to test one named question.",
             {
               expectedRevision: revision,
               planId: {

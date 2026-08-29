@@ -119,6 +119,7 @@ function readExecution(data: unknown): {
 }
 
 const investigationTools = new Set<CaseToolName>([
+  "prepare_investigation_query",
   "inspect_event",
   "inspect_entity",
   "inspect_relationship",
@@ -137,6 +138,7 @@ const investigationTools = new Set<CaseToolName>([
   "calculate_reachability",
   "request_next_observation",
   "prepare_response_bundle",
+  "generate_case_report",
 ]);
 
 export function isInvestigationTool(toolName: CaseToolName): boolean {

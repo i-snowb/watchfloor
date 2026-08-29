@@ -738,6 +738,12 @@ export interface PreparedInvestigationQuery {
   preparedAt: string;
 }
 
+export interface ReportReviewAcknowledgements {
+  evidenceCoverageAcknowledged: boolean;
+  responseProvenanceAcknowledged: boolean;
+  limitationsAndResidualRiskAcknowledged: boolean;
+}
+
 export interface ResponseActionState {
   actionId: ResponseActionId;
   status:

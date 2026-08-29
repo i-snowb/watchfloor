@@ -91,10 +91,10 @@ function getAgentNowContent(
       state: "running",
       label:
         activity.actor === "agent"
-          ? "Copilot · Composing"
-          : "Analyst · Composing",
+          ? "Copilot · Preparing query"
+          : "Analyst · Preparing query",
       headline: query?.title ?? "Preparing investigation query",
-      detail: "Loading the approved query into the shared console",
+      detail: "Selecting approved sources and validating bounded KQL",
     };
   }
   if (activity.status === "running") {
@@ -106,10 +106,15 @@ function getAgentNowContent(
       state: "running",
       label:
         activity.actor === "agent" ? "Copilot · Running" : "Analyst · Running",
-      headline: runningPhaseLabel(activity.phase),
+      headline:
+        activity.toolName === "generate_case_report"
+          ? reportPhaseLabel(activity.phase)
+          : runningPhaseLabel(activity.phase),
       detail: planProgress
-        ? `${planProgress.currentQuery.title} · ${planProgress.currentQuery.sourceScopes.length} sources · ${Math.round(activity.progress * 100)}%`
-        : `${operationLabel(activity.toolName)} · ${Math.round(activity.progress * 100)}%`,
+        ? `${planProgress.currentQuery.title} · ${planProgress.currentQuery.sourceScopes.length} approved sources`
+        : activity.toolName === "generate_case_report"
+          ? `${state.attachedEnrichmentIds.length} evidence artifacts · ${state.responseActions.filter((action) => action.status === "authorized_in_demo").length} recorded controls`
+          : operationLabel(activity.toolName),
     };
   }
   if (state.responseBundle) {
@@ -137,9 +142,9 @@ function getAgentNowContent(
   if (state.report.status === "drafted") {
     return {
       state: "approval",
-      label: "Analyst · Approval required",
-      headline: "Review and approve the evidence report",
-      detail: `Closure gate · r${state.revision}`,
+      label: "Analyst review required",
+      headline: "Evidence report ready",
+      detail: `${state.report.report?.confirmedFindings.length ?? 0} findings · ${state.report.report?.actionIds.length ?? 0} recorded controls · review before approval`,
     };
   }
   if (next.recommendedTool === null) {
@@ -160,11 +165,11 @@ function getAgentNowContent(
       state: "result",
       label:
         result.actor === "agent"
-          ? "Copilot · Result added"
-          : "Analyst · Result added",
+          ? "Copilot · Evidence attached"
+          : "Analyst · Evidence attached",
       headline: planProgress
         ? `${planProgress.completed}/${planProgress.total} attached · ${planProgress.currentQuery.title}`
-        : resultHeadline(result, aggregate),
+        : resultHeadline(fixture, result, aggregate),
       detail: planProgress
         ? formatReceiptDetail(
             result.receipt,
@@ -199,8 +204,8 @@ function getAgentNowContent(
       state: "result",
       label:
         latestReceipt.reportedSurface === "webmcp_callback"
-          ? "Copilot · Result added"
-          : "Analyst · Result added",
+          ? "Copilot · Evidence attached"
+          : "Analyst · Evidence attached",
       headline: latestReceipt.title,
       detail: `Next: ${nextObjective}`,
     };
@@ -209,11 +214,16 @@ function getAgentNowContent(
     const target = getAllEntities(fixture).find(
       (entity) => entity.id === selectedQuery.targetEntityId,
     );
+    const queryPrepared =
+      state.preparedQuery?.queryId === selectedQuery.id &&
+      state.preparedQuery.preparedAtRevision === state.revision;
     return {
       state: "idle",
-      label: "Shared focus",
+      label: queryPrepared ? "Query prepared" : "Evidence question",
       headline: `${target?.label ?? "Entity"} selected`,
-      detail: `${selectedQuery.title} is ready`,
+      detail: queryPrepared
+        ? `${selectedQuery.title} · approved KQL ready to run`
+        : `${selectedQuery.title} · prepare a bounded query`,
     };
   }
   return {
@@ -247,14 +257,38 @@ function runningPhaseLabel(
   return "Reviewing matches";
 }
 
+function reportPhaseLabel(
+  phase: Extract<InvestigationActivity, { status: "running" }>["phase"],
+): string {
+  if (phase === "scope") return "Inventorying case evidence";
+  if (phase === "search") return "Assembling findings and controls";
+  return "Validating provenance and limits";
+}
+
 function resultHeadline(
+  fixture: CaseFixture,
   result: InvestigationResultView,
   aggregate: { evidenceAttached: number; syntheticRecordCount: number } | null,
 ): string {
   if (aggregate) {
     return `${aggregate.evidenceAttached} results added`;
   }
-  if (result.toolName === "run_investigation_query") return "1 result added";
+  if (result.toolName === "run_investigation_query") {
+    const query = fixture.investigationQueries.find(
+      (candidate) => candidate.id === result.queryId,
+    );
+    const artifact = query
+      ? fixture.enrichments.find(
+          (candidate) => candidate.id === query.resultArtifactId,
+        )
+      : null;
+    return (
+      artifact?.summary ??
+      artifact?.title ??
+      query?.title ??
+      "Evidence attached"
+    );
+  }
   return operationLabel(result.toolName);
 }
 

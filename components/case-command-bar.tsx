@@ -39,6 +39,7 @@ interface CaseCommandBarProps {
   selection: TraceSelection;
   showInvestigationControls: boolean;
   investigationActivity: InvestigationActivity;
+  onOpenReportReview: () => void;
 }
 
 type CommandOwner = "agent" | "analyst" | "evidence" | "complete";
@@ -56,6 +57,7 @@ export function CaseCommandBar({
   selection,
   showInvestigationControls,
   investigationActivity,
+  onOpenReportReview,
 }: CaseCommandBarProps) {
   const nextStep = getDerivedNextStep(fixture, state);
   const releasedStageCount = state.releasedStreamStageIds.length;
@@ -160,6 +162,7 @@ export function CaseCommandBar({
         candidates={selectedQueries}
         fixture={fixture}
         onChooseQuery={setPreferredQueryId}
+        onPrepare={(input) => onExecute("prepare_investigation_query", input)}
         onExecute={(input) => onExecute("run_investigation_query", input)}
         onSelect={onSelect}
         query={nextQuery}
@@ -194,6 +197,26 @@ export function CaseCommandBar({
             .join(" · ")}
         </small>
         <em>Response locked</em>
+      </button>
+    );
+  }
+
+  if (state.report.status === "drafted" && state.report.report) {
+    return (
+      <button
+        className="report-review-cue"
+        disabled={busy}
+        onClick={onOpenReportReview}
+        type="button"
+      >
+        <span>Analyst review required</span>
+        <strong>Evidence report ready</strong>
+        <small>
+          {state.report.report.confirmedFindings.length} findings ·{" "}
+          {state.report.report.actionIds.length} recorded controls ·{" "}
+          {state.report.report.limitations.length} limits
+        </small>
+        <em>Review report</em>
       </button>
     );
   }
@@ -344,25 +367,6 @@ function CommandControls({
     );
   }
 
-  if (state.report.status === "drafted" && state.report.report) {
-    return (
-      <button
-        className="case-command-primary"
-        disabled={busy}
-        onClick={() =>
-          void onExecute("approve_case_report", {
-            expectedRevision: state.revision,
-            reportId: state.report.report?.id,
-            acknowledgement: "APPROVE_SYNTHETIC_REPORT",
-          })
-        }
-        type="button"
-      >
-        Approve report and close case
-      </button>
-    );
-  }
-
   if (state.responseBundle) {
     const bundle = getResponseBundles(fixture).find(
       (candidate) => candidate.id === state.responseBundle?.bundleId,
@@ -504,21 +508,27 @@ function CommandControls({
               : false;
           }),
       );
+      const nextQuery = plan?.queryIds
+        .map((queryId) =>
+          fixture.investigationQueries.find((query) => query.id === queryId),
+        )
+        .find(
+          (query) =>
+            query !== undefined &&
+            !state.attachedEnrichmentIds.includes(query.resultArtifactId),
+        );
       return (
         <button
           className="case-command-primary"
-          disabled={busy || !plan}
-          onClick={() =>
-            plan
-              ? void onExecute("run_investigation_plan", {
-                  expectedRevision: state.revision,
-                  planId: plan.id,
-                })
-              : undefined
-          }
+          disabled={busy || !nextQuery}
+          onClick={() => {
+            if (nextQuery) {
+              onSelect({ kind: "entity", id: nextQuery.targetEntityId });
+            }
+          }}
           type="button"
         >
-          Run evidence plan
+          Open next query
         </button>
       );
     }
@@ -642,7 +652,7 @@ function CommandControls({
           }
           type="button"
         >
-          Generate evidence report
+          Draft report as analyst
         </button>
       );
     }
@@ -754,7 +764,7 @@ function commandTitle(
     );
     return `Review required: ${disposition?.label ?? state.decision.status}`;
   }
-  if (state.report.status === "drafted") return "Approve the evidence report";
+  if (state.report.status === "drafted") return "Review the evidence report";
   if (state.responseBundle) {
     return `Authorize ${state.responseBundle.bundleId} package`;
   }
@@ -834,7 +844,7 @@ function commandDetail(
     return "This disposition stops the response workflow. Reset the case to replay another path.";
   }
   if (state.report.status === "drafted") {
-    return "Analyst approval records closure. The report is not published externally.";
+    return "Review evidence coverage, response provenance, limitations, and residual risk before approval.";
   }
   if (state.responseBundle) {
     return `${state.responseBundle.actionIds.length} controls modeled. Analyst authorization is required; no external system has been contacted.`;

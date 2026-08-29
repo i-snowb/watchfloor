@@ -1405,6 +1405,22 @@ function runInvestigationQuery(
       "ALREADY_ATTACHED",
     );
   }
+  if (state.preparedQuery?.queryId !== query.id) {
+    return fail(
+      state,
+      request.toolName,
+      "Prepare this query in the shared investigation console before execution.",
+      "QUERY_PREPARATION_REQUIRED",
+    );
+  }
+  if (state.preparedQuery.preparedAtRevision !== state.revision) {
+    return fail(
+      state,
+      request.toolName,
+      "The prepared query is stale. Prepare it again against the current shared case revision.",
+      "QUERY_PREPARATION_STALE",
+    );
+  }
   const syntheticRecordCount = query.sourceScopes.reduce(
     (total, scope) => total + scope.syntheticRecordCount,
     0,
@@ -1602,6 +1618,22 @@ function runInvestigationPlan(
       request.toolName,
       `Result for '${query.id}' is unavailable in the current case state.`,
       "PLAN_RESULT_UNAVAILABLE",
+    );
+  }
+  if (state.preparedQuery?.queryId !== query.id) {
+    return fail(
+      state,
+      request.toolName,
+      "Prepare the plan's next query in the shared investigation console before execution.",
+      "QUERY_PREPARATION_REQUIRED",
+    );
+  }
+  if (state.preparedQuery.preparedAtRevision !== state.revision) {
+    return fail(
+      state,
+      request.toolName,
+      "The prepared plan query is stale. Prepare it again against the current shared case revision.",
+      "QUERY_PREPARATION_STALE",
     );
   }
   const syntheticRecordCount = query.sourceScopes.reduce(
@@ -2711,7 +2743,7 @@ function executeWrite(
         title: "Generated case evidence report",
         target: fixture.conclusion.reportId,
         resultSummary:
-          "Deterministic evidence report drafted for analyst approval",
+          "Evidence report assembled from attached findings and recorded controls; analyst review required",
       },
       true,
     );
@@ -2728,8 +2760,22 @@ function executeWrite(
     }
     const invalid = validateInput(
       input,
-      ["expectedRevision", "reportId", "acknowledgement"],
-      ["expectedRevision", "reportId", "acknowledgement"],
+      [
+        "expectedRevision",
+        "reportId",
+        "acknowledgement",
+        "evidenceCoverageAcknowledged",
+        "responseProvenanceAcknowledged",
+        "limitationsAndResidualRiskAcknowledged",
+      ],
+      [
+        "expectedRevision",
+        "reportId",
+        "acknowledgement",
+        "evidenceCoverageAcknowledged",
+        "responseProvenanceAcknowledged",
+        "limitationsAndResidualRiskAcknowledged",
+      ],
     );
     if (invalid) return fail(state, toolName, invalid);
     const guarded = writeGuard(state, input, toolName);
@@ -2800,6 +2846,18 @@ function executeWrite(
         state,
         toolName,
         "acknowledgement must confirm the synthetic report boundary.",
+      );
+    }
+    if (
+      input.evidenceCoverageAcknowledged !== true ||
+      input.responseProvenanceAcknowledged !== true ||
+      input.limitationsAndResidualRiskAcknowledged !== true
+    ) {
+      return fail(
+        state,
+        toolName,
+        "Review evidence coverage, response provenance, limitations, and residual risk before approval.",
+        "REPORT_REVIEW_REQUIRED",
       );
     }
     const updated = nextState(state);

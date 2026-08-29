@@ -10,6 +10,7 @@ import type {
   EnrichmentArtifact,
   InvestigationQueryDefinition,
   OperationReceipt,
+  ReportReviewAcknowledgements,
 } from "@/domain/types";
 import { formatUtcTime, humanizeEntityKind } from "@/lib/format";
 import { CaseReportPanel } from "./case-report-panel";
@@ -17,22 +18,28 @@ import { QueryReturnedRecords } from "./query-returned-records";
 import type { TraceSelection } from "./trace-interaction";
 
 interface InvestigationDrawerProps {
+  busy: boolean;
   fixture: CaseFixture;
   findingsSectionId: string;
+  onApproveReport: (review: ReportReviewAcknowledgements) => Promise<void>;
   onSelect: (selection: TraceSelection) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  reportReviewId: string;
   receipts: readonly OperationReceipt[];
   selectionDetails?: ReactNode;
   state: CaseState;
 }
 
 export function InvestigationDrawer({
+  busy,
   fixture,
   findingsSectionId,
+  onApproveReport,
   onSelect,
   onOpenChange,
   open,
+  reportReviewId,
   receipts,
   selectionDetails,
   state,
@@ -201,7 +208,14 @@ export function InvestigationDrawer({
               </div>
               <small>Review before approval</small>
             </header>
-            <CaseReportPanel fixture={fixture} state={state} />
+            <CaseReportPanel
+              busy={busy}
+              fixture={fixture}
+              key={state.report.report?.id ?? "case-report"}
+              onApprove={onApproveReport}
+              reportId={reportReviewId}
+              state={state}
+            />
           </section>
         ) : null}
 

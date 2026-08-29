@@ -21,6 +21,7 @@ interface QueryConsoleProps {
   candidates: readonly InvestigationQueryDefinition[];
   fixture: CaseFixture;
   onChooseQuery: (queryId: string) => void;
+  onPrepare: (input: Record<string, unknown>) => Promise<void>;
   onExecute: (input: Record<string, unknown>) => Promise<void>;
   onSelect: (selection: TraceSelection) => void;
   query: InvestigationQueryDefinition;
@@ -33,6 +34,7 @@ export function QueryConsole({
   candidates,
   fixture,
   onChooseQuery,
+  onPrepare,
   onExecute,
   onSelect,
   query,
@@ -41,8 +43,11 @@ export function QueryConsole({
   const contract = getQueryConsoleContract(query.id);
   const canonicalText = contract?.text ?? "";
   const attached = state.attachedEnrichmentIds.includes(query.resultArtifactId);
+  const prepared =
+    state.preparedQuery?.queryId === query.id &&
+    state.preparedQuery.preparedAtRevision === state.revision;
   const [open, setOpen] = useState(true);
-  const [draft, setDraft] = useState(canonicalText);
+  const [draftInput, setDraftInput] = useState<string | null>(null);
   const [showAttachedQuery, setShowAttachedQuery] = useState(false);
   const animationKey = useRef<string | null>(null);
   const activityTargetsQuery =
@@ -60,11 +65,11 @@ export function QueryConsole({
     if (!copilotPrepareKey || animationKey.current === copilotPrepareKey)
       return;
     animationKey.current = copilotPrepareKey;
-    setDraft("");
+    setDraftInput("");
     let cursor = 0;
     const timer = window.setInterval(() => {
       cursor = Math.min(canonicalText.length, cursor + 20);
-      setDraft(canonicalText.slice(0, cursor));
+      setDraftInput(canonicalText.slice(0, cursor));
       if (cursor >= canonicalText.length) window.clearInterval(timer);
     }, 18);
     return () => window.clearInterval(timer);
@@ -75,6 +80,7 @@ export function QueryConsole({
     activity.status === "running" &&
     activity.toolName === "run_investigation_query";
   const forceOpen = running || copilotPreparing;
+  const draft = draftInput ?? (prepared || attached ? canonicalText : "");
   const showQueryText = !attached || showAttachedQuery;
   const rejected =
     activityTargetsQuery &&
@@ -82,7 +88,9 @@ export function QueryConsole({
     (activity.toolName === "prepare_investigation_query" ||
       activity.toolName === "run_investigation_query");
   const valid =
-    contract !== null && matchesQueryConsoleContract(query.id, draft);
+    prepared &&
+    contract !== null &&
+    matchesQueryConsoleContract(query.id, draft);
   const canonicalLoaded =
     normalizeQueryConsoleText(draft) ===
     normalizeQueryConsoleText(canonicalText);
@@ -106,7 +114,13 @@ export function QueryConsole({
       <summary>
         <span>Investigation query</span>
         <strong>
-          {queryStatusLabel(activity, query.id, attached, state.preparedQuery)}
+          {queryStatusLabel(
+            activity,
+            query.id,
+            attached,
+            state.preparedQuery,
+            state.revision,
+          )}
         </strong>
         <small>{target?.label ?? query.targetEntityId}</small>
       </summary>
@@ -181,9 +195,10 @@ export function QueryConsole({
               <textarea
                 aria-describedby="query-console-boundary"
                 aria-label="KQL investigation query"
-                disabled={attached || running || copilotPreparing}
+                disabled={attached || running || copilotPreparing || !prepared}
                 maxLength={1024}
-                onChange={(event) => setDraft(event.target.value)}
+                onChange={(event) => setDraftInput(event.target.value)}
+                placeholder="Prepare this evidence query to load approved KQL."
                 spellCheck={false}
                 value={draft}
               />
@@ -205,54 +220,74 @@ export function QueryConsole({
                 </span>
               </div>
               <div className="query-console-actions">
-                {!canonicalLoaded && !attached ? (
+                {prepared && !canonicalLoaded && !attached ? (
                   <button
                     className="query-console-restore"
-                    onClick={() => setDraft(canonicalText)}
+                    onClick={() => setDraftInput(canonicalText)}
                     type="button"
                   >
                     Restore query
                   </button>
                 ) : null}
-                <button
-                  className="query-console-run"
-                  disabled={
-                    busy || attached || running || copilotPreparing || !valid
-                  }
-                  onClick={() =>
-                    void onExecute({
-                      expectedRevision: state.revision,
-                      queryId: query.id,
-                      queryText: draft,
-                    })
-                  }
-                  type="button"
-                >
-                  {attached
-                    ? "Result attached"
-                    : running
-                      ? "Searching records"
-                      : copilotPreparing
-                        ? "Preparing approved query"
+                {!prepared && !attached ? (
+                  <button
+                    className="query-console-prepare"
+                    disabled={busy || copilotPreparing}
+                    onClick={() =>
+                      void onPrepare({
+                        expectedRevision: state.revision,
+                        queryId: query.id,
+                      })
+                    }
+                    type="button"
+                  >
+                    {copilotPreparing
+                      ? "Copilot preparing"
+                      : "Load approved query"}
+                  </button>
+                ) : (
+                  <button
+                    className="query-console-run"
+                    disabled={
+                      busy || attached || running || copilotPreparing || !valid
+                    }
+                    onClick={() =>
+                      void onExecute({
+                        expectedRevision: state.revision,
+                        queryId: query.id,
+                        queryText: draft,
+                      })
+                    }
+                    type="button"
+                  >
+                    {attached
+                      ? "Result attached"
+                      : running
+                        ? "Searching records"
                         : "Run query"}
-                </button>
+                  </button>
+                )}
               </div>
             </footer>
 
-            {!valid && !copilotPreparing ? (
+            {prepared && !valid && !copilotPreparing ? (
               <p className="query-console-error" role="status">
                 This text does not match the selected case query. Restore the
                 approved query before execution.
               </p>
             ) : null}
 
-            {running && activity.status === "running" ? (
+            {(running || copilotPreparing) && activity.status === "running" ? (
               <div className="query-console-progress" role="status">
                 <span
                   style={{ width: `${Math.round(activity.progress * 100)}%` }}
                 />
-                <strong>{queryPhaseLabel(activity.phase)}</strong>
-                <small>{Math.round(activity.progress * 100)}%</small>
+                <strong>
+                  {activity.toolName === "prepare_investigation_query"
+                    ? preparePhaseLabel(activity.phase)
+                    : queryPhaseLabel(activity.phase)}
+                </strong>
+                <small>{phaseSequenceLabel(activity.phase)}</small>
               </div>
             ) : null}
 
@@ -350,9 +385,13 @@ function queryStatusLabel(
   queryId: string,
   attached: boolean,
   preparedQuery: CaseState["preparedQuery"],
+  currentRevision: number,
 ): string {
   if (attached) return "Result attached";
   if (preparedQuery?.queryId === queryId) {
+    if (preparedQuery.preparedAtRevision !== currentRevision) {
+      return "Reload required";
+    }
     return preparedQuery.actor === "agent"
       ? "Prepared by copilot"
       : "Prepared by analyst";
@@ -380,6 +419,18 @@ function queryPhaseLabel(phase: "scope" | "search" | "review"): string {
   if (phase === "scope") return "Selecting approved sources";
   if (phase === "search") return "Searching case records";
   return "Reviewing matches";
+}
+
+function preparePhaseLabel(phase: "scope" | "search" | "review"): string {
+  if (phase === "scope") return "Selecting approved sources";
+  if (phase === "search") return "Writing bounded KQL";
+  return "Validating query contract";
+}
+
+function phaseSequenceLabel(phase: "scope" | "search" | "review"): string {
+  if (phase === "scope") return "Stage 1 of 3";
+  if (phase === "search") return "Stage 2 of 3";
+  return "Stage 3 of 3";
 }
 
 function queryTimeRange(query: InvestigationQueryDefinition): string {

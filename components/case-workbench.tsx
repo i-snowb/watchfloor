@@ -8,7 +8,11 @@ import {
   getResponseBundles,
   type CaseToolName,
 } from "@/domain/operations";
-import type { CaseFixture, CaseSnapshot } from "@/domain/types";
+import type {
+  CaseFixture,
+  CaseSnapshot,
+  ReportReviewAcknowledgements,
+} from "@/domain/types";
 import { getAllEntities } from "@/domain/incident-stream";
 import { executeTool, loadCase, resetCase } from "@/lib/client-api";
 import {
@@ -63,6 +67,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
   );
   const [investigationActivity, setInvestigationActivity] =
     useState<InvestigationActivity>({ status: "idle" });
+  const [reportReviewRequestToken, setReportReviewRequestToken] = useState(0);
   const [investigationResult, setInvestigationResult] =
     useState<InvestigationResultView | null>(null);
   const [liveReceipt, setLiveReceipt] = useState<
@@ -636,6 +641,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         <div className="investigation-cockpit">
           <div className="workbench-grid">
             <EvidenceMap
+              busy={operationBusy}
               actionDock={
                 <CaseCommandBar
                   agentStatus={agentStatus}
@@ -648,6 +654,9 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
                   selection={selection}
                   showInvestigationControls={analystSelectionActive}
                   investigationActivity={displayedInvestigationActivity}
+                  onOpenReportReview={() =>
+                    setReportReviewRequestToken((current) => current + 1)
+                  }
                   state={snapshot.state}
                   streamPlaying={streamPlaying}
                 />
@@ -660,10 +669,19 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
               latestAuthorizationReceipt={latestAuthorizationReceipt}
               latestReceipt={liveReceipt}
               onSelect={selectAsAnalyst}
+              onApproveReport={(review: ReportReviewAcknowledgements) =>
+                runManualTool("approve_case_report", {
+                  expectedRevision: snapshotRef.current.state.revision,
+                  reportId: snapshotRef.current.state.report.report?.id,
+                  acknowledgement: "APPROVE_SYNTHETIC_REPORT",
+                  ...review,
+                })
+              }
               receipts={snapshot.receipts}
               selection={selection}
               showInvestigationActions={analystSelectionActive}
               state={snapshot.state}
+              reportReviewRequestToken={reportReviewRequestToken}
               syntheticExpansion={syntheticExpansion}
             >
               <CaseInspector
@@ -882,7 +900,8 @@ function waitForOperation(
 }
 
 function operationLatencyMs(toolName: CaseToolName): number {
-  if (toolName === "prepare_investigation_query") return 900;
+  if (toolName === "prepare_investigation_query") return 1_400;
+  if (toolName === "generate_case_report") return 2_600;
   if (toolName === "run_investigation_plan") return 2_800;
   if (toolName === "run_investigation_query") return 2_400;
   if (toolName === "request_next_observation") return 900;

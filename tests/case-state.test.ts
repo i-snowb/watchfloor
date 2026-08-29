@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseCaseState } from "../domain/case-state";
-import { createInitialCaseState, executeCaseTool } from "../domain/operations";
+import {
+  createInitialCaseState,
+  executeCaseTool,
+  getInvestigationPlans,
+} from "../domain/operations";
 import {
   cloudIdentityScenario,
   endpointLateralScenario,
@@ -32,6 +36,23 @@ function completeInvestigationPlan(
 ): CaseState {
   let current = state;
   while (true) {
+    const plan = getInvestigationPlans(fixture).find(
+      (candidate) => candidate.id === planId,
+    );
+    const queryId = plan?.queryIds.find((candidateId) => {
+      const query = fixture.investigationQueries.find(
+        (candidate) => candidate.id === candidateId,
+      );
+      return (
+        query !== undefined &&
+        !current.attachedEnrichmentIds.includes(query.resultArtifactId)
+      );
+    });
+    assert.ok(queryId, `No unresolved query exists for ${planId}`);
+    current = write(fixture, current, "prepare_investigation_query", {
+      expectedRevision: current.revision,
+      queryId,
+    });
     const result = executeCaseTool(fixture, current, {
       requestId: `state-plan-${planId}-${current.revision}`,
       toolName: "run_investigation_plan",

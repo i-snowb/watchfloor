@@ -41,7 +41,7 @@ Use this prompt at the start of the endpoint case:
 
 ## Query map
 
-The guide lists stable query IDs, not copied KQL. `prepare_investigation_query` supplies and displays the canonical text.
+The guide lists stable query IDs, not copied KQL. Every query must follow the same protocol: call `prepare_investigation_query`, wait for the canonical KQL to appear in the shared workspace, then execute that prepared query with `run_investigation_query` or the matching next step with `run_investigation_plan`. Both paths reject missing, mismatched, or stale preparation.
 
 | Query ID                   | Purpose                                                            | Required                    |
 | -------------------------- | ------------------------------------------------------------------ | --------------------------- |
