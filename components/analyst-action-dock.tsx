@@ -50,8 +50,8 @@ export function AnalystActionDock({
     return (
       <DockFrame eyebrow="Analyst approval" title="Approve evidence report">
         <p>
-          The copilot drafted the bounded evidence record. Approval closes this
-          synthetic case.
+          The copilot drafted the evidence record. Approval closes this demo
+          case.
         </p>
         <button
           disabled={busy}

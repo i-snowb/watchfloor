@@ -845,7 +845,7 @@ function commandDetail(
     state.decision.status !== "pending" &&
     state.decision.status !== fixture.conclusion.requiredDecision
   ) {
-    return "This disposition stops the response workflow. Reset the fixture to replay another path.";
+    return "This disposition stops the response workflow. Reset the case to replay another path.";
   }
   if (state.report.status === "drafted") {
     return "Analyst approval records closure. The report is not published externally.";
@@ -868,12 +868,12 @@ function commandDetail(
     if (state.observationRequest?.status === "pending") {
       return state.observationRequest.rationale;
     }
-    return `Fixture replay · ${state.releasedStreamStageIds.length}/${fixture.stream.stages.length} updates received.`;
+    return `Demo replay · ${state.releasedStreamStageIds.length}/${fixture.stream.stages.length} updates received.`;
   }
   if (agentStatus.state === "available") {
-    return "Copilot ready. It can run the next bounded case operation through WebMCP.";
+    return "Copilot ready. It can run the next case operation through WebMCP.";
   }
-  return "The same bounded operation is available in the evidence inspector.";
+  return "The same operation is available in the evidence inspector.";
 }
 
 function impactSummary(fixture: CaseFixture, state: CaseState): string {
@@ -912,7 +912,7 @@ function impactSummary(fixture: CaseFixture, state: CaseState): string {
   }
   if (state.counterfactualAttached) {
     const count = fixture.counterfactual.severedPathIds.length;
-    return `Simulation predicts ${count} segment${count === 1 ? "" : "s"} severed · no control executed`;
+    return `Simulation blocks ${count} modeled path${count === 1 ? "" : "s"} · no control executed`;
   }
   if (state.reachabilityAttached) {
     return `${fixture.reachability.paths.length} candidate risk segments · billing-api modeled only`;
@@ -940,7 +940,7 @@ function commandOwnerLabel(owner: CommandOwner): string {
   if (owner === "analyst") return "Analyst decision";
   if (owner === "evidence") return "Live evidence";
   if (owner === "complete") return "Resolved";
-  return "Tier 1 handoff";
+  return "Tier 1 assessment";
 }
 
 function commandSequenceLabel(fixture: CaseFixture, state: CaseState): string {

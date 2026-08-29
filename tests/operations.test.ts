@@ -176,6 +176,7 @@ test("human and agent run the same deterministic investigation query", () => {
     "ENR-CLOUD-IDENTITY-01",
   ]);
   const execution = human.data as {
+    returnedRecords: readonly { id: string; sourceLabel: string }[];
     execution: {
       synthetic: boolean;
       syntheticRecordCount: number;
@@ -187,6 +188,11 @@ test("human and agent run the same deterministic investigation query", () => {
   assert.equal(execution.execution.syntheticRecordCount, 1600);
   assert.equal(execution.execution.matchedRecordCount, 3);
   assert.equal(execution.execution.returnedRecordCount, 2);
+  assert.equal(execution.returnedRecords.length, 2);
+  assert.deepEqual(
+    execution.returnedRecords.map((record) => record.id),
+    ["QRR-CLOUD-IDENTITY-01", "QRR-CLOUD-IDENTITY-02"],
+  );
 
   const duplicate = execute(
     cloudIdentityScenario,
@@ -232,6 +238,7 @@ test("every catalog query executes through the shared WebMCP operation", () => {
         true,
       );
       const data = outcome.data as {
+        returnedRecords: readonly { id: string }[];
         execution: {
           synthetic: boolean;
           matchedRecordCount: number;
@@ -244,6 +251,7 @@ test("every catalog query executes through the shared WebMCP operation", () => {
         data.execution.returnedRecordCount,
         query.returnedRecordCount,
       );
+      assert.equal(data.returnedRecords.length, query.returnedRecordCount);
     }
   }
 });
@@ -329,6 +337,7 @@ test("investigation plans attach one available finding in deterministic order", 
     remainingCount: number;
     nextQueryId: string | null;
     artifact: { id: string };
+    returnedRecords: readonly { id: string }[];
     execution: { syntheticRecordCount: number; matchedRecordCount: number };
   };
   assert.equal(firstData.planId, "tier1_initial");
@@ -341,9 +350,11 @@ test("investigation plans attach one available finding in deterministic order", 
   assert.equal(firstData.artifact.id, "ENR-LAT-FILE-01");
   assert.equal(firstData.execution.syntheticRecordCount, 2496);
   assert.equal(firstData.execution.matchedRecordCount, 11);
+  assert.equal(firstData.returnedRecords.length, 6);
+  assert.equal(firstData.returnedRecords[0]?.id, "QRR-ENDPOINT-FILE-01");
   assert.equal(first.receipt.title, "Helper behavior and prevalence");
   assert.equal(first.receipt.target, "invoice-sync-helper.exe");
-  assert.match(first.receipt.resultSummary, /^1\/4 findings attached/);
+  assert.match(first.receipt.resultSummary, /^1\/4 results added/);
 
   let state = first.state;
   const expected = [

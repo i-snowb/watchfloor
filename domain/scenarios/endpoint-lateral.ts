@@ -1,4 +1,4 @@
-import type { CaseFixture } from "../types";
+import type { CaseFixture, InvestigationQueryReturnedRecord } from "../types";
 
 const caseId = "case-endpoint-0448";
 const scenarioId = "endpoint-lateral";
@@ -10,6 +10,24 @@ const base = {
   fixtureVersion,
   synthetic: true as const,
 };
+
+function returnedRecord(
+  id: string,
+  sourceLabel: string,
+  timestamp: string,
+  recordType: string,
+  entityIds: readonly string[],
+  fields: Readonly<Record<string, string>>,
+): InvestigationQueryReturnedRecord {
+  return {
+    id,
+    sourceLabel,
+    timestamp,
+    recordType,
+    entityIds,
+    fields: Object.entries(fields).map(([label, value]) => ({ label, value })),
+  };
+}
 
 export const endpointLateralScenario = {
   id: caseId,
@@ -34,7 +52,7 @@ export const endpointLateralScenario = {
       subject: "FIN-WS-044 · invoice-sync-helper.exe",
       severity: "high",
       status: "escalated",
-      source: "Synthetic EDR correlation",
+      source: "Demo EDR correlation",
       occurredAt: "2026-08-28T14:04:34Z",
       selected: true,
     },
@@ -45,7 +63,7 @@ export const endpointLateralScenario = {
       subject: "svc-fin-reports · APP-SRV-021",
       severity: "high",
       status: "linked",
-      source: "Synthetic Windows authentication",
+      source: "Demo Windows authentication",
       occurredAt: "2026-08-28T14:04:03Z",
       selected: false,
     },
@@ -56,7 +74,7 @@ export const endpointLateralScenario = {
       subject: "svc-fin-reports · ci/deploy/production",
       severity: "high",
       status: "linked",
-      source: "Synthetic cloud audit",
+      source: "Demo cloud audit",
       occurredAt: "2026-08-28T14:05:02Z",
       selected: false,
     },
@@ -66,8 +84,8 @@ export const endpointLateralScenario = {
       id: "file:invoice-sync-helper",
       kind: "file",
       label: "invoice-sync-helper.exe",
-      provider: "Synthetic EDR",
-      summary: "Unsigned zero-prevalence executable from a user-writable path",
+      provider: "Demo EDR",
+      summary: "Unsigned, zero-prevalence file in writable path",
       fileName: "invoice-sync-helper.exe",
       sha256:
         "65fb21f3b3b11f7a7d45f31965dad35935e6d9c860ca6f618999510db74260b9",
@@ -77,7 +95,7 @@ export const endpointLateralScenario = {
       id: "endpoint:fin-ws-044",
       kind: "endpoint",
       label: "FIN-WS-044",
-      provider: "Synthetic EDR",
+      provider: "Demo EDR",
       summary: "Finance workstation assigned to Maya Chen",
       hostname: "FIN-WS-044",
       deviceId: "edr-demo-fin-044",
@@ -88,7 +106,7 @@ export const endpointLateralScenario = {
       id: "indicator:203.0.113.91",
       kind: "network_indicator",
       label: "203.0.113.91",
-      provider: "Synthetic proxy",
+      provider: "Demo proxy",
       summary: "Documentation-range destination absent from approved egress",
       address: "203.0.113.91",
       addressClass: "documentation_range",
@@ -97,7 +115,7 @@ export const endpointLateralScenario = {
       id: "identity:svc-fin-reports",
       kind: "identity",
       label: "svc-fin-reports",
-      provider: "Synthetic directory",
+      provider: "Demo directory",
       summary: "Service identity scoped to the finance reporting service",
       accountName: "svc-fin-reports",
       email: "svc-fin-reports@example.test",
@@ -107,7 +125,7 @@ export const endpointLateralScenario = {
       id: "endpoint:app-srv-021",
       kind: "endpoint",
       label: "APP-SRV-021",
-      provider: "Synthetic EDR",
+      provider: "Demo EDR",
       summary: "Tier 1 production application host",
       hostname: "APP-SRV-021",
       deviceId: "edr-demo-app-021",
@@ -118,7 +136,7 @@ export const endpointLateralScenario = {
       id: "secret:ci-deploy-token",
       kind: "secret",
       label: "ci/deploy/production",
-      provider: "Synthetic secret store",
+      provider: "Demo secret store",
       summary: "Production deployment credential read by svc-fin-reports",
       secretArn:
         "arn:aws:secretsmanager:us-east-1:111122223333:secret:ci/deploy/production-DEMO",
@@ -128,7 +146,7 @@ export const endpointLateralScenario = {
       id: "workload:billing-api",
       kind: "workload",
       label: "billing-api",
-      provider: "Synthetic deployment policy",
+      provider: "Demo deployment policy",
       summary:
         "Modeled target through the deployment credential; image not observed",
       workloadId: "billing-api",
@@ -144,7 +162,7 @@ export const endpointLateralScenario = {
       sequence: 1,
       status: "observed",
       sourceCategory: "endpoint_telemetry",
-      sourceLabel: "Synthetic EDR",
+      sourceLabel: "Demo EDR",
       timestamp: "2026-08-28T14:02:11Z",
       actor: { kind: "source_system", id: "fixture-edr" },
       action: "ProcessStart",
@@ -172,7 +190,7 @@ export const endpointLateralScenario = {
       sequence: 2,
       status: "observed",
       sourceCategory: "endpoint_telemetry",
-      sourceLabel: "Synthetic EDR",
+      sourceLabel: "Demo EDR",
       timestamp: "2026-08-28T14:02:14Z",
       actor: { kind: "source_system", id: "fixture-edr" },
       action: "FileWrite",
@@ -193,7 +211,7 @@ export const endpointLateralScenario = {
       sequence: 3,
       status: "observed",
       sourceCategory: "endpoint_telemetry",
-      sourceLabel: "Synthetic EDR",
+      sourceLabel: "Demo EDR",
       timestamp: "2026-08-28T14:02:20Z",
       actor: { kind: "source_system", id: "fixture-edr" },
       action: "NetworkConnection",
@@ -219,7 +237,7 @@ export const endpointLateralScenario = {
       sequence: 4,
       status: "observed",
       sourceCategory: "endpoint_telemetry",
-      sourceLabel: "Synthetic EDR",
+      sourceLabel: "Demo EDR",
       timestamp: "2026-08-28T14:03:20Z",
       actor: { kind: "source_system", id: "fixture-edr" },
       action: "NetworkConnection",
@@ -244,7 +262,7 @@ export const endpointLateralScenario = {
       sequence: 5,
       status: "observed",
       sourceCategory: "windows_authentication",
-      sourceLabel: "Synthetic Windows authentication",
+      sourceLabel: "Demo Windows authentication",
       timestamp: "2026-08-28T14:04:03Z",
       actor: { kind: "source_system", id: "fixture-windows-auth" },
       action: "NetworkLogon",
@@ -270,7 +288,7 @@ export const endpointLateralScenario = {
       sequence: 6,
       status: "observed",
       sourceCategory: "endpoint_telemetry",
-      sourceLabel: "Synthetic EDR",
+      sourceLabel: "Demo EDR",
       timestamp: "2026-08-28T14:04:07Z",
       actor: { kind: "source_system", id: "fixture-edr" },
       action: "ProcessStart",
@@ -295,7 +313,7 @@ export const endpointLateralScenario = {
       sequence: 7,
       status: "observed",
       sourceCategory: "endpoint_telemetry",
-      sourceLabel: "Synthetic EDR",
+      sourceLabel: "Demo EDR",
       timestamp: "2026-08-28T14:04:19Z",
       actor: { kind: "source_system", id: "fixture-edr" },
       action: "ProcessStart",
@@ -325,7 +343,7 @@ export const endpointLateralScenario = {
       sequence: 8,
       status: "observed",
       sourceCategory: "cloud_audit",
-      sourceLabel: "Synthetic cloud audit",
+      sourceLabel: "Demo cloud audit",
       timestamp: "2026-08-28T14:05:02Z",
       actor: { kind: "source_system", id: "fixture-cloud-audit" },
       action: "GetSecretValue",
@@ -344,7 +362,7 @@ export const endpointLateralScenario = {
       sequence: 9,
       status: "observed",
       sourceCategory: "cloud_audit",
-      sourceLabel: "Synthetic cloud audit",
+      sourceLabel: "Demo cloud audit",
       timestamp: "2026-08-28T14:05:12Z",
       actor: { kind: "source_system", id: "fixture-cloud-audit" },
       action: "GetCallerIdentity",
@@ -467,7 +485,7 @@ export const endpointLateralScenario = {
       sequence: 15,
       status: "supporting",
       sourceCategory: "static_analysis",
-      sourceLabel: "Synthetic file analysis",
+      sourceLabel: "Demo file analysis",
       timestamp: "2026-08-28T14:05:20Z",
       actor: { kind: "system", id: "fixture-file-analysis" },
       entityId: "file:invoice-sync-helper",
@@ -492,7 +510,7 @@ export const endpointLateralScenario = {
       sequence: 16,
       status: "supporting",
       sourceCategory: "asset_inventory",
-      sourceLabel: "Synthetic endpoint inventory",
+      sourceLabel: "Demo endpoint inventory",
       timestamp: "2026-08-28T14:05:21Z",
       actor: { kind: "system", id: "fixture-endpoint-inventory" },
       entityId: "endpoint:fin-ws-044",
@@ -515,7 +533,7 @@ export const endpointLateralScenario = {
       sequence: 17,
       status: "supporting",
       sourceCategory: "identity_directory",
-      sourceLabel: "Synthetic service identity baseline",
+      sourceLabel: "Demo service identity baseline",
       timestamp: "2026-08-28T14:05:22Z",
       actor: { kind: "system", id: "fixture-directory" },
       entityId: "identity:svc-fin-reports",
@@ -539,7 +557,7 @@ export const endpointLateralScenario = {
       sequence: 18,
       status: "disputed",
       sourceCategory: "network_inventory",
-      sourceLabel: "Synthetic destination inventory",
+      sourceLabel: "Demo destination inventory",
       timestamp: "2026-08-28T14:05:23Z",
       actor: { kind: "system", id: "fixture-network-inventory" },
       entityId: "indicator:203.0.113.91",
@@ -563,7 +581,7 @@ export const endpointLateralScenario = {
       sequence: 31,
       status: "supporting",
       sourceCategory: "static_analysis",
-      sourceLabel: "Synthetic static-analysis fixture",
+      sourceLabel: "Demo static-analysis fixture",
       timestamp: "2026-08-28T14:05:24Z",
       actor: { kind: "system", id: "fixture-static-analysis" },
       entityId: "file:invoice-sync-helper",
@@ -592,7 +610,7 @@ export const endpointLateralScenario = {
       sequence: 32,
       status: "supporting",
       sourceCategory: "sandbox_artifact",
-      sourceLabel: "Synthetic sandbox behavior fixture",
+      sourceLabel: "Demo sandbox behavior fixture",
       timestamp: "2026-08-28T14:05:25Z",
       actor: { kind: "system", id: "fixture-sandbox-behavior" },
       entityId: "file:invoice-sync-helper",
@@ -630,7 +648,7 @@ export const endpointLateralScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Synthetic EDR process and file lake",
+          sourceLabel: "Demo EDR process and file lake",
           sourceCategory: "endpoint_telemetry",
           timeRange: {
             start: "2026-07-29T00:00:00Z",
@@ -639,7 +657,7 @@ export const endpointLateralScenario = {
           syntheticRecordCount: 2400,
         },
         {
-          sourceLabel: "Synthetic file reputation index",
+          sourceLabel: "Demo file reputation index",
           sourceCategory: "static_analysis",
           timeRange: {
             start: "2026-05-30T00:00:00Z",
@@ -650,9 +668,87 @@ export const endpointLateralScenario = {
       ],
       matchedRecordCount: 11,
       returnedRecordCount: 6,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-ENDPOINT-FILE-01",
+          "Demo EDR process and file lake",
+          "2026-08-28T14:02:11Z",
+          "File creation",
+          ["file:invoice-sync-helper", "endpoint:fin-ws-044"],
+          {
+            File: "invoice-sync-helper.exe",
+            Host: "FIN-WS-044",
+            Source: "C:\\Users\\mchen\\Downloads",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-FILE-02",
+          "Demo EDR process and file lake",
+          "2026-08-28T14:02:18Z",
+          "Process start",
+          ["file:invoice-sync-helper", "endpoint:fin-ws-044"],
+          {
+            Process: "invoice-sync-helper.exe",
+            Parent: "explorer.exe",
+            Signer: "Unsigned",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-FILE-03",
+          "Demo EDR process and file lake",
+          "2026-08-28T14:03:12Z",
+          "TLS connection",
+          [
+            "file:invoice-sync-helper",
+            "endpoint:fin-ws-044",
+            "indicator:203.0.113.91",
+          ],
+          {
+            Destination: "203.0.113.91:443",
+            Protocol: "TLS",
+            Process: "invoice-sync-helper.exe",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-FILE-04",
+          "Demo EDR process and file lake",
+          "2026-08-28T14:04:12Z",
+          "TLS connection",
+          [
+            "file:invoice-sync-helper",
+            "endpoint:fin-ws-044",
+            "indicator:203.0.113.91",
+          ],
+          {
+            Destination: "203.0.113.91:443",
+            Interval: "60 seconds",
+            Process: "invoice-sync-helper.exe",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-FILE-05",
+          "Demo file reputation index",
+          "2026-08-28T14:05:20Z",
+          "Prevalence record",
+          ["file:invoice-sync-helper"],
+          {
+            SHA256: "b4a1…7e21",
+            "Peer prevalence": "0 in 30 days",
+            Signer: "Unsigned",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-FILE-06",
+          "Demo EDR process and file lake",
+          "2026-08-28T14:05:20Z",
+          "Execution lineage",
+          ["file:invoice-sync-helper", "endpoint:fin-ws-044"],
+          { User: "Maya Chen", Path: "User-writable", Outcome: "Observed" },
+        ),
+      ],
       resultChange:
         "Unsigned, zero-prevalence execution from a user-writable path raises the containment case.",
-      caveat: "The fixture did not upload, execute, or detonate a real binary.",
+      caveat: "No real binary was uploaded, executed, or detonated.",
     },
     {
       id: "QRY-ENDPOINT-STATIC-08",
@@ -666,7 +762,7 @@ export const endpointLateralScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Synthetic static-analysis fixture",
+          sourceLabel: "Demo static-analysis fixture",
           sourceCategory: "static_analysis",
           timeRange: {
             start: "2026-08-28T14:05:20Z",
@@ -677,6 +773,40 @@ export const endpointLateralScenario = {
       ],
       matchedRecordCount: 3,
       returnedRecordCount: 3,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-ENDPOINT-STATIC-01",
+          "Demo static-analysis fixture",
+          "2026-08-28T14:05:24Z",
+          "PE header",
+          ["file:invoice-sync-helper"],
+          { Format: "PE32+", Architecture: "x64", Signer: "Unsigned" },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-STATIC-02",
+          "Demo static-analysis fixture",
+          "2026-08-28T14:05:24Z",
+          "Import summary",
+          ["file:invoice-sync-helper"],
+          {
+            Import: "WinHTTP",
+            Meaning: "Network-client API",
+            Coverage: "Fixture summary",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-STATIC-03",
+          "Demo static-analysis fixture",
+          "2026-08-28T14:05:24Z",
+          "Import summary",
+          ["file:invoice-sync-helper"],
+          {
+            Import: "OpenSCManager",
+            Meaning: "Service-control API",
+            Coverage: "Fixture summary",
+          },
+        ),
+      ],
       resultChange:
         "Unsigned PE metadata and network-client and service-control references support deeper behavior review.",
       caveat:
@@ -694,7 +824,7 @@ export const endpointLateralScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Synthetic sandbox behavior fixture",
+          sourceLabel: "Demo sandbox behavior fixture",
           sourceCategory: "sandbox_artifact",
           timeRange: {
             start: "2026-08-28T14:05:20Z",
@@ -705,6 +835,44 @@ export const endpointLateralScenario = {
       ],
       matchedRecordCount: 3,
       returnedRecordCount: 3,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-ENDPOINT-SANDBOX-01",
+          "Demo sandbox behavior fixture",
+          "2026-08-28T14:05:25Z",
+          "Fixture execution",
+          ["file:invoice-sync-helper"],
+          {
+            Profile: "Windows 11 Enterprise",
+            Path: "Temp directory",
+            External: "No",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-SANDBOX-02",
+          "Demo sandbox behavior fixture",
+          "2026-08-28T14:05:25Z",
+          "Fixture network",
+          ["file:invoice-sync-helper", "indicator:203.0.113.91"],
+          {
+            Destination: "203.0.113.91:443",
+            Connections: "2 TLS",
+            External: "No",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-SANDBOX-03",
+          "Demo sandbox behavior fixture",
+          "2026-08-28T14:05:25Z",
+          "Fixture service control",
+          ["file:invoice-sync-helper", "endpoint:app-srv-021"],
+          {
+            Intent: "Remote service control",
+            Observed: "Fixture behavior",
+            Outcome: "No external execution",
+          },
+        ),
+      ],
       resultChange:
         "Fixture behavior aligns with the observed temp execution, repeated TLS, and blocked service-control attempt.",
       caveat:
@@ -722,7 +890,7 @@ export const endpointLateralScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Synthetic EDR device inventory",
+          sourceLabel: "Demo EDR device inventory",
           sourceCategory: "asset_inventory",
           timeRange: {
             start: "2026-08-21T00:00:00Z",
@@ -731,7 +899,7 @@ export const endpointLateralScenario = {
           syntheticRecordCount: 320,
         },
         {
-          sourceLabel: "Synthetic endpoint heartbeat lake",
+          sourceLabel: "Demo endpoint heartbeat lake",
           sourceCategory: "endpoint_telemetry",
           timeRange: {
             start: "2026-08-28T13:05:00Z",
@@ -742,6 +910,44 @@ export const endpointLateralScenario = {
       ],
       matchedRecordCount: 8,
       returnedRecordCount: 4,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-ENDPOINT-HOST-01",
+          "Demo EDR device inventory",
+          "2026-08-28T14:05:18Z",
+          "Device inventory",
+          ["endpoint:fin-ws-044"],
+          { Host: "FIN-WS-044", Owner: "Maya Chen", Criticality: "Standard" },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-HOST-02",
+          "Demo endpoint heartbeat lake",
+          "2026-08-28T14:05:18Z",
+          "EDR heartbeat",
+          ["endpoint:fin-ws-044"],
+          { Host: "FIN-WS-044", Status: "Healthy", "Last seen": "14:05:18Z" },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-HOST-03",
+          "Demo EDR device inventory",
+          "2026-08-28T14:05:21Z",
+          "Containment capability",
+          ["endpoint:fin-ws-044"],
+          {
+            Isolation: "Supported",
+            Collection: "Retained",
+            Approval: "Required",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-HOST-04",
+          "Demo endpoint heartbeat lake",
+          "2026-08-28T14:05:21Z",
+          "Response posture",
+          ["endpoint:fin-ws-044"],
+          { Host: "FIN-WS-044", Sensor: "Connected", Response: "Ready" },
+        ),
+      ],
       resultChange:
         "Healthy EDR and supported isolation make FIN-WS-044 response-ready.",
       caveat: "Fixed inventory; no live endpoint was queried.",
@@ -759,7 +965,7 @@ export const endpointLateralScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Synthetic Windows authentication lake",
+          sourceLabel: "Demo Windows authentication lake",
           sourceCategory: "windows_authentication",
           timeRange: {
             start: "2026-05-30T00:00:00Z",
@@ -768,7 +974,7 @@ export const endpointLateralScenario = {
           syntheticRecordCount: 1840,
         },
         {
-          sourceLabel: "Synthetic service identity directory",
+          sourceLabel: "Demo service identity directory",
           sourceCategory: "identity_directory",
           timeRange: {
             start: "2026-05-30T00:00:00Z",
@@ -779,6 +985,48 @@ export const endpointLateralScenario = {
       ],
       matchedRecordCount: 6,
       returnedRecordCount: 3,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-ENDPOINT-IDENTITY-01",
+          "Demo Windows authentication lake",
+          "2026-08-28T14:05:12Z",
+          "Network logon",
+          [
+            "identity:svc-fin-reports",
+            "endpoint:fin-ws-044",
+            "endpoint:app-srv-021",
+          ],
+          {
+            Account: "svc-fin-reports",
+            Source: "FIN-WS-044",
+            Target: "APP-SRV-021",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-IDENTITY-02",
+          "Demo service identity directory",
+          "2026-08-28T14:05:22Z",
+          "Service scope",
+          ["identity:svc-fin-reports"],
+          {
+            Account: "svc-fin-reports",
+            "Expected host": "FIN-REPORTS-SRV-010",
+            "Credential age": "183 days",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-IDENTITY-03",
+          "Demo Windows authentication lake",
+          "2026-08-28T14:05:22Z",
+          "Target history",
+          ["identity:svc-fin-reports", "endpoint:app-srv-021"],
+          {
+            Target: "APP-SRV-021",
+            "Prior logons": "0 in 90 days",
+            Result: "Outside expected scope",
+          },
+        ),
+      ],
       resultChange:
         "APP-SRV-021 is outside the expected scope and has zero prior logons in 90 days.",
       caveat: "The baseline is a bounded deterministic identity snapshot.",
@@ -796,7 +1044,7 @@ export const endpointLateralScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Synthetic network telemetry lake",
+          sourceLabel: "Demo network telemetry lake",
           sourceCategory: "endpoint_telemetry",
           timeRange: {
             start: "2026-07-29T00:00:00Z",
@@ -805,7 +1053,7 @@ export const endpointLateralScenario = {
           syntheticRecordCount: 2860,
         },
         {
-          sourceLabel: "Synthetic approved-egress inventory",
+          sourceLabel: "Demo approved-egress inventory",
           sourceCategory: "network_inventory",
           timeRange: {
             start: "2026-08-01T00:00:00Z",
@@ -816,6 +1064,56 @@ export const endpointLateralScenario = {
       ],
       matchedRecordCount: 4,
       returnedRecordCount: 4,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-ENDPOINT-EGRESS-01",
+          "Demo network telemetry lake",
+          "2026-08-28T14:03:12Z",
+          "TLS connection",
+          ["endpoint:fin-ws-044", "indicator:203.0.113.91"],
+          {
+            Source: "FIN-WS-044",
+            Destination: "203.0.113.91:443",
+            Protocol: "TLS",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-EGRESS-02",
+          "Demo network telemetry lake",
+          "2026-08-28T14:04:12Z",
+          "Repeated connection",
+          ["endpoint:fin-ws-044", "indicator:203.0.113.91"],
+          {
+            Source: "FIN-WS-044",
+            Destination: "203.0.113.91:443",
+            Interval: "60 seconds",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-EGRESS-03",
+          "Demo approved-egress inventory",
+          "2026-08-28T14:05:23Z",
+          "Egress inventory",
+          ["indicator:203.0.113.91"],
+          {
+            Destination: "203.0.113.91",
+            Match: "No approved egress",
+            Address: "Documentation range",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-EGRESS-04",
+          "Demo network telemetry lake",
+          "2026-08-28T14:05:23Z",
+          "Peer history",
+          ["endpoint:fin-ws-044", "indicator:203.0.113.91"],
+          {
+            Host: "FIN-WS-044",
+            "Prior peers": "0 in 30 days",
+            Result: "New destination",
+          },
+        ),
+      ],
       resultChange:
         "No approved-egress match and no prior FIN-WS-044 peer history were found.",
       caveat:
@@ -833,7 +1131,7 @@ export const endpointLateralScenario = {
       requiresStageId: "STREAM-LAT-01",
       sourceScopes: [
         {
-          sourceLabel: "Synthetic application-host telemetry",
+          sourceLabel: "Demo application-host telemetry",
           sourceCategory: "endpoint_telemetry",
           timeRange: {
             start: "2026-08-28T13:50:00Z",
@@ -842,7 +1140,7 @@ export const endpointLateralScenario = {
           syntheticRecordCount: 248,
         },
         {
-          sourceLabel: "Synthetic application-host posture",
+          sourceLabel: "Demo application-host posture",
           sourceCategory: "cloud_configuration",
           timeRange: {
             start: "2026-08-21T00:00:00Z",
@@ -853,6 +1151,64 @@ export const endpointLateralScenario = {
       ],
       matchedRecordCount: 9,
       returnedRecordCount: 5,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-ENDPOINT-APP-01",
+          "Demo application-host telemetry",
+          "2026-08-28T14:05:12Z",
+          "Network logon",
+          ["identity:svc-fin-reports", "endpoint:app-srv-021"],
+          {
+            Account: "svc-fin-reports",
+            Target: "APP-SRV-021",
+            Outcome: "Success",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-APP-02",
+          "Demo application-host telemetry",
+          "2026-08-28T14:05:14Z",
+          "Service start attempt",
+          ["file:invoice-sync-helper", "endpoint:app-srv-021"],
+          {
+            Target: "APP-SRV-021",
+            Outcome: "Blocked before execution",
+            Process: "invoice-sync-helper.exe",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-APP-03",
+          "Demo application-host posture",
+          "2026-08-28T14:05:20Z",
+          "EDR posture",
+          ["endpoint:app-srv-021"],
+          { Host: "APP-SRV-021", Status: "Healthy", Collection: "Available" },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-APP-04",
+          "Demo application-host telemetry",
+          "2026-08-28T14:05:20Z",
+          "Process review",
+          ["endpoint:app-srv-021"],
+          {
+            Host: "APP-SRV-021",
+            Payload: "Not observed",
+            Result: "No execution evidence",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-APP-05",
+          "Demo application-host posture",
+          "2026-08-28T14:05:20Z",
+          "Containment capability",
+          ["endpoint:app-srv-021"],
+          {
+            Host: "APP-SRV-021",
+            Isolation: "Supported",
+            Response: "Not required",
+          },
+        ),
+      ],
       resultChange:
         "Authentication occurred, but the remote service start was prevented before execution.",
       caveat: "No compromise of APP-SRV-021 is asserted by this result.",
@@ -870,7 +1226,7 @@ export const endpointLateralScenario = {
       requiresStageId: "STREAM-LAT-02",
       sourceScopes: [
         {
-          sourceLabel: "Synthetic secret policy graph",
+          sourceLabel: "Demo secret policy graph",
           sourceCategory: "cloud_configuration",
           timeRange: {
             start: "2026-05-30T00:00:00Z",
@@ -879,7 +1235,7 @@ export const endpointLateralScenario = {
           syntheticRecordCount: 184,
         },
         {
-          sourceLabel: "Synthetic cloud audit corpus",
+          sourceLabel: "Demo cloud audit corpus",
           sourceCategory: "cloud_audit",
           timeRange: {
             start: "2026-07-29T00:00:00Z",
@@ -890,6 +1246,56 @@ export const endpointLateralScenario = {
       ],
       matchedRecordCount: 8,
       returnedRecordCount: 4,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-ENDPOINT-SECRET-01",
+          "Demo secret policy graph",
+          "2026-08-28T14:06:16Z",
+          "Secret policy",
+          ["secret:ci-deploy-token"],
+          {
+            Secret: "ci/deploy/production",
+            Permission: "Deploy billing-api",
+            Rotation: "Supported",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-SECRET-02",
+          "Demo cloud audit corpus",
+          "2026-08-28T14:05:13Z",
+          "Credential read",
+          ["identity:svc-fin-reports", "secret:ci-deploy-token"],
+          {
+            Principal: "svc-fin-reports",
+            Secret: "ci/deploy/production",
+            Outcome: "Success",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-SECRET-03",
+          "Demo secret policy graph",
+          "2026-08-28T14:06:16Z",
+          "Credential age",
+          ["secret:ci-deploy-token"],
+          {
+            Secret: "ci/deploy/production",
+            Age: "183 days",
+            Classification: "Production deployment credential",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-SECRET-04",
+          "Demo cloud audit corpus",
+          "2026-08-28T14:06:16Z",
+          "Deployment activity",
+          ["secret:ci-deploy-token", "workload:billing-api"],
+          {
+            Workload: "billing-api",
+            Deployment: "Not observed",
+            Scope: "No workload change",
+          },
+        ),
+      ],
       resultChange:
         "The 183-day credential can deploy only billing-api and supports rotation.",
       caveat: "No credential material is included or returned.",
@@ -906,7 +1312,7 @@ export const endpointLateralScenario = {
       requiresStageId: "STREAM-LAT-02",
       sourceScopes: [
         {
-          sourceLabel: "Synthetic deployment inventory",
+          sourceLabel: "Demo deployment inventory",
           sourceCategory: "asset_inventory",
           timeRange: {
             start: "2026-08-21T00:00:00Z",
@@ -915,7 +1321,7 @@ export const endpointLateralScenario = {
           syntheticRecordCount: 482,
         },
         {
-          sourceLabel: "Synthetic deployment audit history",
+          sourceLabel: "Demo deployment audit history",
           sourceCategory: "cloud_audit",
           timeRange: {
             start: "2026-07-29T00:00:00Z",
@@ -926,6 +1332,44 @@ export const endpointLateralScenario = {
       ],
       matchedRecordCount: 6,
       returnedRecordCount: 3,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-ENDPOINT-WORKLOAD-01",
+          "Demo deployment inventory",
+          "2026-08-28T14:06:17Z",
+          "Current image",
+          ["workload:billing-api"],
+          {
+            Workload: "billing-api",
+            Image: "billing-api:v2026.08.28.3",
+            Environment: "Production",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-WORKLOAD-02",
+          "Demo deployment inventory",
+          "2026-08-28T14:06:17Z",
+          "Known-good image",
+          ["workload:billing-api"],
+          {
+            Workload: "billing-api",
+            Image: "billing-api:v2026.08.27.7",
+            Status: "Known good",
+          },
+        ),
+        returnedRecord(
+          "QRR-ENDPOINT-WORKLOAD-03",
+          "Demo deployment audit history",
+          "2026-08-28T14:06:17Z",
+          "Rollback capability",
+          ["workload:billing-api"],
+          {
+            Workload: "billing-api",
+            Rollback: "Supported",
+            Execution: "Requires analyst approval",
+          },
+        ),
+      ],
       resultChange:
         "billing-api:v2026.08.27.7 is the deterministic known-good recovery point.",
       caveat:
@@ -1160,7 +1604,7 @@ export const endpointLateralScenario = {
         ordinal: 1,
         title: "Remote service start blocked",
         summary:
-          "Synthetic EDR confirmed that APP-SRV-021 blocked the remote service-start attempt before execution.",
+          "Demo EDR confirmed that APP-SRV-021 blocked the remote service-start attempt before execution.",
         receivedAt: "2026-08-28T14:05:18Z",
         entities: [],
         events: [
@@ -1170,7 +1614,7 @@ export const endpointLateralScenario = {
             sequence: 23,
             status: "observed",
             sourceCategory: "endpoint_telemetry",
-            sourceLabel: "Synthetic EDR stream",
+            sourceLabel: "Demo EDR stream",
             timestamp: "2026-08-28T14:05:18Z",
             actor: { kind: "source_system", id: "fixture-edr-stream" },
             action: "RemoteServiceAttempt",
@@ -1224,7 +1668,7 @@ export const endpointLateralScenario = {
             sequence: 25,
             status: "supporting",
             sourceCategory: "cloud_configuration",
-            sourceLabel: "Synthetic application-host posture",
+            sourceLabel: "Demo application-host posture",
             timestamp: "2026-08-28T14:05:20Z",
             actor: { kind: "system", id: "fixture-app-posture" },
             entityId: "endpoint:app-srv-021",
@@ -1259,7 +1703,7 @@ export const endpointLateralScenario = {
             sequence: 26,
             status: "observed",
             sourceCategory: "cloud_audit",
-            sourceLabel: "Synthetic deployment inventory",
+            sourceLabel: "Demo deployment inventory",
             timestamp: "2026-08-28T14:06:09Z",
             actor: {
               kind: "source_system",
@@ -1283,7 +1727,7 @@ export const endpointLateralScenario = {
             sequence: 27,
             status: "observed",
             sourceCategory: "cloud_audit",
-            sourceLabel: "Synthetic deployment history",
+            sourceLabel: "Demo deployment history",
             timestamp: "2026-08-28T14:06:14Z",
             actor: { kind: "source_system", id: "fixture-deployment-history" },
             action: "ReadKnownGoodImage",
@@ -1327,7 +1771,7 @@ export const endpointLateralScenario = {
             sequence: 29,
             status: "supporting",
             sourceCategory: "cloud_configuration",
-            sourceLabel: "Synthetic secret posture",
+            sourceLabel: "Demo secret posture",
             timestamp: "2026-08-28T14:06:16Z",
             actor: { kind: "system", id: "fixture-secret-posture" },
             entityId: "secret:ci-deploy-token",
@@ -1350,13 +1794,13 @@ export const endpointLateralScenario = {
             sequence: 30,
             status: "supporting",
             sourceCategory: "asset_inventory",
-            sourceLabel: "Synthetic workload inventory",
+            sourceLabel: "Demo workload inventory",
             timestamp: "2026-08-28T14:06:17Z",
             actor: { kind: "system", id: "fixture-workload-inventory" },
             entityId: "workload:billing-api",
             title: "Known-good workload image",
             summary:
-              "The fixture provides a deterministic known-good image for precautionary rollback.",
+              "A known-good demo image is available for precautionary rollback.",
             caveat:
               "No malicious deployment was observed and no workload is modified.",
             toolName: "enrich_resource",
@@ -1528,9 +1972,9 @@ export const endpointLateralScenario = {
     reportId: "REPORT-ENDPOINT-0448",
     reportVersion: "case-report-v1",
     disposition: "confirmed_malicious_synthetic",
-    title: "Synthetic multi-stage endpoint incident contained in demo",
+    title: "Demo multi-stage endpoint incident contained in demo",
     executiveSummary:
-      "Synthetic telemetry shows unsigned helper execution on FIN-WS-044, two TLS connections 60 seconds apart, an unexpected svc-fin-reports logon to APP-SRV-021, a blocked remote service-start attempt, and a production deployment-credential read. Endpoint isolation, identity disablement, credential rotation, and workload rollback were authorized in the demo only. No external system was contacted.",
+      "Demo telemetry shows unsigned helper execution on FIN-WS-044, two TLS connections 60 seconds apart, an unexpected svc-fin-reports logon to APP-SRV-021, a blocked remote service-start attempt, and a production deployment-credential read. Endpoint isolation, identity disablement, credential rotation, and workload rollback were authorized in the demo only. No external system was contacted.",
     confirmedFindings: [
       "The unsigned helper executed on FIN-WS-044 and made two observed TLS connections separated by 60 seconds.",
       "svc-fin-reports authenticated to APP-SRV-021 outside its expected scope.",

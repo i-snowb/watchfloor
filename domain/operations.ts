@@ -1230,7 +1230,7 @@ function executeRead(
       {
         title: "Queried related activity",
         target: labelForEntity(fixture, input.entityId),
-        resultSummary: `${events.length} events in the bounded window`,
+        resultSummary: `${events.length} events in the selected window`,
       },
     );
   }
@@ -1356,6 +1356,7 @@ function runInvestigationQuery(
     updated,
     {
       query,
+      returnedRecords: query.returnedRecords,
       execution: {
         synthetic: true,
         syntheticRecordCount,
@@ -1367,7 +1368,7 @@ function runInvestigationQuery(
     {
       title: query.title,
       target: labelForEntity(fixture, query.targetEntityId),
-      resultSummary: `${query.matchedRecordCount} matches from ${syntheticRecordCount.toLocaleString("en-US")} bounded records · ${artifact.id} attached`,
+      resultSummary: `${query.matchedRecordCount} matches from ${syntheticRecordCount.toLocaleString("en-US")} records searched · result added`,
     },
     true,
   );
@@ -1471,6 +1472,7 @@ function runInvestigationPlan(
       remainingCount,
       nextQueryId,
       artifact,
+      returnedRecords: query.returnedRecords,
       execution: {
         synthetic: true,
         syntheticRecordCount,
@@ -1481,7 +1483,7 @@ function runInvestigationPlan(
     {
       title: query.title,
       target: labelForEntity(fixture, query.targetEntityId),
-      resultSummary: `${completedCount}/${planQueries.length} findings attached · ${query.matchedRecordCount} matches from ${syntheticRecordCount.toLocaleString("en-US")} bounded records`,
+      resultSummary: `${completedCount}/${planQueries.length} results added · ${query.matchedRecordCount} matches from ${syntheticRecordCount.toLocaleString("en-US")} records searched`,
     },
     true,
   );
@@ -1869,9 +1871,9 @@ function executeWrite(
           fixture.stream.stages.length - updated.releasedStreamStageIds.length,
       },
       {
-        title: "Released synthetic telemetry",
+        title: "New telemetry received",
         target: stage.events.at(-1)?.id ?? stage.id,
-        resultSummary: `${stage.title} · fixture observation received`,
+        resultSummary: `${stage.title} · observation received`,
       },
       true,
     );
@@ -2392,7 +2394,7 @@ function executeWrite(
       {
         title: "Calculated modeled reach",
         target: labelForEntity(fixture, fixture.reachability.sourceEntityId),
-        resultSummary: `${fixture.reachability.paths.length} possible risk segments attached`,
+        resultSummary: `${fixture.reachability.paths.length} modeled risk paths added`,
       },
       true,
     );
@@ -2434,7 +2436,7 @@ function executeWrite(
       {
         title: "Simulated impact control",
         target: labelForEntity(fixture, fixture.counterfactual.changedEntityId),
-        resultSummary: `${fixture.counterfactual.severedPathIds.length} risk segment${fixture.counterfactual.severedPathIds.length === 1 ? "" : "s"} predicted severed; not executed`,
+        resultSummary: `${fixture.counterfactual.severedPathIds.length} risk path${fixture.counterfactual.severedPathIds.length === 1 ? "" : "s"} blocked in simulation · not executed`,
       },
       true,
     );

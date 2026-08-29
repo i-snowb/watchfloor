@@ -698,7 +698,8 @@ const kubernetesCase: ReferenceCase = {
       dominantMetric: "0 prior external requests",
       result:
         "A legacy RoleBinding permits list secrets. No prior external API use appears in 30 days.",
-      caveat: "The fixture does not prove every environment path was logged.",
+      caveat:
+        "Available evidence does not establish complete logging of every environment path.",
       workspace: "bounded_query",
     },
     {
@@ -842,7 +843,7 @@ const cicdCase: ReferenceCase = {
       id: "indicator:203.0.113.42",
       kind: "network",
       label: "203.0.113.42",
-      summary: "Synthetic self-hosted runner egress",
+      summary: "Demo self-hosted runner egress",
       x: 510,
       y: 460,
       attributes: [
@@ -1018,7 +1019,7 @@ const cicdCase: ReferenceCase = {
       dominantMetric: "Subject not approved",
       result:
         "The approved subject is the release branch. No exception permits pull_request.",
-      caveat: "The fixture contains a point-in-time policy snapshot.",
+      caveat: "Policy evidence is a point-in-time snapshot.",
       workspace: "bounded_query",
     },
     {
@@ -1089,7 +1090,7 @@ const cicdCase: ReferenceCase = {
   assessment: {
     disposition: "Keep suspect · preserve and review",
     conclusion:
-      "The fixture proves an unapproved OIDC-to-production publishing path and missing artifact provenance. It does not prove malicious code or production compromise.",
+      "Evidence confirms an unapproved OIDC-to-production publishing path and missing build provenance. It does not establish malicious code or production compromise.",
     confirmed: [
       "Unexpected OIDC subject",
       "Unattested artifact publish",

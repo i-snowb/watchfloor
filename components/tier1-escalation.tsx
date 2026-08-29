@@ -41,9 +41,9 @@ export function Tier1LeadDock({
 
   return (
     <details className="tier1-lead-dock">
-      <summary aria-label="Open Tier 1 handoff">
+      <summary aria-label="Open Tier 1 assessment">
         <span>
-          {nextStep ? "Tier 1 handoff" : "Copilot follow-up complete"}
+          {nextStep ? "Tier 1 assessment" : "Copilot follow-up complete"}
         </span>
         <strong>{escalation.unresolvedQuestions[0]}</strong>
         <output>
@@ -54,17 +54,14 @@ export function Tier1LeadDock({
       <div className="lead-dock-panel">
         <header>
           <div>
-            <span>Tier 1 observed</span>
-            <strong>Correlated signals need analyst judgment</strong>
+            <span>Tier 1 assessment</span>
+            <strong>Observed signals require analyst review</strong>
           </div>
           <small>{escalation.confidence} confidence</small>
         </header>
         <p className="lead-dock-reason">{escalation.escalationReason}</p>
 
-        <ol
-          className="lead-dock-options"
-          aria-label="Tier 1 recommended questions"
-        >
+        <ol className="lead-dock-options" aria-label="Recommended checks">
           {escalation.recommendedSteps.map((step, index) => {
             const attached =
               step.completionArtifactId !== null &&
@@ -97,9 +94,9 @@ export function Tier1LeadDock({
                       {running
                         ? "Query running"
                         : attached
-                          ? "Finding attached"
+                          ? "Result added"
                           : step.id === nextStep?.id
-                            ? "Recommended question"
+                            ? "Recommended check"
                             : "Ready"}
                     </small>
                     <strong>{step.label}</strong>
@@ -135,7 +132,7 @@ export function Tier1LeadDock({
         </details>
 
         <footer>
-          <span>Tier 1 did not run these queries</span>
+          <span>Recommended for investigation</span>
           <small>{escalation.actionsWithheld.length} controls withheld</small>
         </footer>
       </div>

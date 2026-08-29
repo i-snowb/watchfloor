@@ -48,7 +48,7 @@ export function ReferenceCaseWorkbench({
     status: "idle",
     actor: "agent",
     headline: "Evidence plan ready",
-    detail: `${dossier.queries.length} bounded queries`,
+    detail: `${dossier.queries.length} available queries`,
   });
   const [receipts, setReceipts] = useState<ReferenceReceipt[]>([]);
   const [agentStatus, setAgentStatus] = useState<AgentStatus>({
@@ -153,7 +153,7 @@ export function ReferenceCaseWorkbench({
           status: "running",
           actor,
           headline: query.title,
-          detail: `${formatCount(recordsInScope(query))} bounded records`,
+          detail: `${formatCount(recordsInScope(query))} records`,
         });
         await boundedDelay(360, signal);
         setAttachedQueryIds((current) =>
@@ -179,7 +179,7 @@ export function ReferenceCaseWorkbench({
           status: "running",
           actor,
           headline: "Running Tier 1 evidence plan",
-          detail: `${formatCount(dossier.queries.reduce((sum, query) => sum + recordsInScope(query), 0))} bounded records`,
+          detail: `${formatCount(dossier.queries.reduce((sum, query) => sum + recordsInScope(query), 0))} records`,
         });
         for (const query of dossier.queries) {
           await boundedDelay(180, signal);
@@ -191,13 +191,13 @@ export function ReferenceCaseWorkbench({
         setActivity({
           status: "completed",
           actor,
-          headline: `${dossier.queries.length} findings attached`,
+          headline: `${dossier.queries.length} results added`,
           detail: dossier.assessment.disposition,
         });
         recordReceipt(
           actor,
           toolName,
-          `${dossier.queries.length} findings attached from ${dossier.sources.length} evidence systems`,
+          `${dossier.queries.length} results added from ${dossier.sources.length} evidence systems`,
         );
         return {
           queryResults: dossier.queries,
@@ -275,7 +275,7 @@ export function ReferenceCaseWorkbench({
           status: "idle",
           actor: "agent",
           headline: "Evidence plan ready",
-          detail: `${dossier.queries.length} bounded queries`,
+          detail: `${dossier.queries.length} available queries`,
         });
       }}
     >
@@ -365,7 +365,7 @@ export function ReferenceCaseWorkbench({
               <strong>
                 {attachedQueryIds.length}/{dossier.queries.length} attached
               </strong>
-              <small>Bounded deterministic fixtures</small>
+              <small>Demo analysis sources</small>
             </header>
             <div>
               {dossier.queries.map((query) => {
@@ -398,7 +398,7 @@ export function ReferenceCaseWorkbench({
                       </dl>
                       <small>
                         {query.workspace === "fixture_artifact"
-                          ? "Analysis workspace · fixture artifact · no real binary executed"
+                          ? "Malware analysis workspace · demo file · no binary executed"
                           : query.caveat}
                       </small>
                     </div>
@@ -549,7 +549,7 @@ function ReferenceGraph({
             <span>{entityKindLabel(entity.kind)}</span>
             <strong>{entity.label}</strong>
             <small>{entity.summary}</small>
-            {flagged ? <em>Copilot finding</em> : null}
+            {flagged ? <em>Copilot result</em> : null}
           </button>
         );
       })}
@@ -633,7 +633,7 @@ function ReferenceInspector({
             onClick={() => onRunQuery(query)}
             type="button"
           >
-            {attached ? "Finding attached" : "Run bounded query"}
+            {attached ? "Result added" : "Run investigation"}
           </button>
         </section>
       ) : (
@@ -685,12 +685,12 @@ function ReferenceCapabilityDrawer({
           <article>
             <span>Can query</span>
             <strong>{dossier.queries.length} evidence insights</strong>
-            <small>Bounded deterministic corpora</small>
+            <small>Demo data sources</small>
           </article>
           <article>
             <span>Can lead</span>
             <strong>Atomic investigation plan</strong>
-            <small>Ordered findings in this local brief</small>
+            <small>Ordered results in this local brief</small>
           </article>
           <article className="capability-matrix-analyst">
             <span>Analyst only</span>
@@ -806,7 +806,7 @@ function createReferenceToolDefinitions(
     create(
       "get_reference_case",
       "Read reference case",
-      "Return Tier 1 observations, the evidence boundary, available queries, and current shared findings.",
+      "Return Tier 1 observations, the evidence scope, available queries, and current shared results.",
       {},
       [],
       true,
@@ -814,7 +814,7 @@ function createReferenceToolDefinitions(
     create(
       "inspect_reference_entity",
       "Inspect reference entity",
-      "Return one typed entity and its bounded evidence relationships.",
+      "Return one typed entity and its evidence relationships.",
       {
         entityId: {
           type: "string",
@@ -866,7 +866,7 @@ function createReferenceToolDefinitions(
     create(
       "run_reference_query",
       "Run reference query",
-      "Run one fixture-defined bounded query and attach its deterministic insight to the shared brief.",
+      "Run one demo query and add its deterministic result to the shared brief.",
       {
         queryId: {
           type: "string",

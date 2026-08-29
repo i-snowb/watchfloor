@@ -69,7 +69,7 @@ export function fitTraceCameraToBounds(
   world: TraceSize,
   bounds: TraceBounds,
   margin = TRACE_CAMERA_MARGIN,
-  minimumReadableScale = 0.84,
+  minimumReadableScale = 1,
 ): TraceCamera {
   if (bounds.width <= 0 || bounds.height <= 0) {
     return fitTraceCamera(viewport, world, margin);

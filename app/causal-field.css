@@ -76,7 +76,7 @@
   color: rgba(139, 182, 190, 0.42);
   font-family: var(--font-mono, monospace);
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   left: 12px;
   letter-spacing: 0.15em;
   position: absolute;
@@ -147,16 +147,27 @@
 }
 
 .case-view .evidence-entity-dimmed {
-  filter: saturate(0.72);
-  opacity: 0.62;
+  border-color: rgba(71, 105, 111, 0.72);
+  box-shadow: none;
+  filter: none;
+  opacity: 1;
 }
 
 .case-view .evidence-line-dimmed {
-  opacity: 0.34;
+  opacity: 0.68;
 }
 
 .case-view .evidence-edge-label-dimmed {
-  opacity: 0.56;
+  opacity: 0.82;
+}
+
+.case-view .evidence-entity-dimmed .evidence-entity-copy strong {
+  color: rgba(228, 237, 239, 0.86);
+}
+
+.case-view .evidence-entity-dimmed .evidence-entity-copy > span,
+.case-view .evidence-entity-dimmed .evidence-entity-state {
+  color: rgba(151, 172, 177, 0.82);
 }
 
 .case-view .evidence-entity.causal-state-disputed .entity-glyph-state,

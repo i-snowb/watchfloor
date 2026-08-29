@@ -197,7 +197,7 @@ export function AgentDrawer({
               <article>
                 <span>Can read</span>
                 <strong>Evidence and relationships</strong>
-                <small>Bounded events, entities, joins, and activity</small>
+                <small>Case events, entities, links, and activity</small>
               </article>
               <article>
                 <span>Can prepare</span>
@@ -207,7 +207,7 @@ export function AgentDrawer({
               <article>
                 <span>Can simulate</span>
                 <strong>Reach and control effects</strong>
-                <small>Fixture-defined models; no external execution</small>
+                <small>Demo models; no external execution</small>
               </article>
               <article className="capability-matrix-analyst">
                 <span>Analyst only</span>
@@ -267,7 +267,7 @@ function capabilityEffect(toolName: string): string {
 
 function receiptSurfaceLabel(receipt: OperationReceipt): string {
   if (receipt.toolName === "release_next_synthetic_signal") {
-    return "Synthetic replay control";
+    return "Demo replay";
   }
   return receipt.reportedSurface === "webmcp_callback"
     ? "WebMCP callback"

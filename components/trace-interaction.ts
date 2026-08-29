@@ -86,7 +86,11 @@ export function useTraceCamera(
   const applyCamera = useCallback((next: TraceCamera) => {
     cameraRef.current = next;
     if (planeRef.current) {
-      planeRef.current.style.transform = `translate3d(${next.x}px, ${next.y}px, 0) scale(${next.scale})`;
+      const pixelRatio = window.devicePixelRatio || 1;
+      const x = Math.round(next.x * pixelRatio) / pixelRatio;
+      const y = Math.round(next.y * pixelRatio) / pixelRatio;
+      planeRef.current.style.transformOrigin = "0 0";
+      planeRef.current.style.transform = `translate(${x}px, ${y}px) scale(${next.scale})`;
     }
   }, []);
 

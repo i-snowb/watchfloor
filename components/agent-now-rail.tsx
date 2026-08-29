@@ -72,13 +72,15 @@ function getAgentNowContent(
     return {
       state: "running",
       label:
-        activity.actor === "agent" ? "Copilot working" : "Analyst requested",
+        activity.actor === "agent"
+          ? "Copilot · Running"
+          : "Analyst · Requested",
       headline: planProgress
         ? `Query ${planProgress.position}/${planProgress.total} · ${planProgress.currentQuery.title}`
         : operationLabel(activity.toolName),
       detail: planProgress
-        ? `${formatCount(planProgress.recordCount)} bounded records · ${planProgress.currentQuery.sourceScopes.length} sources · r${activity.baseRevision}`
-        : `Working from r${activity.baseRevision} · bounded case data`,
+        ? `${formatCount(planProgress.recordCount)} records · ${planProgress.currentQuery.sourceScopes.length} sources · r${activity.baseRevision}`
+        : `Case revision r${activity.baseRevision}`,
     };
   }
   if (state.responseBundle) {
@@ -87,7 +89,7 @@ function getAgentNowContent(
     );
     return {
       state: "approval",
-      label: "Next · Analyst",
+      label: "Analyst · Approval required",
       headline: `${bundle?.title ?? "Response package"} ready`,
       detail: `${state.responseBundle.actionIds.length} controls modeled · no external execution`,
     };
@@ -98,7 +100,7 @@ function getAgentNowContent(
     );
     return {
       state: "waiting",
-      label: "Next · Analyst",
+      label: "Analyst · Action required",
       headline: `Waiting for ${stage?.title ?? "next observation"}`,
       detail: `Analyst release required · r${state.revision}`,
     };
@@ -106,7 +108,7 @@ function getAgentNowContent(
   if (state.report.status === "drafted") {
     return {
       state: "approval",
-      label: "Next · Analyst",
+      label: "Analyst · Approval required",
       headline: "Review and approve the evidence report",
       detail: `Closure gate · r${state.revision}`,
     };
@@ -114,7 +116,7 @@ function getAgentNowContent(
   if (next.recommendedTool === null) {
     return {
       state: "approval",
-      label: "Next · Analyst",
+      label: "Analyst · Approval required",
       headline: next.objective,
       detail: `Approval required · r${state.revision}`,
     };
@@ -128,7 +130,9 @@ function getAgentNowContent(
     return {
       state: "result",
       label:
-        result.actor === "agent" ? "Attached · Copilot" : "Attached · Analyst",
+        result.actor === "agent"
+          ? "Copilot · Result added"
+          : "Analyst · Result added",
       headline: planProgress
         ? `${planProgress.completed}/${planProgress.total} attached · ${planProgress.currentQuery.title}`
         : resultHeadline(result, aggregate),
@@ -142,7 +146,7 @@ function getAgentNowContent(
         : aggregate
           ? formatReceiptDetail(
               result.receipt,
-              `${aggregate.evidenceAttached} findings · next: ${next.objective}`,
+              `${aggregate.evidenceAttached} results · next: ${next.objective}`,
             )
           : formatReceiptDetail(result.receipt, `Next: ${next.objective}`),
     };
@@ -155,15 +159,15 @@ function getAgentNowContent(
       state: "result",
       label:
         latestReceipt.reportedSurface === "webmcp_callback"
-          ? "Attached · Copilot"
-          : "Attached · Analyst",
+          ? "Copilot · Result added"
+          : "Analyst · Result added",
       headline: latestReceipt.title,
       detail: `Next: ${next.objective}`,
     };
   }
   return {
     state: "idle",
-    label: "Next · Copilot",
+    label: "Copilot · Ready",
     headline: next.objective,
     detail: capabilityDetail(activity, `Why now · ${handoff.whyNow}`),
   };
@@ -187,7 +191,7 @@ function formatReceiptDetail(
   receipt: InvestigationResultView["receipt"],
   next: string,
 ): string {
-  const actor = receipt.actor === "agent" ? "Copilot · WebMCP" : "Analyst";
+  const actor = receipt.actor === "agent" ? "Copilot" : "Analyst";
   const duration = `${(receipt.durationMs / 1_000).toFixed(1)}s`;
   const recordSummary =
     receipt.syntheticRecordCount === null
@@ -212,10 +216,9 @@ function resultHeadline(
   aggregate: { evidenceAttached: number; syntheticRecordCount: number } | null,
 ): string {
   if (aggregate) {
-    return `${aggregate.evidenceAttached} findings attached`;
+    return `${aggregate.evidenceAttached} results added`;
   }
-  if (result.toolName === "run_investigation_query")
-    return "1 finding attached";
+  if (result.toolName === "run_investigation_query") return "1 result added";
   return operationLabel(result.toolName);
 }
 
@@ -243,7 +246,7 @@ function readPlanAggregate(data: unknown): {
 
 function operationLabel(toolName: string): string {
   const labels: Record<string, string> = {
-    run_investigation_plan: "Investigating Tier 1 questions",
+    run_investigation_plan: "Running recommended checks",
     run_investigation_query: "Running evidence query",
     calculate_reachability: "Mapping blast radius",
     simulate_control: "Testing containment",

@@ -133,7 +133,7 @@ time {
   border-right: 1px solid var(--line);
   display: flex;
   font-size: 17px;
-  font-weight: 760;
+  font-weight: 600;
   gap: 3px;
   letter-spacing: 0.12em;
   padding: 0 20px;
@@ -280,7 +280,7 @@ time {
   color: var(--text-dim);
   font-family: var(--font-mono);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.12em;
   line-height: 1.4;
   text-transform: uppercase;
@@ -292,7 +292,7 @@ time {
 
 .queue-heading h1 {
   font-size: 24px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.03em;
   margin-top: 4px;
 }
@@ -387,7 +387,7 @@ time {
   display: inline-flex;
   font-family: var(--font-mono);
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   height: 20px;
   letter-spacing: 0.08em;
   padding: 0 6px;
@@ -406,7 +406,7 @@ time {
 
 .alert-row strong {
   font-size: 13px;
-  font-weight: 640;
+  font-weight: 600;
   line-height: 1.35;
 }
 
@@ -471,7 +471,7 @@ time {
 
 .intake-heading-row h2 {
   font-size: clamp(28px, 3vw, 38px);
-  font-weight: 590;
+  font-weight: 600;
   letter-spacing: -0.05em;
   line-height: 1.02;
   margin-top: 9px;
@@ -500,7 +500,7 @@ time {
   cursor: pointer;
   display: inline-flex;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   gap: 30px;
   justify-content: space-between;
   min-height: 42px;
@@ -581,7 +581,7 @@ time {
 
 .section-heading-line h3 {
   font-size: 16px;
-  font-weight: 620;
+  font-weight: 600;
   margin-top: 4px;
 }
 
@@ -708,7 +708,7 @@ time {
   display: flex;
   font-family: var(--font-mono);
   font-size: 10px;
-  font-weight: 750;
+  font-weight: 600;
   height: 34px;
   justify-content: center;
 }
@@ -775,7 +775,7 @@ time {
   color: var(--text-dim);
   font-family: var(--font-mono);
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }
@@ -1111,7 +1111,7 @@ time {
   border: 1px solid currentColor;
   font-family: var(--font-mono);
   font-size: 7px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.06em;
   padding: 3px 4px;
   text-transform: uppercase;
@@ -1139,7 +1139,7 @@ time {
   color: var(--text-dim);
   font-family: var(--font-mono);
   font-size: 7px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.06em;
   padding: 3px 4px;
   text-transform: uppercase;
@@ -1213,7 +1213,7 @@ time {
   color: var(--bg-0);
   font-family: var(--font-mono);
   font-size: 7px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   padding: 4px 6px;
   position: absolute;
@@ -1350,7 +1350,7 @@ time {
   color: var(--violet);
   font-family: var(--font-mono);
   font-size: 8px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -1400,7 +1400,7 @@ time {
   color: var(--amber);
   font-family: var(--font-mono);
   font-size: 8px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -1449,7 +1449,7 @@ time {
   align-items: center;
   border: 1px solid var(--cyan);
   display: flex;
-  font-weight: 800;
+  font-weight: 600;
   height: 20px;
   justify-content: center;
   width: 20px;
@@ -1505,7 +1505,7 @@ time {
 
 .inspector-heading h2 {
   font-size: 14px;
-  font-weight: 630;
+  font-weight: 600;
   margin-top: 3px;
 }
 
@@ -1612,7 +1612,7 @@ time {
 .enrichment-heading h3,
 .decision-heading h3 {
   font-size: 12px;
-  font-weight: 620;
+  font-weight: 600;
   line-height: 1.4;
   margin-top: 3px;
 }
@@ -1760,7 +1760,7 @@ time {
 
 .drawer-header h2 {
   font-size: 19px;
-  font-weight: 620;
+  font-weight: 600;
   margin-top: 4px;
 }
 
@@ -2309,7 +2309,7 @@ time {
 
 .stream-state strong {
   font-size: 11px;
-  font-weight: 620;
+  font-weight: 600;
 }
 
 .stream-state > div > span {
@@ -2411,7 +2411,7 @@ time {
 .ledger-masthead h1 {
   color: #e4e3db;
   font-size: clamp(29px, 3vw, 43px);
-  font-weight: 540;
+  font-weight: 500;
   letter-spacing: -0.055em;
   line-height: 0.95;
   margin-top: 9px;
@@ -2449,7 +2449,7 @@ time {
 .ledger-sync-state strong {
   color: #c6c8c0;
   font-size: 10px;
-  font-weight: 590;
+  font-weight: 600;
 }
 
 .ledger-sync-state span {
@@ -2491,7 +2491,7 @@ time {
 .ledger-counts strong {
   color: #d8d8d0;
   font-size: 12px;
-  font-weight: 520;
+  font-weight: 500;
 }
 
 .queue-workspace .case-feed-filters {
@@ -2661,7 +2661,7 @@ time {
   color: var(--ledger-amber);
   display: inline-flex;
   font-size: 8px;
-  font-weight: 700;
+  font-weight: 600;
   height: 19px;
   justify-content: center;
   width: 19px;
@@ -2688,7 +2688,7 @@ time {
   align-items: center;
   display: flex;
   font-size: 13px;
-  font-weight: 610;
+  font-weight: 600;
   gap: 8px;
   letter-spacing: -0.02em;
   min-width: 0;
@@ -2863,7 +2863,7 @@ time {
 .case-sheet-index strong {
   color: var(--ledger-red);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
@@ -2901,7 +2901,7 @@ time {
 }
 
 .case-sheet-heading h2 {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-sans);
   font-size: clamp(24px, 2.6vw, 39px);
   font-weight: 500;
   letter-spacing: -0.045em;
@@ -3161,7 +3161,7 @@ time {
 
 .case-sheet-receipt > span:first-child {
   color: #81b99f;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -3336,7 +3336,7 @@ time {
 
 .live-rail-heading strong {
   font-size: 10px;
-  font-weight: 620;
+  font-weight: 600;
 }
 
 .live-rail-heading span:last-child,
@@ -3656,7 +3656,7 @@ time {
   color: #171a17;
   font-family: var(--font-mono);
   font-size: 7px;
-  font-weight: 700;
+  font-weight: 600;
   left: 12px;
   padding: 5px 7px;
   position: absolute;
@@ -4247,7 +4247,7 @@ time {
 .case-view .case-header h1 {
   color: #e6e5dd;
   font-size: clamp(22px, 2vw, 30px);
-  font-weight: 540;
+  font-weight: 500;
 }
 
 .case-view .case-header-main > p {
@@ -4334,7 +4334,7 @@ time {
 .case-command-label span {
   color: var(--command-accent);
   font-size: 8px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .case-command-label small {
@@ -4344,7 +4344,7 @@ time {
 
 .case-command-next h2 {
   color: #eeede6;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-sans);
   font-size: clamp(18px, 1.65vw, 24px);
   font-weight: 500;
   letter-spacing: -0.025em;
@@ -4446,7 +4446,7 @@ time {
 .case-command-facts strong {
   color: #d9dcd3;
   font-size: 11px;
-  font-weight: 520;
+  font-weight: 500;
   line-height: 1.38;
 }
 
@@ -4494,7 +4494,7 @@ time {
 .case-response-plan strong {
   color: #b9beb5;
   font-size: 9px;
-  font-weight: 540;
+  font-weight: 500;
   margin-top: 3px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4666,7 +4666,7 @@ time {
 
 .impact-readout > div strong {
   color: var(--map-ink);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 500;
 }
@@ -5382,7 +5382,7 @@ time {
 .trace-sequence-rail strong,
 .impact-segment-rail strong {
   font-size: 9px;
-  font-weight: 560;
+  font-weight: 600;
   margin-top: 5px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5451,7 +5451,7 @@ time {
 .impact-model-pending strong {
   color: #c8ccc3;
   font-size: 10px;
-  font-weight: 540;
+  font-weight: 500;
 }
 
 .evidence-map-viewport {
@@ -5768,7 +5768,7 @@ time {
 .agent-result-line strong {
   color: #d9ddd4;
   font-size: 10px;
-  font-weight: 560;
+  font-weight: 600;
   line-height: 1.4;
 }
 
@@ -5928,7 +5928,7 @@ time {
 
 .trace-decision-seam > strong {
   color: #e3e2da;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-sans);
   font-size: clamp(15px, 1.45vw, 20px);
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -6029,7 +6029,7 @@ time {
 .trace-operation-seam > span {
   color: #a6c1b2;
   font-size: 7px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
 }
 

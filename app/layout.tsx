@@ -23,7 +23,7 @@ export const metadata: Metadata = {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "TRACE//LAB causal security investigation map",
+        alt: "TRACE//LAB interactive security investigation graph",
       },
     ],
   },

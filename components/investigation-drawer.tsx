@@ -13,6 +13,7 @@ import type {
 } from "@/domain/types";
 import { formatUtcTime, humanizeEntityKind } from "@/lib/format";
 import { CaseReportPanel } from "./case-report-panel";
+import { QueryReturnedRecords } from "./query-returned-records";
 import type { TraceSelection } from "./trace-interaction";
 
 interface InvestigationDrawerProps {
@@ -71,10 +72,10 @@ export function InvestigationDrawer({
         {
           actor:
             receipt?.reportedSurface === "webmcp_callback"
-              ? "Copilot · WebMCP"
+              ? "Copilot result"
               : receipt
-                ? "Analyst requested"
-                : "Attached evidence",
+                ? "Analyst result"
+                : "Case evidence",
           artifact,
           query,
           receipt,
@@ -105,14 +106,14 @@ export function InvestigationDrawer({
       open={open}
     >
       <summary>
-        <span className="drawer-summary-label">Findings</span>
+        <span className="drawer-summary-label">Investigation results</span>
         <strong>
           {findings.length === 0
-            ? "No findings attached"
-            : `${findings.length} ${findings.length === 1 ? "finding" : "findings"}`}
+            ? "No query results yet"
+            : `${findings.length} ${findings.length === 1 ? "result" : "results"}`}
         </strong>
         <span className="drawer-summary-state" aria-live="polite">
-          Investigation controls · r{state.revision}
+          Case revision r{state.revision}
         </span>
         <em aria-hidden="true" />
       </summary>
@@ -120,7 +121,7 @@ export function InvestigationDrawer({
       <div className="investigation-drawer-body findings-tray-body">
         <nav className="findings-decision-ladder" aria-label="Decision path">
           <span className={evidenceReady ? "is-complete" : "is-current"}>
-            <small>Evidence</small>
+            <small>Required evidence</small>
             <strong>
               {requiredAttached}/{fixture.decision.requiresEnrichmentIds.length}{" "}
               required
@@ -136,7 +137,7 @@ export function InvestigationDrawer({
             }
           >
             <small>Decision</small>
-            <strong>{decisionRecorded ? "Recorded" : "Analyst review"}</strong>
+            <strong>{decisionRecorded ? "Recorded" : "Review required"}</strong>
           </span>
           <span
             className={
@@ -147,13 +148,13 @@ export function InvestigationDrawer({
                   : ""
             }
           >
-            <small>Human gate</small>
+            <small>Approval</small>
             <strong>
               {handoff.pendingGate
                 ? handoff.pendingGate.replaceAll("_", " ")
                 : state.lifecycle === "closed_in_demo"
                   ? "Complete"
-                  : "After evidence"}
+                  : "Waiting for evidence"}
             </strong>
           </span>
         </nav>
@@ -164,15 +165,15 @@ export function InvestigationDrawer({
         >
           <header className="drawer-section-heading">
             <div>
-              <span>Case evidence</span>
+              <span>Query results</span>
               <h2 id="attached-findings-heading" tabIndex={-1}>
-                Attached findings
+                Findings
               </h2>
             </div>
             <small>
               {findings.length === 0
-                ? "Awaiting investigation"
-                : `Latest case revision r${state.revision}`}
+                ? "Run a query to add evidence"
+                : `Case revision r${state.revision}`}
             </small>
           </header>
           {findings.length > 0 ? (
@@ -190,6 +191,7 @@ export function InvestigationDrawer({
                   }
                   query={finding.query}
                   receipt={finding.receipt}
+                  onSelect={onSelect}
                   targetLabel={finding.targetLabel}
                   targetType={finding.targetType}
                 />
@@ -197,8 +199,8 @@ export function InvestigationDrawer({
             </ol>
           ) : (
             <p className="drawer-empty-state drawer-findings-empty">
-              Select evidence on the map and run a bounded query. Returned
-              evidence will attach here.
+              Select an item in the graph and run an investigation. Results will
+              appear here.
             </p>
           )}
         </section>
@@ -207,7 +209,7 @@ export function InvestigationDrawer({
           <section className="drawer-section findings-tray-report">
             <header className="drawer-section-heading">
               <div>
-                <span>Closure artifact</span>
+                <span>Case closure</span>
                 <h2>Evidence report</h2>
               </div>
               <small>Review before approval</small>
@@ -222,12 +224,10 @@ export function InvestigationDrawer({
         >
           <header className="drawer-section-heading">
             <div>
-              <span>Analyst and copilot</span>
-              <h2 id="investigation-controls-heading">
-                Investigation controls
-              </h2>
+              <span>Shared investigation</span>
+              <h2 id="investigation-controls-heading">Work with copilot</h2>
             </div>
-            <small>Selected evidence</small>
+            <small>Selected item</small>
           </header>
           {commandBar ? (
             <div className="findings-tray-next">{commandBar}</div>
@@ -242,8 +242,8 @@ export function InvestigationDrawer({
         {selectionDetails ? (
           <details className="findings-context-disclosure">
             <summary>
-              <span>Selected evidence record</span>
-              <strong>Open technical details</strong>
+              <span>Selected item</span>
+              <strong>View technical details</strong>
               <em aria-hidden="true" />
             </summary>
             <div>{selectionDetails}</div>
@@ -265,6 +265,7 @@ function FindingRow({
   actor,
   artifact,
   onFocus,
+  onSelect,
   query,
   receipt,
   targetLabel,
@@ -273,6 +274,7 @@ function FindingRow({
   actor: string;
   artifact: EnrichmentArtifact;
   onFocus: () => void;
+  onSelect: (selection: TraceSelection) => void;
   query: InvestigationQueryDefinition;
   receipt: OperationReceipt | null;
   targetLabel: string;
@@ -295,12 +297,12 @@ function FindingRow({
           <strong>{artifact.summary}</strong>
         </div>
         <button onClick={onFocus} type="button">
-          Focus on map
+          Show in graph
         </button>
         <details className="drawer-finding-evidence">
           <summary>
-            {query.returnedRecordCount} evidence records ·{" "}
-            {formatCount(scanned)} searched · {query.matchedRecordCount} matched
+            Query details · {formatCount(scanned)} searched ·{" "}
+            {query.matchedRecordCount} matched
           </summary>
           <div>
             <p>{artifact.caveat}</p>
@@ -317,12 +319,13 @@ function FindingRow({
                 <dt>Attached</dt>
                 <dd>
                   {formatUtcTime(receipt?.occurredAt ?? artifact.timestamp)} ·{" "}
-                  {receipt ? `r${receipt.resultRevision}` : "fixture evidence"}
+                  {receipt ? `r${receipt.resultRevision}` : "demo data"}
                 </dd>
               </div>
             </dl>
           </div>
         </details>
+        <QueryReturnedRecords onSelect={onSelect} query={query} />
       </article>
     </li>
   );

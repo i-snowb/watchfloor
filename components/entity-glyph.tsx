@@ -97,14 +97,19 @@ export function EntityGlyph({
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth="1.6"
+      shapeRendering="geometricPrecision"
       data-glyph-state={state}
     >
-      {paths[kind]}
-      <g className="entity-glyph-state" aria-hidden="true">
-        {state === "contained" ? <path d="m8.2 12.4 2.3 2.3 5.4-5.4" /> : null}
-        {state === "prevented" ? <path d="M5 19 19 5" /> : null}
-        {state === "disputed" ? <path d="M12 7v5M12 16h.01" /> : null}
-        {state === "modeled" ? <circle cx="18.2" cy="5.8" r="1.2" /> : null}
+      <g vectorEffect="non-scaling-stroke">
+        {paths[kind]}
+        <g className="entity-glyph-state" aria-hidden="true">
+          {state === "contained" ? (
+            <path d="m8.2 12.4 2.3 2.3 5.4-5.4" />
+          ) : null}
+          {state === "prevented" ? <path d="M5 19 19 5" /> : null}
+          {state === "disputed" ? <path d="M12 7v5M12 16h.01" /> : null}
+          {state === "modeled" ? <circle cx="18.2" cy="5.8" r="1.2" /> : null}
+        </g>
       </g>
     </svg>
   );

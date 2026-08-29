@@ -76,7 +76,7 @@ export function CaseInspector({
 
   return (
     <section
-      aria-label="Selected evidence and copilot activity"
+      aria-label="Selected item and copilot activity"
       className="trace-evidence-shelf"
     >
       <p aria-live="polite" className="sr-only">
@@ -167,23 +167,23 @@ export function CaseInspector({
                 : "Analyst-requested query running"
               : investigationActivity.status === "completed"
                 ? investigationActivity.actor === "agent"
-                  ? "Copilot finding attached"
-                  : "Analyst-requested finding attached"
+                  ? "Copilot result added"
+                  : "Analyst result added"
                 : investigationActivity.status === "rejected"
                   ? "Investigation request rejected"
                   : agentReceipt
-                    ? "Copilot finding attached"
+                    ? "Copilot result added"
                     : state.proposal
                       ? "Copilot recommendation"
                       : agentAvailable
-                        ? "Copilot ready on selected evidence"
+                        ? "Copilot ready on selected item"
                         : "Copilot unavailable · analyst controls remain"}
           </span>
         </div>
         {investigationActivity.status === "running" ? (
           <div className="agent-intent-line agent-intent-running">
             <code>{investigationActivity.toolName}</code>
-            <strong>Querying bounded case context</strong>
+            <strong>Searching case data</strong>
             <span>
               r{investigationActivity.baseRevision} · result pending · no
               evidence attached yet
@@ -219,7 +219,7 @@ export function CaseInspector({
                 ? "Recommendation only. No action has run."
                 : agentTarget
                   ? `Target · ${humanizeEntityKind(agentTarget.kind)} · ${agentTarget.label}`
-                  : "The copilot and analyst share this selected evidence."}
+                  : "The copilot and analyst share this selected item."}
             </span>
           </div>
         )}
@@ -339,7 +339,7 @@ function getSelectionContent(
               .find((action) => action.id === actionState.actionId)
               ?.seversPathIds.includes(path.id);
           })
-            ? "Synthetic control authorized"
+            ? "Approved in demo"
             : "Not authorized",
         },
       ],

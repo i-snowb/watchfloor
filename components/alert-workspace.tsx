@@ -196,7 +196,7 @@ export function AlertWorkspace({
         setError(
           releaseError instanceof Error
             ? releaseError.message
-            : "The synthetic signal could not be released.",
+            : "The next observation could not be released.",
         );
       } finally {
         setBusy(false);
@@ -598,7 +598,7 @@ function CaseLedgerDetail({
 
         <div className="case-sheet-sections">
           <section className="case-sheet-memo">
-            <span>Tier 1 handoff</span>
+            <span>Escalated by Tier 1</span>
             <div className="case-sheet-handoff-state">
               <strong>{handoffState.primary}</strong>
               <span>{handoffState.secondary}</span>
@@ -696,7 +696,7 @@ function CaseLedgerDetail({
           <p>
             {item.investigationDepth === "full_response"
               ? "Complete evidence, response, and report lifecycle. Demo authorization never executes an external control."
-              : "Explorable client-local evidence brief with typed entities, bounded queries, and explicit limitations. Not part of the shared response lifecycle."}
+              : "Explorable local evidence brief with typed entities, available queries, and explicit limitations. It is not part of the shared response lifecycle."}
           </p>
           {routableCase ? (
             <div>
@@ -875,7 +875,7 @@ function createAlertToolDefinitions(
       name: "list_case_queue",
       title: "List security case queue",
       description:
-        "Return the bounded synthetic cases and Tier 1 states visible in the queue.",
+        "Return the demo cases and Tier 1 states visible in the queue.",
       inputSchema: {
         type: "object",
         properties: { requestId },

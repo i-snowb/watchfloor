@@ -193,7 +193,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         const summary =
           receipt?.resultSummary ??
           (response.result.ok
-            ? "Copilot finding attached to the case."
+            ? "Copilot result added to the case."
             : response.result.error.message);
         const receiptView = createInvestigationReceiptView({
           actor: "agent",
@@ -522,7 +522,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       ) ?? null;
   const latestStage = fixture.stream.stages[releasedStageCount - 1] ?? null;
   const liveAnnouncement = latestStage
-    ? `Synthetic telemetry release: ${latestStage.title}.`
+    ? `New telemetry: ${latestStage.title}.`
     : "";
   const operationBusy =
     busy || !backendReady || investigationActivity.status === "running";

@@ -588,7 +588,7 @@ export function EvidenceMap({
             <span className={`severity severity-${fixture.severity}`}>
               {fixture.severity}
             </span>
-            <span>Tier 1 handoff</span>
+            <span>Escalated by Tier 1</span>
             <span>{formatLifecycle(state.lifecycle)}</span>
           </p>
           <h1 id="evidence-map-heading">{fixture.title}</h1>
@@ -607,11 +607,11 @@ export function EvidenceMap({
           onClick={openFindings}
           type="button"
         >
-          <span>Findings</span>
+          <span>Evidence</span>
           <strong>{attachedFindingCount}</strong>
           <small>
             {attachedFindingCount === 0
-              ? `Awaiting bounded evidence · r${state.revision}`
+              ? `No query results yet · r${state.revision}`
               : `${findingStatusCounts.supporting} supporting · ${findingStatusCounts.disputed} disputed · r${state.revision}`}
           </small>
         </button>
@@ -621,38 +621,38 @@ export function EvidenceMap({
             onClick={() => setView("trace")}
             type="button"
           >
-            Causal trace
+            Evidence path
           </button>
           <button
             aria-pressed={view === "impact"}
             onClick={() => setView("impact")}
             type="button"
           >
-            Impact map
+            Exposure map
           </button>
         </div>
         <div className="evidence-line-legend" aria-label="Path truth legend">
           <span>
-            <i className="line-correlated" /> Correlated
+            <i className="line-correlated" /> Observed link
           </span>
           {state.reachabilityAttached ? (
             <span>
-              <i className="line-modeled" /> Possible
+              <i className="line-modeled" /> Modeled path
             </span>
           ) : null}
           {state.counterfactualAttached ? (
             <span>
-              <i className="line-predicted" /> Simulated
+              <i className="line-predicted" /> Simulated control
             </span>
           ) : null}
           {severedPathIds.size > 0 ? (
             <span>
-              <i className="line-severed" /> Severed
+              <i className="line-severed" /> Blocked in demo
             </span>
           ) : null}
         </div>
         <span className="evidence-line-key-compact">
-          Solid correlated · dashed modeled or simulated
+          Solid = observed evidence · dashed = modeled or simulated
         </span>
         <div className="trace-camera-tools" aria-label="Graph view controls">
           <span>{Math.round(camera.scale * 100)}%</span>
@@ -685,12 +685,12 @@ export function EvidenceMap({
           <div className="map-investigation-dock">{investigationDock}</div>
         ) : null}
         <button className="map-skip-link" onClick={openFindings} type="button">
-          Skip map to findings
+          Skip graph to results
         </button>
         <div
           aria-describedby="evidence-map-help"
           aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - 0 Escape"
-          aria-label="Interactive directional evidence and impact map"
+          aria-label="Interactive evidence path and exposure map"
           className={`trace-scroll trace-viewport evidence-map-viewport ${dragging ? "trace-viewport-dragging" : ""} ${focusing ? "trace-viewport-focusing" : ""}`}
           onKeyDown={onKeyDown}
           onLostPointerCapture={onLostPointerCapture}
@@ -720,12 +720,12 @@ export function EvidenceMap({
                 )}
               </p>
               <div>
-                <span>Impact state</span>
+                <span>Exposure</span>
                 <strong>{impactHeadline}</strong>
                 {authorizedActionCount > 0 ? (
                   <small className="containment-status">
-                    {severedPathIds.size} modeled segment
-                    {severedPathIds.size === 1 ? "" : "s"} severed · no external
+                    {severedPathIds.size} modeled path
+                    {severedPathIds.size === 1 ? "" : "s"} blocked · no external
                     action executed
                   </small>
                 ) : null}
@@ -797,6 +797,7 @@ export function EvidenceMap({
               aria-label="Directed case relationships"
               className="evidence-map-lines"
               height={activeGraphHeight}
+              shapeRendering="geometricPrecision"
               viewBox={`0 0 ${fixture.presentation.graphWidth} ${activeGraphHeight}`}
               width={fixture.presentation.graphWidth}
             >
@@ -903,6 +904,7 @@ export function EvidenceMap({
                     }}
                     role="button"
                     tabIndex={0}
+                    vectorEffect="non-scaling-stroke"
                   />
                 );
               })}
@@ -942,15 +944,15 @@ export function EvidenceMap({
                 view === "impact",
               );
               const label = severed
-                ? "Modeled segment severed"
+                ? "Modeled path blocked"
                 : predicted
-                  ? "Simulated severance · not authorized"
+                  ? "Simulated control · approval required"
                   : edge.blocked
                     ? "Attempt prevented"
                     : edge.truth === "modeled"
-                      ? "Possible · not observed"
+                      ? "Modeled · not observed"
                       : (edge.join?.id.replace(/^JOIN-[A-Z]+-/, "J") ??
-                        "Correlated");
+                        "Observed link");
               return (
                 <button
                   aria-pressed={
@@ -1056,7 +1058,7 @@ export function EvidenceMap({
               const nextGap = nextGapEntityId === entity.id;
               return (
                 <button
-                  aria-label={`${containedLabel ?? (modeledOnly ? "Possible, not observed" : "Observed")} ${humanizeEntityKind(entity.kind)} ${entity.label}${impactPosition?.hop === null || view !== "impact" ? "" : `, modeled hop ${impactPosition?.hop}`}`}
+                  aria-label={`${containedLabel ?? (modeledOnly ? "Modeled, not observed" : "Observed")} ${humanizeEntityKind(entity.kind)} ${entity.label}${impactPosition?.hop === null || view !== "impact" ? "" : `, modeled hop ${impactPosition?.hop}`}`}
                   aria-pressed={selected}
                   className={`evidence-entity evidence-entity-${position.lane} evidence-kind-${entity.kind} causal-state-${causalState} ${observed ? "evidence-entity-observed" : ""} ${atRisk ? "evidence-entity-at-risk" : ""} ${contained ? "evidence-entity-contained" : ""} ${containmentEntering ? "evidence-entity-containment-enter" : ""} ${modeledOnly ? "evidence-entity-modeled-only" : ""} ${expanding ? "evidence-entity-expanding" : ""} ${agentFocusEntityId === entity.id ? "evidence-entity-agent" : ""} ${investigationRunning ? `evidence-entity-query-running evidence-entity-query-${investigationActivity.actor}` : ""} ${nextGap ? "evidence-entity-next-gap" : ""} ${selected ? "evidence-entity-active-pivot" : ""} ${related ? "evidence-entity-related" : ""} ${dimmed ? "evidence-entity-dimmed" : ""}`}
                   data-control-state={containedAction?.id}
@@ -1102,10 +1104,10 @@ export function EvidenceMap({
                     {containedLabel
                       ? containedLabel
                       : modeledOnly
-                        ? "Possible · not observed"
+                        ? "Modeled · not observed"
                         : evidenceState}
                   </span>
-                  {expanding ? <i>New fixture telemetry</i> : null}
+                  {expanding ? <i>New telemetry</i> : null}
                   {investigationRunning ? (
                     <b>
                       {investigationActivity.actor === "agent"
@@ -1170,7 +1172,7 @@ export function EvidenceMap({
                     }}
                   >
                     <button
-                      aria-label={`Open ${targetQueries.length} ${targetQueries.length === 1 ? "finding" : "findings"} for ${target?.label ?? targetEntityId}`}
+                      aria-label={`Open ${targetQueries.length} ${targetQueries.length === 1 ? "result" : "results"} for ${target?.label ?? targetEntityId}`}
                       className={`query-result-packet ${recent ? "query-result-packet-new" : ""}`}
                       onClick={() => {
                         selectEvidence({
@@ -1184,13 +1186,13 @@ export function EvidenceMap({
                       <span>
                         {artifact?.status ?? "Evidence"} ·{" "}
                         {receipt?.reportedSurface === "webmcp_callback"
-                          ? "WebMCP"
+                          ? "Copilot"
                           : "Analyst"}
                       </span>
                       <strong>{artifact?.title ?? query.title}</strong>
                       <small>
                         {targetQueries.length > 1
-                          ? `${targetQueries.length} findings attached · r${receipt?.resultRevision ?? state.revision}`
+                          ? `${targetQueries.length} results added · r${receipt?.resultRevision ?? state.revision}`
                           : `${query.matchedRecordCount} matched · ${query.returnedRecordCount} returned · r${receipt?.resultRevision ?? state.revision}`}
                       </small>
                     </button>
@@ -1241,10 +1243,11 @@ export function EvidenceMap({
 
           {activeExpansionStage ? (
             <div className="synthetic-expansion-status" role="status">
-              <span>Synthetic telemetry</span>
+              <span>New telemetry</span>
               <strong>{activeExpansionStage.title}</strong>
               <small>
-                {activeExpansion?.joinIds.size ?? 0} correlated boundary added ·
+                {activeExpansion?.joinIds.size ?? 0} observed link
+                {(activeExpansion?.joinIds.size ?? 0) === 1 ? "" : "s"} added ·
                 r{syntheticExpansion?.revision}
               </small>
             </div>
@@ -1317,7 +1320,7 @@ export function EvidenceMap({
                   {containedAction
                     ? authorizedEntityStateLabel(containedAction.id)
                     : modeledOnly
-                      ? "Possible · not observed"
+                      ? "Modeled · not observed"
                       : entityEvidenceState(entity, entityEvents, atRisk)}
                 </em>
               </span>
@@ -1348,9 +1351,9 @@ export function EvidenceMap({
             const stateLabel = edge.blocked
               ? "Attempt prevented"
               : severed
-                ? "Modeled segment severed · analyst approved"
+                ? "Modeled path blocked · analyst approved"
                 : predicted
-                  ? "Simulated severance · not authorized"
+                  ? "Simulated control · approval required"
                   : edge.truth;
             return (
               <button
@@ -1401,7 +1404,9 @@ export function EvidenceMap({
           <span>
             {view === "impact" ? "Impact boundary" : "Evidence boundary"}
           </span>
-          <small>Solid correlated · dashed modeled or simulated</small>
+          <small>
+            Solid = observed evidence · dashed = modeled or simulated
+          </small>
         </div>
         <p>
           {view === "impact" && state.reachabilityAttached
@@ -1488,27 +1493,27 @@ function TraceSequenceRail({
   return (
     <section
       className="evidence-replay investigation-timeline"
-      aria-label="Case evidence and investigation timeline"
+      aria-label="Incident timeline"
     >
       <header className="evidence-replay-controls timeline-controls">
         <div>
-          <span>Evidence replay</span>
+          <span>Incident timeline</span>
           <strong>
             {String(cursor).padStart(2, "0")} /{" "}
             {String(orderedJoins.length).padStart(2, "0")}
           </strong>
-          <small>Fixture sequence · replay does not alter evidence</small>
+          <small>Recorded activity and investigation actions</small>
         </div>
         <div className="replay-buttons">
           <button
-            aria-label="Restart evidence replay"
+            aria-label="Restart incident timeline"
             onClick={onRestart}
             type="button"
           >
             Restart
           </button>
           <button
-            aria-label="Previous evidence step"
+            aria-label="Previous activity step"
             disabled={cursor === 0}
             onClick={onPrevious}
             type="button"
@@ -1517,7 +1522,7 @@ function TraceSequenceRail({
           </button>
           <button
             aria-label={
-              playing ? "Pause evidence replay" : "Play evidence replay"
+              playing ? "Pause incident timeline" : "Play incident timeline"
             }
             aria-pressed={playing}
             className="replay-toggle"
@@ -1531,7 +1536,7 @@ function TraceSequenceRail({
                 : "Play"}
           </button>
           <button
-            aria-label="Next evidence step"
+            aria-label="Next activity step"
             disabled={cursor >= orderedJoins.length}
             onClick={onNext}
             type="button"
@@ -1543,12 +1548,12 @@ function TraceSequenceRail({
 
       <div className="timeline-tracks">
         <div className="timeline-track-labels" aria-hidden="true">
-          <span>Evidence</span>
-          <span>Work</span>
+          <span>Activity</span>
+          <span>Investigation</span>
         </div>
         <ol
           className="trace-sequence-rail timeline-observed-track"
-          aria-label="Correlated attack sequence"
+          aria-label="Recorded activity"
         >
           {orderedJoins.map((join, index) => {
             const blocked = fixture.impact.blockedJoinIds.includes(join.id);
@@ -1562,6 +1567,7 @@ function TraceSequenceRail({
                 key={join.id}
               >
                 <button
+                  aria-label={`${formatUtcTime(join.timestamp)}. ${blocked ? "Prevented activity" : "Observed activity"}: ${humanizeRelation(join.relation)} from ${entityLabels.get(join.fromEntityId) ?? join.fromEntityId} to ${entityLabels.get(join.toEntityId) ?? join.toEntityId}.`}
                   aria-current={current ? "step" : undefined}
                   className={`${blocked ? "sequence-step-blocked" : ""} ${selected ? "sequence-step-selected" : ""}`}
                   onClick={() => {
@@ -1572,7 +1578,7 @@ function TraceSequenceRail({
                 >
                   <span>{formatUtcTime(join.timestamp)}</span>
                   <div>
-                    <small>{blocked ? "Prevented" : "Correlated"}</small>
+                    <small>{blocked ? "Prevented" : "Observed"}</small>
                     <strong>{humanizeRelation(join.relation)}</strong>
                     <em>
                       {entityLabels.get(join.fromEntityId) ?? join.fromEntityId}{" "}
@@ -1586,7 +1592,7 @@ function TraceSequenceRail({
         </ol>
         <ol
           className="timeline-query-track"
-          aria-label="Analyst and copilot investigation queries"
+          aria-label="Investigation activity"
         >
           {investigationReceipts.map((receipt) => {
             const targetEntityId = receipt.target
@@ -1595,6 +1601,7 @@ function TraceSequenceRail({
             return (
               <li key={receipt.id}>
                 <button
+                  aria-label={`${receipt.reportedSurface === "webmcp_callback" ? "Copilot" : "Analyst"} investigation: ${receipt.title}. Completed ${formatUtcTime(receipt.occurredAt)}.`}
                   disabled={!targetEntityId}
                   onClick={() =>
                     targetEntityId &&
@@ -1619,6 +1626,7 @@ function TraceSequenceRail({
           {activeQuery ? (
             <li className="timeline-query-ready">
               <button
+                aria-label={`${activity.status === "running" && activity.queryId === activeQuery.id ? (activity.actor === "agent" ? "Copilot is running" : "Analyst requested") : "Ready to run"} investigation: ${activeQuery.title}.`}
                 onClick={() =>
                   onSelect({ kind: "entity", id: activeQuery.targetEntityId })
                 }
@@ -1636,7 +1644,7 @@ function TraceSequenceRail({
                 <small>
                   {activity.status === "running" &&
                   activity.queryId === activeQuery.id
-                    ? `${activeQuery.sourceScopes.length} bounded sources locked`
+                    ? `${activeQuery.sourceScopes.length} sources selected`
                     : "Result unknown until execution"}
                 </small>
               </button>
@@ -1644,15 +1652,15 @@ function TraceSequenceRail({
           ) : null}
           {investigationReceipts.length === 0 && !activeQuery ? (
             <li className="timeline-query-empty">
-              Select a Tier 1 lead to begin.
+              Select an investigation lead to begin.
             </li>
           ) : null}
         </ol>
       </div>
       <p aria-live="polite" className="sr-only">
         {currentJoin
-          ? `Recorded evidence step ${cursor} of ${orderedJoins.length}: ${currentJoin.label}.`
-          : `Evidence replay ready. ${orderedJoins.length} correlated joins.`}
+          ? `Activity step ${cursor} of ${orderedJoins.length}: ${currentJoin.label}.`
+          : `Incident timeline ready. ${orderedJoins.length} recorded activities.`}
       </p>
     </section>
   );
@@ -1708,6 +1716,7 @@ function ImpactEnvelope({
           d={segment.path}
           data-hop={segment.hop}
           key={segment.hop}
+          vectorEffect="non-scaling-stroke"
         />
       ))}
     </svg>
@@ -1799,16 +1808,16 @@ function impactAnnouncement(
   severedSegmentCount: number,
 ): string {
   if (authorizedActionCount > 0) {
-    return `Synthetic controls authorized: ${authorizedActionCount} of ${fixture.responseActions.length}. ${severedSegmentCount} risk segment${severedSegmentCount === 1 ? "" : "s"} severed. No external action executed.`;
+    return `Demo controls approved: ${authorizedActionCount} of ${fixture.responseActions.length}. ${severedSegmentCount} risk path${severedSegmentCount === 1 ? "" : "s"} blocked. No external action executed.`;
   }
   if (state.counterfactualAttached) {
     const count = fixture.counterfactual.severedPathIds.length;
-    return `${count} risk ${count === 1 ? "segment has" : "segments have"} predicted severance in the simulation. No control is authorized.`;
+    return `${count} risk ${count === 1 ? "path is" : "paths are"} blocked in the simulation. No control is approved.`;
   }
   if (state.reachabilityAttached) {
-    return `Reachability model attached: ${fixture.reachability.paths.length} candidate risk segments and ${fixture.impact.atRiskEntityIds.length} possible entities not observed.`;
+    return `Exposure model added: ${fixture.reachability.paths.length} modeled risk paths and ${fixture.impact.atRiskEntityIds.length} entities at risk but not observed.`;
   }
-  return "No reachability model is attached. The map shows observed and correlated evidence only.";
+  return "No exposure model is available. The graph shows observed evidence only.";
 }
 
 function entityEvidenceState(
@@ -1903,7 +1912,7 @@ function buildEdges(
           id: `MODELED-${key}`,
           fromEntityId,
           toEntityId,
-          label: "Possible path",
+          label: "Modeled path",
           truth: "modeled",
           join: null,
           pathIds: [path.id],

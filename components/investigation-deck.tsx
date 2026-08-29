@@ -114,17 +114,17 @@ export function InvestigationDeck({
           {entity ? <EntityGlyph kind={entity.kind} /> : <span>?</span>}
         </span>
         <div>
-          <p>Selected evidence</p>
-          <strong>{entity?.label ?? "Select evidence"}</strong>
+          <p>Selected item</p>
+          <strong>{entity?.label ?? "Select an item"}</strong>
           <small>
             {entity
-              ? `${humanizeEntityKind(entity.kind)} · ${attached ? "finding attached" : "query available"}`
-              : "Select a node or path to investigate it"}
+              ? `${humanizeEntityKind(entity.kind)} · ${attached ? "result added" : "query available"}`
+              : "Select a node or path to investigate"}
           </small>
         </div>
       </div>
 
-      <div className="investigation-probes" aria-label="Bounded probes">
+      <div className="investigation-probes" aria-label="Available queries">
         {selectedQuery ? (
           <button
             className="probe-primary"
@@ -137,20 +137,20 @@ export function InvestigationDeck({
             }
             type="button"
           >
-            <span>{attached ? "Finding attached" : "Run query"}</span>
+            <span>{attached ? "Result added" : "Run investigation"}</span>
             <strong>{selectedQuery.title}</strong>
             <small>
-              {selectedQuery.sourceScopes.length} bounded sources · result
-              attached after execution
+              {selectedQuery.sourceScopes.length} sources · results appear here
+              when complete
             </small>
             <em className="probe-action" aria-hidden="true">
-              {attached ? "Attached" : "Execute →"}
+              {attached ? "Added" : "Run →"}
             </em>
           </button>
         ) : (
           <div className="probe-empty">
-            <span>No saved query for this evidence</span>
-            <small>Inspect related activity or first occurrence.</small>
+            <span>No additional query is available for this item</span>
+            <small>Review nearby activity or find its first occurrence.</small>
           </div>
         )}
         <button
@@ -165,7 +165,7 @@ export function InvestigationDeck({
           }
           type="button"
         >
-          <span>Related activity</span>
+          <span>Activity around this item</span>
           <strong>±15 min</strong>
         </button>
         <button
@@ -178,17 +178,18 @@ export function InvestigationDeck({
           }
           type="button"
         >
-          <span>Establish origin</span>
+          <span>Find first activity</span>
           <strong>First seen</strong>
         </button>
       </div>
 
-      <div className="decision-spectrum" aria-label="Decision gate">
+      <div className="decision-spectrum" aria-label="Decision status">
         <div className="decision-gate-copy">
-          <span>Decision gate</span>
+          <span>Decision status</span>
           <strong>
             {decisionEvidenceCount} of{" "}
-            {fixture.decision.requiresEnrichmentIds.length} context returns
+            {fixture.decision.requiresEnrichmentIds.length} required checks
+            complete
           </strong>
           <small>{fixture.decision.question}</small>
         </div>
@@ -211,20 +212,22 @@ export function InvestigationDeck({
           <div className="query-live-heading">
             <span>
               {activity.actor === "agent"
-                ? "Copilot query"
-                : "Analyst-requested query"}
+                ? "Copilot · Running"
+                : "Analyst · Query requested"}
             </span>
             <code>{selectedQuery.id}</code>
-            <strong>{selectedQuery.sourceScopes.length} sources locked</strong>
+            <strong>
+              {selectedQuery.sourceScopes.length} sources selected
+            </strong>
           </div>
           <div className="query-scan-track" aria-hidden="true">
             <i />
           </div>
           <ol>
-            <li className="query-stage-complete">Scope locked</li>
-            <li className="query-stage-active">Scanning bounded corpora</li>
-            <li>Rank matches</li>
-            <li>Attach evidence</li>
+            <li className="query-stage-complete">Sources selected</li>
+            <li className="query-stage-active">Searching records</li>
+            <li>Review matches</li>
+            <li>Add results</li>
           </ol>
         </div>
       ) : null}
@@ -241,24 +244,24 @@ export function InvestigationDeck({
             <span>
               <small>
                 {resultActor === "agent"
-                  ? "Copilot finding"
+                  ? "Copilot result"
                   : resultActor === "analyst"
-                    ? "Analyst-requested finding"
-                    : "Attached finding"}{" "}
+                    ? "Analyst result"
+                    : "Query result"}{" "}
                 · r{resultRevision}
               </small>
               <strong>{selectedQuery.resultChange}</strong>
             </span>
-            <em>Details</em>
+            <em>View result</em>
           </summary>
           <div className="query-result-body">
             <div className="query-result-flag">
               <span>
                 {resultActor === "agent"
-                  ? "Copilot finding"
+                  ? "Copilot result"
                   : resultActor === "analyst"
-                    ? "Analyst-requested finding"
-                    : "Attached finding"}
+                    ? "Analyst result"
+                    : "Query result"}
               </span>
               <strong>{artifact.summary}</strong>
               <small>{artifact.caveat}</small>
@@ -290,7 +293,7 @@ export function InvestigationDeck({
               </div>
             </dl>
             <div className="query-source-ledger">
-              <p>Search scope</p>
+              <p>Sources searched</p>
               {selectedQuery.sourceScopes.map((scope) => (
                 <button
                   key={`${selectedQuery.id}-${scope.sourceLabel}`}
@@ -336,11 +339,11 @@ export function InvestigationDeck({
           </summary>
           <div className="query-result-body">
             <div className="query-result-flag">
-              <span>Bounded case read</span>
+              <span>Case data read</span>
               <strong>{result.summary}</strong>
               <small>
-                This read searched released fixture events only. It did not
-                attach or alter evidence.
+                This read searched available case events only. It did not add or
+                change evidence.
               </small>
             </div>
           </div>

@@ -68,14 +68,14 @@ test("active evidence fit favors readable scale over unused world space", () => 
     { x: 250, y: 180, width: 1200, height: 650 },
   );
 
-  assert.equal(camera.scale, 0.84);
+  assert.equal(camera.scale, 1);
   assert.ok(
     camera.scale >
       fitTraceCamera({ width: 1000, height: 700 }, { width: 1600, height: 980 })
         .scale,
   );
-  assert.equal(camera.x, -214);
-  assert.ok(Math.abs(camera.y + 103.2) < Number.EPSILON * 128);
+  assert.equal(camera.x, -350);
+  assert.equal(camera.y, -132);
 });
 
 test("active evidence fit uses natural scale when the evidence fits", () => {

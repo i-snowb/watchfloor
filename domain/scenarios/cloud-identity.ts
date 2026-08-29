@@ -1,4 +1,4 @@
-import type { CaseFixture } from "../types";
+import type { CaseFixture, InvestigationQueryReturnedRecord } from "../types";
 
 const caseId = "case-cloud-0421";
 const scenarioId = "cloud-identity";
@@ -10,6 +10,24 @@ const base = {
   fixtureVersion,
   synthetic: true as const,
 };
+
+function returnedRecord(
+  id: string,
+  sourceLabel: string,
+  timestamp: string,
+  recordType: string,
+  entityIds: readonly string[],
+  fields: Readonly<Record<string, string>>,
+): InvestigationQueryReturnedRecord {
+  return {
+    id,
+    sourceLabel,
+    timestamp,
+    recordType,
+    entityIds,
+    fields: Object.entries(fields).map(([label, value]) => ({ label, value })),
+  };
+}
 
 export const cloudIdentityScenario = {
   id: caseId,
@@ -87,8 +105,7 @@ export const cloudIdentityScenario = {
       kind: "network_indicator",
       label: "198.51.100.24",
       provider: "Reference inventory",
-      summary:
-        "Documentation address observed as the session source; ownership is unverified",
+      summary: "Documented session source; ownership unverified",
       address: "198.51.100.24",
       addressClass: "documentation_range",
     },
@@ -116,8 +133,7 @@ export const cloudIdentityScenario = {
       kind: "cloud_object",
       label: "customer-export.csv",
       provider: "Amazon S3",
-      summary:
-        "Restricted export accessed by the privileged session; change scope is unverified",
+      summary: "Restricted export accessed; change scope unverified",
       bucket: "trace-demo-customer-exports",
       objectKey: "2026-08-27/customer-export.csv",
       classification: "restricted_customer_data",
@@ -357,14 +373,14 @@ export const cloudIdentityScenario = {
       sequence: 12,
       status: "supporting",
       sourceCategory: "identity_directory",
-      sourceLabel: "Synthetic directory snapshot",
+      sourceLabel: "Demo directory snapshot",
       timestamp: "2026-08-27T09:44:00Z",
       actor: { kind: "system", id: "fixture-directory" },
       entityId: "identity:jdoe",
       title: "Identity and change baseline",
       summary:
         "Jordan owns CHG-2941 and used the assigned device; this supports operator continuity but does not authorize prod-admin.",
-      caveat: "Deterministic fixture data; not a live identity-provider query.",
+      caveat: "Demo records only; no live identity provider was queried.",
       toolName: "enrich_identity",
       payload: {
         kind: "identity_baseline",
@@ -380,7 +396,7 @@ export const cloudIdentityScenario = {
       sequence: 13,
       status: "supporting",
       sourceCategory: "network_inventory",
-      sourceLabel: "Synthetic network inventory",
+      sourceLabel: "Demo network inventory",
       timestamp: "2026-08-27T09:44:15Z",
       actor: { kind: "system", id: "fixture-network-inventory" },
       entityId: "indicator:198.51.100.24",
@@ -405,7 +421,7 @@ export const cloudIdentityScenario = {
       sequence: 14,
       status: "disputed",
       sourceCategory: "cloud_configuration",
-      sourceLabel: "Synthetic IAM snapshot",
+      sourceLabel: "Demo IAM snapshot",
       timestamp: "2026-08-27T09:44:30Z",
       actor: { kind: "system", id: "fixture-iam" },
       entityId: "role:prod-admin",
@@ -429,7 +445,7 @@ export const cloudIdentityScenario = {
       sequence: 15,
       status: "supporting",
       sourceCategory: "asset_inventory",
-      sourceLabel: "Synthetic object inventory",
+      sourceLabel: "Demo object inventory",
       timestamp: "2026-08-27T09:44:45Z",
       actor: { kind: "system", id: "fixture-object-inventory" },
       entityId: "object:customer-export",
@@ -462,7 +478,7 @@ export const cloudIdentityScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Synthetic identity directory",
+          sourceLabel: "Demo identity directory",
           sourceCategory: "identity_directory",
           timeRange: {
             start: "2026-05-29T09:00:00Z",
@@ -471,7 +487,7 @@ export const cloudIdentityScenario = {
           syntheticRecordCount: 420,
         },
         {
-          sourceLabel: "Synthetic Okta event lake",
+          sourceLabel: "Demo Okta event lake",
           sourceCategory: "identity_telemetry",
           timeRange: {
             start: "2026-07-28T09:00:00Z",
@@ -482,6 +498,32 @@ export const cloudIdentityScenario = {
       ],
       matchedRecordCount: 3,
       returnedRecordCount: 2,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-CLOUD-IDENTITY-01",
+          "Demo identity directory",
+          "2026-08-27T09:22:31Z",
+          "Directory assignment",
+          ["identity:jdoe"],
+          {
+            Account: "jdoe",
+            Device: "NXS-LT-227",
+            Manager: "Casey Rivera",
+          },
+        ),
+        returnedRecord(
+          "QRR-CLOUD-IDENTITY-02",
+          "Demo Okta event lake",
+          "2026-08-27T09:22:31Z",
+          "Session baseline",
+          ["identity:jdoe", "session:okta-921"],
+          {
+            Session: "921",
+            Device: "NXS-LT-227",
+            "Prior prod-admin sessions": "1 in 30 days",
+          },
+        ),
+      ],
       resultChange:
         "Known device and CHG-2941 ownership support operator continuity; authorization remains unresolved.",
       caveat:
@@ -499,7 +541,7 @@ export const cloudIdentityScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Synthetic VPN inventory",
+          sourceLabel: "Demo VPN inventory",
           sourceCategory: "network_inventory",
           timeRange: {
             start: "2026-08-20T00:00:00Z",
@@ -508,7 +550,7 @@ export const cloudIdentityScenario = {
           syntheticRecordCount: 86,
         },
         {
-          sourceLabel: "Synthetic identity session index",
+          sourceLabel: "Demo identity session index",
           sourceCategory: "identity_telemetry",
           timeRange: {
             start: "2026-07-28T00:00:00Z",
@@ -519,6 +561,32 @@ export const cloudIdentityScenario = {
       ],
       matchedRecordCount: 2,
       returnedRecordCount: 2,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-CLOUD-EGRESS-01",
+          "Demo VPN inventory",
+          "2026-08-27T09:22:31Z",
+          "VPN point of presence",
+          ["indicator:198.51.100.24"],
+          {
+            Address: "198.51.100.24",
+            Location: "London",
+            Status: "Approved corporate egress",
+          },
+        ),
+        returnedRecord(
+          "QRR-CLOUD-EGRESS-02",
+          "Demo identity session index",
+          "2026-08-27T09:22:31Z",
+          "Session source",
+          ["session:okta-921", "indicator:198.51.100.24"],
+          {
+            Session: "921",
+            Source: "198.51.100.24",
+            "Approved context": "CHG-2941",
+          },
+        ),
+      ],
       resultChange:
         "The documentation address maps to the approved London VPN POP in the fixture.",
       caveat:
@@ -537,7 +605,7 @@ export const cloudIdentityScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Synthetic IAM policy graph",
+          sourceLabel: "Demo IAM policy graph",
           sourceCategory: "cloud_configuration",
           timeRange: {
             start: "2026-08-01T00:00:00Z",
@@ -546,7 +614,7 @@ export const cloudIdentityScenario = {
           syntheticRecordCount: 440,
         },
         {
-          sourceLabel: "Synthetic CloudTrail role corpus",
+          sourceLabel: "Demo CloudTrail role corpus",
           sourceCategory: "cloud_audit",
           timeRange: {
             start: "2026-05-29T00:00:00Z",
@@ -557,9 +625,47 @@ export const cloudIdentityScenario = {
       ],
       matchedRecordCount: 4,
       returnedRecordCount: 3,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-CLOUD-ROLE-01",
+          "Demo IAM policy graph",
+          "2026-08-27T09:43:00Z",
+          "Role policy",
+          ["role:prod-admin"],
+          {
+            Role: "prod-admin",
+            Privilege: "AdministratorAccess",
+            "Maximum session": "4 hours",
+          },
+        ),
+        returnedRecord(
+          "QRR-CLOUD-ROLE-02",
+          "Demo IAM policy graph",
+          "2026-08-27T09:43:00Z",
+          "Approved workflow role",
+          ["role:prod-admin"],
+          {
+            Required: "data-export-operator",
+            Observed: "prod-admin",
+            Result: "Privilege exceeds workflow",
+          },
+        ),
+        returnedRecord(
+          "QRR-CLOUD-ROLE-03",
+          "Demo CloudTrail role corpus",
+          "2026-08-27T09:43:00Z",
+          "Comparable role use",
+          ["identity:jdoe", "role:prod-admin"],
+          {
+            Principal: "jdoe",
+            "Prior role use": "1 in 30 days",
+            MFA: "Required",
+          },
+        ),
+      ],
       resultChange:
         "prod-admin exceeds the scoped export role; the change reference alone cannot authorize that role.",
-      caveat: "The fixture does not evaluate every AWS policy condition.",
+      caveat: "This demo does not evaluate every AWS policy condition.",
     },
     {
       id: "QRY-CLOUD-EXPORT-04",
@@ -573,7 +679,7 @@ export const cloudIdentityScenario = {
       requiresStageId: null,
       sourceScopes: [
         {
-          sourceLabel: "Synthetic restricted-object audit",
+          sourceLabel: "Demo restricted-object audit",
           sourceCategory: "cloud_audit",
           timeRange: {
             start: "2026-08-27T08:30:00Z",
@@ -582,7 +688,7 @@ export const cloudIdentityScenario = {
           syntheticRecordCount: 218,
         },
         {
-          sourceLabel: "Synthetic change and object inventory",
+          sourceLabel: "Demo change and object inventory",
           sourceCategory: "asset_inventory",
           timeRange: {
             start: "2026-05-29T00:00:00Z",
@@ -593,6 +699,32 @@ export const cloudIdentityScenario = {
       ],
       matchedRecordCount: 2,
       returnedRecordCount: 2,
+      returnedRecords: [
+        returnedRecord(
+          "QRR-CLOUD-EXPORT-01",
+          "Demo restricted-object audit",
+          "2026-08-27T09:43:00Z",
+          "Object access",
+          ["role:prod-admin", "object:customer-export"],
+          {
+            Object: "customer-export.csv",
+            "Bytes read": "23.7 MB",
+            Principal: "prod-admin",
+          },
+        ),
+        returnedRecord(
+          "QRR-CLOUD-EXPORT-02",
+          "Demo change and object inventory",
+          "2026-08-27T09:43:00Z",
+          "Change scope",
+          ["identity:jdoe", "object:customer-export"],
+          {
+            Change: "CHG-2941",
+            Window: "09:00–11:00 UTC",
+            Role: "Not authorized",
+          },
+        ),
+      ],
       resultChange:
         "CHG-2941 covers the object and time window, but not the prod-admin role; analyst interpretation is required.",
       caveat: "The approval and access baseline are fixed synthetic values.",
@@ -813,7 +945,7 @@ export const cloudIdentityScenario = {
       "Can the observed identity-to-data path be reconciled with an approved change without dismissing the role-control exception?",
     ],
     coverageNotes: [
-      "The fixture proves the cloud API activity and approved-task context. It does not prove the physical operator or downstream file handling.",
+      "Evidence confirms the cloud API activity and approved-task context. It does not establish the physical operator or downstream file handling.",
     ],
     command: {
       observed: "prod-admin accessed customer-export.csv",

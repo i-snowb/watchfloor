@@ -181,6 +181,12 @@ export function validateCaseFixture(fixture: CaseFixture): void {
       : fixture.enrichments.some(
           (candidate) => candidate.id === query.resultArtifactId,
         );
+    const resultRecordIds = new Set(
+      query.returnedRecords.map((record) => record.id),
+    );
+    const sourceLabels = new Set(
+      query.sourceScopes.map((scope) => scope.sourceLabel),
+    );
     if (
       !entityIds.has(query.targetEntityId) ||
       !artifact ||
@@ -201,7 +207,20 @@ export function validateCaseFixture(fixture: CaseFixture): void {
       query.matchedRecordCount < 1 ||
       query.returnedRecordCount < 1 ||
       query.returnedRecordCount > query.matchedRecordCount ||
-      query.matchedRecordCount > scanned
+      query.matchedRecordCount > scanned ||
+      query.returnedRecords.length !== query.returnedRecordCount ||
+      resultRecordIds.size !== query.returnedRecords.length ||
+      query.returnedRecords.some(
+        (record) =>
+          !record.id ||
+          !sourceLabels.has(record.sourceLabel) ||
+          Number.isNaN(Date.parse(record.timestamp)) ||
+          record.entityIds.length === 0 ||
+          !record.entityIds.every((entityId) => entityIds.has(entityId)) ||
+          !record.recordType ||
+          record.fields.length === 0 ||
+          record.fields.some((field) => !field.label || !field.value),
+      )
     ) {
       throw new Error(`${query.id} has an invalid bounded query definition.`);
     }

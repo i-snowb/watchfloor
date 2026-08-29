@@ -136,7 +136,7 @@ body {
 
 .case-view .case-header h1 {
   font-size: clamp(15px, 1.35vw, 19px);
-  font-weight: 610;
+  font-weight: 600;
   letter-spacing: -0.025em;
   margin: 0;
   overflow: hidden;
@@ -202,7 +202,7 @@ body {
 .case-view .evidence-map-header h2 {
   font-family: var(--font-sans);
   font-size: 15px;
-  font-weight: 620;
+  font-weight: 600;
   letter-spacing: -0.01em;
   margin-top: 1px;
 }
@@ -241,7 +241,7 @@ body {
 .agent-now-rail > strong {
   color: var(--field-ink);
   font-size: 12px;
-  font-weight: 620;
+  font-weight: 600;
   line-height: 1.2;
   min-width: 0;
   overflow: hidden;
@@ -779,7 +779,7 @@ body {
 
 .capability-matrix strong {
   font-size: 12px;
-  font-weight: 620;
+  font-weight: 600;
   margin: 6px 0;
 }
 
@@ -907,7 +907,7 @@ body {
   cursor: pointer;
   font-family: var(--font-mono);
   font-size: 9px;
-  font-weight: 650;
+  font-weight: 600;
   min-height: 34px;
   padding: 0 13px;
   text-transform: uppercase;
@@ -2198,7 +2198,7 @@ body {
 .case-view .drawer-finding-copy strong {
   display: block;
   font-size: 15px;
-  font-weight: 620;
+  font-weight: 600;
   line-height: 1.45;
 }
 
@@ -2467,7 +2467,7 @@ body {
   color: var(--field-ink);
   font-family: var(--font-mono);
   font-size: 20px;
-  font-weight: 560;
+  font-weight: 600;
   grid-column: 2;
   grid-row: 1 / 3;
   padding-left: 12px;
@@ -2914,7 +2914,7 @@ body {
 
 .case-view .case-investigation-drawer > summary strong {
   font-size: 16px;
-  font-weight: 610;
+  font-weight: 600;
   line-height: 1.3;
 }
 
@@ -3009,7 +3009,7 @@ body {
 
 .case-view .drawer-section-heading h2 {
   font-size: 16px;
-  font-weight: 620;
+  font-weight: 600;
   line-height: 1.3;
   margin: 2px 0 0;
 }
@@ -3115,7 +3115,7 @@ body {
 .case-view .drawer-check-list strong,
 .case-view .drawer-operation-log strong {
   font-size: 13px;
-  font-weight: 610;
+  font-weight: 600;
   line-height: 1.35;
 }
 
@@ -3174,7 +3174,7 @@ body {
 
 .case-view .drawer-agent-status strong {
   font-size: 13px;
-  font-weight: 610;
+  font-weight: 600;
   line-height: 1.45;
 }
 
@@ -3757,7 +3757,7 @@ body {
 
 .case-view .case-map-identity h1 {
   font-size: clamp(14px, 1.25vw, 18px);
-  font-weight: 620;
+  font-weight: 600;
   letter-spacing: -0.025em;
   margin: 0;
   overflow: hidden;
@@ -4897,7 +4897,7 @@ body {
 
 .case-view .findings-decision-ladder strong {
   font-size: 12px;
-  font-weight: 580;
+  font-weight: 600;
   text-transform: capitalize;
 }
 
@@ -5076,7 +5076,7 @@ body {
 .case-view .analyst-action-dock > span {
   color: var(--field-mint);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -5102,7 +5102,7 @@ body {
   display: inline-flex;
   font: inherit;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   justify-content: center;
   min-height: 34px;
   padding: 8px 10px;
@@ -5141,7 +5141,7 @@ body {
 .case-view .analyst-action-dock-complete p {
   color: var(--field-mint);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -5321,27 +5321,51 @@ body {
 }
 
 .case-view .case-timeline-dock .investigation-timeline {
-  grid-template-columns: 172px minmax(0, 1fr);
-  min-height: 82px;
+  box-sizing: border-box;
+  grid-template-columns: 224px minmax(0, 1fr);
+  height: 116px;
+  max-height: none;
+  min-height: 116px;
   overflow: hidden;
 }
 
 .case-view .case-timeline-dock .timeline-controls {
-  min-height: 82px;
+  min-height: 114px;
+}
+
+.case-view .case-timeline-dock .timeline-controls .replay-buttons {
+  display: grid;
+  grid-template-columns: 66px 30px 58px 30px;
+}
+
+.case-view .case-timeline-dock .timeline-controls .replay-buttons button {
+  min-width: 0;
 }
 
 .case-view .case-timeline-dock .timeline-tracks,
 .case-view .case-timeline-dock .timeline-track-labels {
-  grid-template-rows: 50px 32px;
+  grid-template-rows: 64px 50px;
+}
+
+.case-view .case-timeline-dock .timeline-tracks {
+  grid-template-columns: 112px minmax(0, 1fr);
+}
+
+.case-view .case-timeline-dock .timeline-track-labels span {
+  justify-content: flex-start;
+  padding: 0 10px;
+  writing-mode: horizontal-tb;
 }
 
 .case-view .case-timeline-dock .timeline-observed-track,
 .case-view .case-timeline-dock .timeline-query-track {
   overflow-x: auto;
+  overflow-y: hidden;
   overscroll-behavior-inline: contain;
   scrollbar-color: rgba(121, 197, 207, 0.72) transparent;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
+  scroll-snap-type: x proximity;
 }
 
 .case-view .case-timeline-dock .timeline-observed-track::-webkit-scrollbar,
@@ -5359,11 +5383,42 @@ body {
 
 .case-view .case-timeline-dock .timeline-observed-track,
 .case-view .case-timeline-dock .timeline-observed-track button {
-  min-height: 50px;
+  min-height: 64px;
 }
 
 .case-view .case-timeline-dock .timeline-query-track button {
-  min-height: 32px;
+  grid-template-columns: 60px minmax(190px, 1fr) 98px;
+  height: 100%;
+  min-height: 0;
+}
+
+.case-view .case-timeline-dock .timeline-observed-track {
+  grid-auto-columns: minmax(340px, 1fr);
+}
+
+.case-view .case-timeline-dock .timeline-query-track {
+  grid-auto-columns: minmax(360px, 1fr);
+}
+
+.case-view .case-timeline-dock .timeline-observed-track button {
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+
+.case-view .case-timeline-dock .timeline-observed-track button > span {
+  width: 70px;
+}
+
+.case-view .case-timeline-dock .timeline-observed-track strong,
+.case-view .case-timeline-dock .timeline-observed-track em,
+.case-view .case-timeline-dock .timeline-query-track strong {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.case-view .case-timeline-dock .timeline-observed-track li,
+.case-view .case-timeline-dock .timeline-query-track li {
+  scroll-snap-align: start;
 }
 
 .case-view .case-timeline-dock .timeline-controls span,
@@ -5384,6 +5439,32 @@ body {
   line-height: 1.25;
 }
 
+.case-view .trace-camera-status {
+  bottom: 134px;
+}
+
+.case-view .map-investigation-dock {
+  bottom: 136px;
+  max-width: 640px;
+  width: min(640px, calc(100% - 28px));
+}
+
+.case-view .map-investigation-dock .investigation-deck {
+  backdrop-filter: none;
+  background: rgba(7, 15, 17, 0.985);
+  grid-template-columns: 190px minmax(0, 1fr);
+}
+
+.case-view .map-investigation-dock .investigation-pivot small {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.case-view .map-investigation-dock .investigation-probes {
+  grid-template-columns: minmax(210px, 1fr) 100px 100px;
+}
+
 .case-view .map-investigation-dock .decision-spectrum span,
 .case-view .map-investigation-dock .decision-spectrum small,
 .case-view .map-investigation-dock .decision-spectrum p {
@@ -5402,7 +5483,50 @@ body {
 
 @media (max-width: 1050px) {
   .case-view .case-timeline-dock .investigation-timeline {
-    grid-template-columns: 152px minmax(0, 1fr);
+    grid-template-columns: 196px minmax(0, 1fr);
+    height: 120px;
+    min-height: 120px;
+  }
+
+  .case-view .case-timeline-dock .timeline-controls {
+    min-height: 118px;
+  }
+
+  .case-view .case-timeline-dock .timeline-tracks,
+  .case-view .case-timeline-dock .timeline-track-labels {
+    grid-template-rows: 66px 52px;
+  }
+
+  .case-view .case-timeline-dock .timeline-observed-track,
+  .case-view .case-timeline-dock .timeline-observed-track button {
+    min-height: 66px;
+  }
+
+  .case-view .case-timeline-dock .timeline-query-track button {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .case-view .case-timeline-dock .timeline-controls .replay-buttons {
+    grid-template-columns: 58px 28px 54px 28px;
+  }
+
+  .case-view .trace-camera-status {
+    bottom: 138px;
+  }
+
+  .case-view .map-investigation-dock {
+    bottom: 140px;
+    max-width: 560px;
+    width: min(560px, calc(100% - 28px));
+  }
+
+  .case-view .map-investigation-dock .investigation-deck {
+    grid-template-columns: 180px minmax(0, 1fr);
+  }
+
+  .case-view .map-investigation-dock .investigation-probes {
+    grid-template-columns: minmax(180px, 1fr) 86px 86px;
   }
 }
 
@@ -5607,4 +5731,459 @@ body {
 .case-view .query-result-packet span,
 .case-view .query-result-packet small {
   font-size: 13.5px;
+}
+
+/* Product typography and inspectable query evidence. */
+
+.case-view {
+  -webkit-font-smoothing: antialiased;
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+.case-view button,
+.case-view summary {
+  font-family: var(--font-sans);
+}
+
+.case-view .case-map-identity h1,
+.case-view .drawer-section-heading h2,
+.case-view .drawer-finding-copy strong,
+.case-view .investigation-pivot strong,
+.case-view .probe-primary strong,
+.case-view .query-result-flag strong {
+  font-weight: 600;
+}
+
+.case-view .evidence-view-switch button,
+.case-view .trace-camera-tools button,
+.case-view .map-skip-link,
+.case-view .drawer-finding > button,
+.case-view .findings-context-disclosure > summary strong,
+.case-view .query-returned-records > summary span,
+.case-view .query-returned-record button,
+.case-view .investigation-probes button,
+.case-view .tier1-lead-dock button {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.case-view .evidence-entity,
+.case-view .evidence-edge-label,
+.case-view .query-result-packet {
+  filter: none;
+}
+
+.case-view .evidence-entity-copy strong {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.28;
+}
+
+.case-view .evidence-entity-copy > span {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.38;
+  -webkit-line-clamp: 3;
+}
+
+.case-view .evidence-entity-copy small,
+.case-view .evidence-entity-state,
+.case-view .evidence-entity > b,
+.case-view .evidence-edge-label span,
+.case-view .query-result-packet span,
+.case-view .query-result-packet small {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.035em;
+}
+
+.case-view .evidence-edge-label strong,
+.case-view .query-result-packet strong {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.32;
+}
+
+.case-view .evidence-map-lines {
+  overflow: visible;
+  shape-rendering: geometricPrecision;
+}
+
+.case-view .causal-field-floor {
+  opacity: 0.48;
+}
+
+.case-view .query-returned-records {
+  border-top: 1px solid var(--field-rule-strong);
+  grid-column: 2 / 4;
+  min-width: 0;
+}
+
+.case-view .query-returned-records > summary {
+  align-items: center;
+  cursor: pointer;
+  display: grid;
+  gap: 6px 12px;
+  grid-template-columns: minmax(0, 1fr) auto auto 16px;
+  list-style: none;
+  min-height: 44px;
+  padding: 8px 0;
+}
+
+.case-view .query-returned-records > summary::-webkit-details-marker,
+.case-view .query-returned-record > summary::-webkit-details-marker {
+  display: none;
+}
+
+.case-view .query-returned-records > summary span {
+  color: var(--field-cyan);
+}
+
+.case-view .query-returned-records > summary strong {
+  color: var(--field-ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.case-view .query-returned-records > summary small {
+  color: var(--field-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.case-view .query-returned-records > summary::after {
+  color: var(--field-cyan);
+  content: "+";
+  font-family: var(--font-mono);
+  grid-column: 4;
+}
+
+.case-view .query-returned-records[open] > summary::after {
+  content: "−";
+}
+
+.case-view .query-returned-records-body {
+  border-top: 1px solid var(--field-rule);
+  max-block-size: 19rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 0 2px;
+  scrollbar-gutter: stable;
+}
+
+.case-view .query-returned-records-body > p {
+  color: var(--field-soft);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0 0 9px;
+}
+
+.case-view .query-returned-records-body > ol {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.case-view .query-returned-record {
+  background: rgba(8, 18, 19, 0.86);
+  border: 1px solid var(--field-rule);
+}
+
+.case-view .query-returned-record > summary {
+  align-items: center;
+  cursor: pointer;
+  display: grid;
+  gap: 8px 14px;
+  grid-template-columns: 94px minmax(0, 1fr) 16px;
+  list-style: none;
+  min-height: 46px;
+  padding: 8px 10px;
+}
+
+.case-view .query-returned-record time {
+  grid-column: 1;
+  grid-row: 1 / 3;
+}
+
+.case-view .query-returned-record > summary span {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.case-view .query-returned-record > summary strong {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.case-view .query-returned-record > summary::after {
+  color: var(--field-muted);
+  content: "+";
+  font-family: var(--font-mono);
+  grid-column: 3;
+  grid-row: 1 / 3;
+}
+
+.case-view .query-returned-record[open] > summary::after {
+  content: "−";
+}
+
+.case-view .query-returned-record time {
+  color: var(--field-cyan);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.case-view .query-returned-record > summary span {
+  color: var(--field-soft);
+  font-size: 12px;
+  font-weight: 400;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.case-view .query-returned-record > summary strong {
+  color: var(--field-ink);
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.case-view .query-returned-record > div {
+  border-top: 1px solid var(--field-rule);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px;
+}
+
+.case-view .query-returned-record dl {
+  display: grid;
+  gap: 8px 14px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 0;
+}
+
+.case-view .query-returned-record dl > div {
+  min-width: 0;
+}
+
+.case-view .query-returned-record dt {
+  color: var(--field-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.case-view .query-returned-record dd {
+  color: var(--field-ink);
+  font-size: 13px;
+  line-height: 1.42;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.case-view .query-returned-record button {
+  align-self: start;
+  background: rgba(121, 197, 207, 0.06);
+  border: 1px solid var(--field-rule-strong);
+  color: var(--field-cyan);
+  min-height: 36px;
+  padding: 8px 11px;
+}
+
+@media (max-width: 900px) {
+  .case-view .query-returned-records {
+    grid-column: 1 / -1;
+  }
+
+  .case-view .query-returned-record > summary {
+    grid-template-columns: 90px minmax(0, 1fr) 16px;
+  }
+
+  .case-view .query-returned-record > summary strong {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .case-view .query-returned-record > summary::after {
+    grid-column: 3;
+    grid-row: 1 / 3;
+  }
+}
+
+@media (max-width: 1100px) {
+  .case-view .findings-tray-results .drawer-findings-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 680px) {
+  .case-view .query-returned-records,
+  .case-view .query-returned-record > div {
+    grid-column: 1;
+  }
+
+  .case-view .query-returned-records > summary {
+    grid-template-columns: minmax(0, 1fr) auto 16px;
+  }
+
+  .case-view .query-returned-records > summary small {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .case-view .query-returned-records > summary::after {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .case-view .query-returned-record > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Product type scale: labels are quiet, evidence is readable, decisions are clear. */
+
+.case-view :is(h1, h2, h3, strong) {
+  font-weight: 600;
+}
+
+.case-view .evidence-line-legend span,
+.case-view .evidence-line-key-compact,
+.case-view .trace-operation-seam span,
+.case-view .trace-operation-seam code,
+.case-view .trace-operation-seam small {
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.case-view .trace-operation-seam strong {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.case-view .truth-badge,
+.case-view .record-kind-badge {
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.case-view .findings-tray-results .drawer-finding .drawer-finding-copy small {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.case-view .findings-tray-results .drawer-finding > button,
+.case-view .drawer-finding-evidence > summary {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.case-view .case-command-label span,
+.case-view .case-command-label small,
+.case-view .case-command-context > summary,
+.case-view .case-command-facts span {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.case-view .investigation-deck .probe-action,
+.case-view .decision-spectrum span,
+.case-view .decision-spectrum small {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.case-view .decision-spectrum strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.case-view .query-result-drawer > summary small,
+.case-view .query-result-drawer > summary em,
+.case-view .query-result-flag span {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.case-view .query-result-flag small {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.case-view .query-result-facts dt,
+.case-view .query-result-metrics dt,
+.case-view .query-source-ledger > p {
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.case-view .query-source-ledger button span,
+.case-view .query-source-ledger button strong {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.case-view .query-source-ledger button small,
+.case-view .query-result-protocol code,
+.case-view .query-result-protocol span,
+.case-view .query-result-protocol small {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.case-view .trace-evidence-shelf .eyebrow,
+.case-view .evidence-shelf-section-label span,
+.case-view .evidence-shelf-section-label small,
+.case-view .inspector-technical-fields > summary,
+.case-view .agent-workline-heading span,
+.case-view .agent-intent-line code,
+.case-view .agent-result-line code,
+.case-view .agent-result-line small {
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.case-view .agent-intent-line span,
+.case-view .agent-result-line span {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.case-view .field-grid dt {
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.case-view .field-grid dd {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.case-view .evidence-coverage-label span,
+.case-view .evidence-coverage-label small,
+.case-view .evidence-coverage code {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.case-view .evidence-coverage p {
+  font-size: 12px;
+  line-height: 1.5;
 }

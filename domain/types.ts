@@ -454,8 +454,21 @@ export interface InvestigationQueryDefinition {
   sourceScopes: readonly SyntheticCorpusScope[];
   matchedRecordCount: number;
   returnedRecordCount: number;
+  returnedRecords: readonly InvestigationQueryReturnedRecord[];
   resultChange: string;
   caveat: string;
+}
+
+export interface InvestigationQueryReturnedRecord {
+  id: string;
+  sourceLabel: string;
+  timestamp: string;
+  recordType: string;
+  entityIds: readonly string[];
+  fields: readonly {
+    label: string;
+    value: string;
+  }[];
 }
 
 export interface DecisionDefinition extends ArtifactBase {
