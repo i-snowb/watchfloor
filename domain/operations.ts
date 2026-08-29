@@ -9,6 +9,7 @@ import type {
   ResponseBundleProposal,
   ResponseProposal,
 } from "./types";
+import { normalizeAnalystClosureNote } from "./report-signoff";
 import {
   getAllEnrichments,
   getAllEntities,
@@ -153,6 +154,7 @@ export function createInitialCaseState(fixture: CaseFixture): CaseState {
       status: "unavailable",
       report: null,
       approvedAt: null,
+      analystClosureNote: null,
     },
   };
 }
@@ -2734,6 +2736,7 @@ function executeWrite(
         generatedAt: deterministicTimestamp(updated.revision),
       },
       approvedAt: null,
+      analystClosureNote: null,
     };
     updated.lifecycle = "report_drafted";
     return success(
@@ -2760,22 +2763,8 @@ function executeWrite(
     }
     const invalid = validateInput(
       input,
-      [
-        "expectedRevision",
-        "reportId",
-        "acknowledgement",
-        "evidenceCoverageAcknowledged",
-        "responseProvenanceAcknowledged",
-        "limitationsAndResidualRiskAcknowledged",
-      ],
-      [
-        "expectedRevision",
-        "reportId",
-        "acknowledgement",
-        "evidenceCoverageAcknowledged",
-        "responseProvenanceAcknowledged",
-        "limitationsAndResidualRiskAcknowledged",
-      ],
+      ["expectedRevision", "reportId", "acknowledgement", "analystClosureNote"],
+      ["expectedRevision", "reportId", "acknowledgement", "analystClosureNote"],
     );
     if (invalid) return fail(state, toolName, invalid);
     const guarded = writeGuard(state, input, toolName);
@@ -2848,16 +2837,15 @@ function executeWrite(
         "acknowledgement must confirm the synthetic report boundary.",
       );
     }
-    if (
-      input.evidenceCoverageAcknowledged !== true ||
-      input.responseProvenanceAcknowledged !== true ||
-      input.limitationsAndResidualRiskAcknowledged !== true
-    ) {
+    const analystClosureNote = normalizeAnalystClosureNote(
+      input.analystClosureNote,
+    );
+    if (analystClosureNote === null) {
       return fail(
         state,
         toolName,
-        "Review evidence coverage, response provenance, limitations, and residual risk before approval.",
-        "REPORT_REVIEW_REQUIRED",
+        "Record a 24–600 character analyst closure note before approval.",
+        "CLOSURE_NOTE_REQUIRED",
       );
     }
     const updated = nextState(state);
@@ -2865,6 +2853,7 @@ function executeWrite(
       ...updated.report,
       status: "approved_in_demo",
       approvedAt: deterministicTimestamp(updated.revision),
+      analystClosureNote,
     };
     updated.lifecycle = "closed_in_demo";
     return success(

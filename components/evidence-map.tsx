@@ -24,7 +24,7 @@ import type {
   EvidenceJoin,
   EvidenceView,
   OperationReceipt,
-  ReportReviewAcknowledgements,
+  AnalystReportSignoff,
 } from "@/domain/types";
 import { formatUtcTime, humanizeEntityKind } from "@/lib/format";
 import { layoutTraceResultPackets } from "@/lib/trace-result-layout";
@@ -58,7 +58,7 @@ interface EvidenceMapProps {
   state: CaseState;
   selection: TraceSelection;
   onSelect: (selection: TraceSelection) => void;
-  onApproveReport: (review: ReportReviewAcknowledgements) => Promise<void>;
+  onApproveReport: (signoff: AnalystReportSignoff) => Promise<void>;
   actionDock?: ReactNode;
   investigationActivity: InvestigationActivity;
   investigationResult?: InvestigationResultView | null;

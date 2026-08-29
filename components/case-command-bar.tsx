@@ -204,19 +204,14 @@ export function CaseCommandBar({
   if (state.report.status === "drafted" && state.report.report) {
     return (
       <button
-        className="report-review-cue"
+        className="report-review-link"
         disabled={busy}
         onClick={onOpenReportReview}
         type="button"
       >
-        <span>Analyst review required</span>
-        <strong>Evidence report ready</strong>
-        <small>
-          {state.report.report.confirmedFindings.length} findings ·{" "}
-          {state.report.report.actionIds.length} recorded controls ·{" "}
-          {state.report.report.limitations.length} limits
-        </small>
-        <em>Review report</em>
+        <span>Report ready</span>
+        <strong>Review the Copilot draft</strong>
+        <em>Open report</em>
       </button>
     );
   }
@@ -642,18 +637,13 @@ function CommandControls({
     }
     if (nextTool === "generate_case_report") {
       return (
-        <button
-          className="case-command-primary"
-          disabled={busy}
-          onClick={() =>
-            void onExecute("generate_case_report", {
-              expectedRevision: state.revision,
-            })
-          }
-          type="button"
-        >
-          Draft report as analyst
-        </button>
+        <div className="case-command-agent-handoff">
+          <span>Evidence complete</span>
+          <strong>Copilot can draft the case report</strong>
+          <small>
+            The draft will cite the attached findings and response record.
+          </small>
+        </div>
       );
     }
     return (

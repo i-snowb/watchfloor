@@ -93,9 +93,8 @@ async function prepareAndRunQuery(
 
 const completeReportReview = {
   acknowledgement: "APPROVE_SYNTHETIC_REPORT",
-  evidenceCoverageAcknowledged: true,
-  responseProvenanceAcknowledged: true,
-  limitationsAndResidualRiskAcknowledged: true,
+  analystClosureNote:
+    "Evidence supports closure. Record the remaining policy exception and assigned follow-up.",
 } as const;
 
 function rejected(
@@ -217,6 +216,10 @@ async function cloudPath(): Promise<void> {
   assert.equal(state.decision.status, "authorized_exception");
   assert.equal(state.report.status, "approved_in_demo");
   assert.equal(state.report.report?.id, "REPORT-CLOUD-0421");
+  assert.equal(
+    state.report.analystClosureNote,
+    completeReportReview.analystClosureNote,
+  );
   assert.equal(
     state.report.report?.disposition,
     "authorized_activity_policy_exception",

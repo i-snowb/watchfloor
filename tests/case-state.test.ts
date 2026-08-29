@@ -157,6 +157,36 @@ test("persisted report requires the deterministic evidence inventory", () => {
     () => parseCaseState(JSON.stringify(conflictingDecision), fixture),
     /Stored response state/,
   );
+
+  const draftedWithSignoff = structuredClone(state);
+  draftedWithSignoff.report.analystClosureNote =
+    "A draft cannot contain an analyst closure note.";
+  assert.throws(
+    () => parseCaseState(JSON.stringify(draftedWithSignoff), fixture),
+    /Stored response state/,
+  );
+
+  state = write(
+    fixture,
+    state,
+    "approve_case_report",
+    {
+      expectedRevision: state.revision,
+      reportId: fixture.conclusion.reportId,
+      acknowledgement: "APPROVE_SYNTHETIC_REPORT",
+      analystClosureNote:
+        "Evidence supports closure. Record the privileged-role exception for follow-up.",
+    },
+    "analyst_control",
+  );
+  assert.deepEqual(parseCaseState(JSON.stringify(state), fixture), state);
+
+  const approvedWithoutSignoff = structuredClone(state);
+  approvedWithoutSignoff.report.analystClosureNote = null;
+  assert.throws(
+    () => parseCaseState(JSON.stringify(approvedWithoutSignoff), fixture),
+    /Stored response state/,
+  );
 });
 
 test("persisted investigation proposals round-trip with visible or null targets", () => {

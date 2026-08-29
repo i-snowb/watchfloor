@@ -698,6 +698,7 @@ export interface CaseReportState {
   status: "unavailable" | "drafted" | "approved_in_demo";
   report: CaseReport | null;
   approvedAt: string | null;
+  analystClosureNote: string | null;
 }
 
 export interface ResponseProposal {
@@ -738,10 +739,8 @@ export interface PreparedInvestigationQuery {
   preparedAt: string;
 }
 
-export interface ReportReviewAcknowledgements {
-  evidenceCoverageAcknowledged: boolean;
-  responseProvenanceAcknowledged: boolean;
-  limitationsAndResidualRiskAcknowledged: boolean;
+export interface AnalystReportSignoff {
+  analystClosureNote: string;
 }
 
 export interface ResponseActionState {

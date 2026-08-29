@@ -111,9 +111,8 @@ function runPreparedPlan(
 
 const completeReportReview = {
   acknowledgement: "APPROVE_SYNTHETIC_REPORT",
-  evidenceCoverageAcknowledged: true,
-  responseProvenanceAcknowledged: true,
-  limitationsAndResidualRiskAcknowledged: true,
+  analystClosureNote:
+    "Evidence supports closure. Track the privileged-role exception with the service owner.",
 } as const;
 
 function enrich(
@@ -1433,8 +1432,6 @@ test("Jordan closes with an authorized exception and agent-drafted report", () =
       expectedRevision: state.revision,
       reportId: fixture.conclusion.reportId,
       acknowledgement: "APPROVE_SYNTHETIC_REPORT",
-      evidenceCoverageAcknowledged: true,
-      responseProvenanceAcknowledged: true,
     },
     "analyst_control",
   );
@@ -1445,12 +1442,8 @@ test("Jordan closes with an authorized exception and agent-drafted report", () =
     assert.equal(incompleteApproval.state.revision, state.revision);
   }
 
-  for (const field of [
-    "evidenceCoverageAcknowledged",
-    "responseProvenanceAcknowledged",
-    "limitationsAndResidualRiskAcknowledged",
-  ] as const) {
-    const unreviewedApproval = execute(
+  for (const analystClosureNote of ["", "   ", "Too short"]) {
+    const unsignedApproval = execute(
       fixture,
       state,
       "approve_case_report",
@@ -1458,16 +1451,34 @@ test("Jordan closes with an authorized exception and agent-drafted report", () =
         expectedRevision: state.revision,
         reportId: fixture.conclusion.reportId,
         ...completeReportReview,
-        [field]: false,
+        analystClosureNote,
       },
       "analyst_control",
     );
-    assert.equal(unreviewedApproval.ok, false);
-    if (!unreviewedApproval.ok) {
-      assert.equal(unreviewedApproval.error.code, "REPORT_REVIEW_REQUIRED");
-      assert.equal(unreviewedApproval.state.lifecycle, "report_drafted");
-      assert.equal(unreviewedApproval.state.revision, state.revision);
+    assert.equal(unsignedApproval.ok, false);
+    if (!unsignedApproval.ok) {
+      assert.equal(unsignedApproval.error.code, "CLOSURE_NOTE_REQUIRED");
+      assert.equal(unsignedApproval.state.lifecycle, "report_drafted");
+      assert.equal(unsignedApproval.state.revision, state.revision);
     }
+  }
+
+  const oversizedApproval = execute(
+    fixture,
+    state,
+    "approve_case_report",
+    {
+      expectedRevision: state.revision,
+      reportId: fixture.conclusion.reportId,
+      ...completeReportReview,
+      analystClosureNote: "x".repeat(601),
+    },
+    "analyst_control",
+  );
+  assert.equal(oversizedApproval.ok, false);
+  if (!oversizedApproval.ok) {
+    assert.equal(oversizedApproval.error.code, "CLOSURE_NOTE_REQUIRED");
+    assert.equal(oversizedApproval.state.revision, state.revision);
   }
 
   state = succeed(
@@ -1479,6 +1490,10 @@ test("Jordan closes with an authorized exception and agent-drafted report", () =
   );
   assert.equal(state.lifecycle, "closed_in_demo");
   assert.equal(state.report.status, "approved_in_demo");
+  assert.equal(
+    state.report.analystClosureNote,
+    completeReportReview.analystClosureNote,
+  );
 });
 
 test("an analyst disposition cannot change after it is recorded", () => {

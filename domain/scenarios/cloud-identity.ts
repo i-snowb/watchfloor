@@ -1000,7 +1000,7 @@ export const cloudIdentityScenario = {
     disposition: "authorized_activity_policy_exception",
     title: "Authorized export after a privileged-role correction",
     executiveSummary:
-      "The observed session, VPN source, assigned device, and export object align with the scoped portion of CHG-2941. The analyst must correct the initial interpretation: CHG-2941 does not authorize prod-admin. No containment is warranted in this synthetic case; the role use is a least-privilege exception.",
+      "The observed session, VPN source, assigned device, and export object align with the scoped portion of CHG-2941. The analyst must correct the initial interpretation: CHG-2941 does not authorize prod-admin. No containment is warranted; the role use is a least-privilege exception.",
     confirmedFindings: [
       "WebAuthn-verified access used the assigned device and approved VPN POP.",
       "CHG-2941 covered the observed export object, size, and time window only.",

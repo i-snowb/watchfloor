@@ -10,7 +10,7 @@ import type {
   EnrichmentArtifact,
   InvestigationQueryDefinition,
   OperationReceipt,
-  ReportReviewAcknowledgements,
+  AnalystReportSignoff,
 } from "@/domain/types";
 import { formatUtcTime, humanizeEntityKind } from "@/lib/format";
 import { CaseReportPanel } from "./case-report-panel";
@@ -21,7 +21,7 @@ interface InvestigationDrawerProps {
   busy: boolean;
   fixture: CaseFixture;
   findingsSectionId: string;
-  onApproveReport: (review: ReportReviewAcknowledgements) => Promise<void>;
+  onApproveReport: (signoff: AnalystReportSignoff) => Promise<void>;
   onSelect: (selection: TraceSelection) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -102,7 +102,8 @@ export function InvestigationDrawer({
     requiredAttached === fixture.decision.requiresEnrichmentIds.length;
   const decisionRecorded = state.decision.status !== "pending";
   const showCaseGate =
-    evidenceReady || decisionRecorded || state.lifecycle === "closed_in_demo";
+    state.report.status === "unavailable" &&
+    (evidenceReady || decisionRecorded || state.lifecycle === "closed_in_demo");
   const caseGate =
     state.lifecycle === "closed_in_demo"
       ? { label: "Case status", value: "Closed" }
@@ -211,6 +212,7 @@ export function InvestigationDrawer({
             <CaseReportPanel
               busy={busy}
               fixture={fixture}
+              findingsSectionId={findingsSectionId}
               key={state.report.report?.id ?? "case-report"}
               onApprove={onApproveReport}
               reportId={reportReviewId}

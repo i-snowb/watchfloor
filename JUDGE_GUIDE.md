@@ -33,7 +33,7 @@ Expected result: the agent operates the same visible workbench as the analyst. I
 | 2:08–2:22 | Copilot requests recovery evidence. Analyst releases it. Copilot attaches credential and workload results. | The case can continue after containment without inventing a deployment.                                                         |
 | 2:22–2:36 | Copilot prepares recovery. Analyst approves rotation and known-good redeploy records.                      | Recovery is dependency-ordered and auditable.                                                                                   |
 | 2:36–2:52 | Copilot generates the evidence report.                                                                     | Show findings, response provenance, evidence references, limitations, and residual risk.                                        |
-| 2:52–3:00 | Analyst approves closure and returns to the ledger.                                                        | The case ends at a human gate; the ledger proves scenario breadth.                                                              |
+| 2:52–3:00 | Analyst writes a closure note, signs off, and returns to the ledger.                                       | The note is persisted with the report; the copilot cannot approve its own work.                                                 |
 
 Use this prompt at the start of the endpoint case:
 

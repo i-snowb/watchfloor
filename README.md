@@ -13,7 +13,7 @@ The competition build runs on ChatGPT Sites. It does not connect to live securit
 - Exact SHA-256 intelligence, enterprise prevalence, endpoint posture, Windows authentication, network, target-host prevention, cloud audit, and recovery inventory fixtures.
 - An exposure model that keeps observed, correlated, modeled, simulated, prevented, and analyst-approved states distinct.
 - Human-gated forensic collection, endpoint isolation, exact-IP blocking, identity disablement, credential rotation, and known-good image redeploy records.
-- A deterministic evidence report with findings, limitations, residual risk, evidence references, response provenance, and analyst approval.
+- A deterministic evidence report with findings, limitations, residual risk, evidence references, response provenance, and a persisted analyst closure note.
 
 The WebMCP surface contains 33 internal case operations, 19 tools on the cloud case, 26 tools on the endpoint case, and two queue tools. The page never exposes the five analyst-only gates through WebMCP:
 
@@ -72,7 +72,7 @@ The endpoint case uses this sequence:
 6. Record the analyst disposition.
 7. Let the copilot calculate exposure and simulate the allowlisted control.
 8. Let the copilot prepare response packages. The analyst approves them.
-9. Let the copilot draft the evidence report. The analyst reviews evidence coverage, response provenance, limitations, and residual risk before approving closure.
+9. Let the copilot draft the evidence report. The analyst reviews its cited findings and response record, writes a closure note, and signs off. The copilot cannot approve its own report.
 
 The exact file hash is `65fb21f3b3b11f7a7d45f31965dad35935e6d9c860ca6f618999510db74260b9` everywhere it appears. Its intelligence result is an archived deterministic fixture, not live OSINT. `QRY-ENDPOINT-STATIC-08` and `QRY-ENDPOINT-SANDBOX-09` are optional supporting pivots. The latter reviews an archived sandbox behavior record; it does not detonate a sample.
 

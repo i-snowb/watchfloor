@@ -11,7 +11,7 @@ import {
 import type {
   CaseFixture,
   CaseSnapshot,
-  ReportReviewAcknowledgements,
+  AnalystReportSignoff,
 } from "@/domain/types";
 import { getAllEntities } from "@/domain/incident-stream";
 import { executeTool, loadCase, resetCase } from "@/lib/client-api";
@@ -669,12 +669,12 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
               latestAuthorizationReceipt={latestAuthorizationReceipt}
               latestReceipt={liveReceipt}
               onSelect={selectAsAnalyst}
-              onApproveReport={(review: ReportReviewAcknowledgements) =>
+              onApproveReport={(signoff: AnalystReportSignoff) =>
                 runManualTool("approve_case_report", {
                   expectedRevision: snapshotRef.current.state.revision,
                   reportId: snapshotRef.current.state.report.report?.id,
                   acknowledgement: "APPROVE_SYNTHETIC_REPORT",
-                  ...review,
+                  ...signoff,
                 })
               }
               receipts={snapshot.receipts}

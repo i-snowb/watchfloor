@@ -9,6 +9,7 @@ import {
   getResponseBundles,
   type ResponseBundleDefinition,
 } from "./operations";
+import { normalizeAnalystClosureNote } from "./report-signoff";
 
 export function parseCaseState(value: string, fixture: CaseFixture): CaseState {
   const parsed: unknown = JSON.parse(value);
@@ -280,7 +281,11 @@ function hasValidReportState(
   }
 
   if (status === "unavailable") {
-    if (reportState.report !== null || reportState.approvedAt !== null) {
+    if (
+      reportState.report !== null ||
+      reportState.approvedAt !== null ||
+      reportState.analystClosureNote !== null
+    ) {
       return false;
     }
     if (
@@ -320,10 +325,23 @@ function hasValidReportState(
     return false;
   }
 
-  return status === "drafted"
-    ? state.lifecycle === "report_drafted" && reportState.approvedAt === null
-    : state.lifecycle === "closed_in_demo" &&
-        typeof reportState.approvedAt === "string";
+  if (status === "drafted") {
+    return (
+      state.lifecycle === "report_drafted" &&
+      reportState.approvedAt === null &&
+      reportState.analystClosureNote === null
+    );
+  }
+
+  const closureNote = normalizeAnalystClosureNote(
+    reportState.analystClosureNote,
+  );
+  return (
+    state.lifecycle === "closed_in_demo" &&
+    typeof reportState.approvedAt === "string" &&
+    closureNote !== null &&
+    closureNote === reportState.analystClosureNote
+  );
 }
 
 function isValidCaseReport(
