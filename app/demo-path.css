@@ -555,7 +555,7 @@
   }
 }
 
-.case-view .report-signed-certificate {
+.case-view .report-approval-record {
   align-items: start;
   background: rgba(31, 92, 72, 0.08);
   border: 1px solid rgba(42, 116, 88, 0.48);
@@ -566,35 +566,35 @@
   padding: 16px 18px;
 }
 
-.case-view .report-signed-certificate > div {
+.case-view .report-approval-record > div {
   display: grid;
   gap: 5px;
 }
 
-.case-view .report-signed-certificate span,
-.case-view .report-signed-certificate small {
+.case-view .report-approval-record span,
+.case-view .report-approval-record small {
   font-family: var(--font-mono);
   font-size: 12px;
 }
 
-.case-view .report-signed-certificate span {
+.case-view .report-approval-record span {
   color: #255d49;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.case-view .report-signed-certificate strong {
+.case-view .report-approval-record strong {
   color: #152a22;
   font-size: 15px;
   line-height: 1.35;
 }
 
-.case-view .report-signed-certificate small {
+.case-view .report-approval-record small {
   color: #50635b;
   line-height: 1.4;
 }
 
-.case-view .report-signed-certificate blockquote {
+.case-view .report-approval-record blockquote {
   border-left: 2px solid #347c61;
   color: #243b32;
   font-size: 14px;
@@ -604,7 +604,7 @@
 }
 
 @media (max-width: 760px) {
-  .case-view .report-signed-certificate {
+  .case-view .report-approval-record {
     grid-template-columns: 1fr;
   }
 }

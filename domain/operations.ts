@@ -431,11 +431,39 @@ export interface CollaborationHandoff {
     | "discovery_attachment"
     | "response_authorization"
     | "report_approval"
+    | "case_hold"
     | null;
   objective: string;
   exactNextTool: CaseToolName | null;
   whyNow: string;
   lastAnalystAction: string | null;
+}
+
+export interface NextAgentAction {
+  validForRevision: number;
+  singleUse: true;
+  toolName: CaseToolName;
+  input: Record<string, unknown>;
+  objective: string;
+  completionEvidence: string;
+}
+
+export interface AnalystGate {
+  kind:
+    | "evidence_disposition"
+    | "response_authorization"
+    | "report_approval"
+    | "case_hold";
+  title: string;
+  reason: string;
+  reviewArtifactIds: readonly string[];
+  resumeCondition: string;
+}
+
+export interface CaseCoordination {
+  collaborationHandoff: CollaborationHandoff;
+  nextAgentAction: NextAgentAction | null;
+  analystGate: AnalystGate | null;
 }
 
 export function getCollaborationHandoff(
@@ -449,19 +477,24 @@ export function getCollaborationHandoff(
   const authorizedCount = state.responseActions.filter(
     (action) => action.status === "authorized_in_demo",
   ).length;
+  const dispositionHeld =
+    state.decision.status !== "pending" &&
+    state.decision.status !== fixture.conclusion.requiredDecision;
   const pendingGate =
     state.lifecycle === "closed_in_demo"
       ? null
-      : state.report.status === "drafted"
-        ? "report_approval"
-        : state.responseBundle !== null
-          ? "response_authorization"
-          : next.recommendedTool === "attach_discovery_stage"
-            ? "discovery_attachment"
-            : next.recommendedTool === null &&
-                state.decision.status === "pending"
-              ? "evidence_disposition"
-              : null;
+      : dispositionHeld
+        ? "case_hold"
+        : state.report.status === "drafted"
+          ? "report_approval"
+          : state.responseBundle !== null
+            ? "response_authorization"
+            : next.recommendedTool === "attach_discovery_stage"
+              ? "discovery_attachment"
+              : next.recommendedTool === null &&
+                  state.decision.status === "pending"
+                ? "evidence_disposition"
+                : null;
   const whyNow =
     next.recommendedTool === "prepare_investigation_query"
       ? "Tier 1 identified an evidence gap; the agent must prepare the case-approved skill in the visible query console."
@@ -481,9 +514,11 @@ export function getCollaborationHandoff(
                     ? "The response package is modeled; external execution remains disabled."
                     : pendingGate === "report_approval"
                       ? "The evidence-bound report is drafted and awaits analyst approval."
-                      : state.lifecycle === "closed_in_demo"
-                        ? "The evidence report and recorded response actions are approved."
-                        : "The shared case revision determines the next bounded operation.";
+                      : pendingGate === "case_hold"
+                        ? "The recorded disposition holds this path for further evidence; only the analyst can reset the synthetic case."
+                        : state.lifecycle === "closed_in_demo"
+                          ? "The evidence report and recorded response actions are approved."
+                          : "The shared case revision determines the next bounded operation.";
   const lastAnalystAction =
     state.report.status === "approved_in_demo"
       ? "Approved the evidence report"
@@ -497,9 +532,14 @@ export function getCollaborationHandoff(
     nextOwner:
       state.lifecycle === "closed_in_demo"
         ? "complete"
-        : next.recommendedTool === null
+        : pendingGate === "evidence_disposition" ||
+            pendingGate === "response_authorization" ||
+            pendingGate === "report_approval" ||
+            pendingGate === "case_hold"
           ? "analyst"
-          : "agent",
+          : next.recommendedTool === null
+            ? "analyst"
+            : "agent",
     pendingGate,
     objective: next.objective,
     exactNextTool: next.recommendedTool,
@@ -516,7 +556,7 @@ export function getDerivedNextStep(
     return {
       phase: "review",
       objective: "Review the approved evidence report and operation receipts.",
-      recommendedTool: "get_case_context",
+      recommendedTool: null,
       targetEntityId: null,
     };
   }
@@ -529,7 +569,16 @@ export function getDerivedNextStep(
       phase: "review",
       objective:
         "The recorded disposition holds this case for further evidence. Reset the case before recording another decision path.",
-      recommendedTool: "get_case_context",
+      recommendedTool: null,
+      targetEntityId: null,
+    };
+  }
+
+  if (state.report.status === "drafted") {
+    return {
+      phase: "review",
+      objective: "Review and approve the evidence-bound case report.",
+      recommendedTool: null,
       targetEntityId: null,
     };
   }
@@ -817,7 +866,7 @@ export function getDerivedNextStep(
   return {
     phase: "review",
     objective: "Analyst approval is required to close the case report.",
-    recommendedTool: "get_case_context",
+    recommendedTool: null,
     targetEntityId: null,
   };
 }
@@ -841,6 +890,263 @@ function caseReportReady(fixture: CaseFixture, state: CaseState): boolean {
     (!requiresImpactModel ||
       (state.reachabilityAttached && state.counterfactualAttached))
   );
+}
+
+function getNextAvailableResponseBundle(
+  fixture: CaseFixture,
+  state: CaseState,
+): ResponseBundleDefinition | null {
+  return (
+    getResponseBundles(fixture).find(
+      (bundle) =>
+        !state.authorizedResponseBundleIds.includes(bundle.id) &&
+        bundle.actionIds.some(
+          (actionId) =>
+            state.responseActions.find((action) => action.actionId === actionId)
+              ?.status === "available",
+        ) &&
+        bundle.actionIds.every((actionId) => {
+          const definition = fixture.responseActions.find(
+            (action) => action.id === actionId,
+          );
+          return definition?.dependsOnActionIds.every(
+            (dependencyId) =>
+              bundle.actionIds.includes(dependencyId) ||
+              state.responseActions.find(
+                (action) => action.actionId === dependencyId,
+              )?.status === "authorized_in_demo",
+          );
+        }),
+    ) ?? null
+  );
+}
+
+function completionEvidenceFor(toolName: CaseToolName): string {
+  if (toolName === "prepare_investigation_query") {
+    return "The shared console shows the immutable KQL and returns executable=true.";
+  }
+  if (toolName === "run_investigation_query") {
+    return "The result returns raw records and attaches its bounded evidence artifact.";
+  }
+  if (toolName === "attach_discovery_stage") {
+    return "The discovery appears in releasedStageIds and reports its added graph elements and provenance.";
+  }
+  if (toolName === "calculate_reachability") {
+    return "reachabilityAttached becomes true and the Potential impact view becomes available.";
+  }
+  if (toolName === "simulate_control") {
+    return "counterfactualAttached becomes true while the response remains modeled and unexecuted.";
+  }
+  if (toolName === "prepare_response_bundle") {
+    return "The response package becomes prepared and the next owner becomes the analyst.";
+  }
+  if (toolName === "generate_case_report") {
+    return "The report becomes drafted and the next owner becomes the analyst.";
+  }
+  if (toolName === "propose_response_action") {
+    return "The bounded response proposal is attached without executing a control.";
+  }
+  if (toolName === "simulate_response_action") {
+    return "The proposed response has a recorded modeled effect and still requires analyst authorization.";
+  }
+  if (toolName.startsWith("enrich_")) {
+    return "The bounded context artifact is attached to the current case revision.";
+  }
+  return "The operation receipt records the completed bounded case change.";
+}
+
+export function getNextAgentAction(
+  fixture: CaseFixture,
+  state: CaseState,
+): NextAgentAction | null {
+  const handoff = getCollaborationHandoff(fixture, state);
+  const next = getDerivedNextStep(fixture, state);
+  if (
+    handoff.nextOwner !== "agent" ||
+    next.recommendedTool === null ||
+    next.recommendedTool === "get_case_context"
+  ) {
+    return null;
+  }
+
+  const toolName = next.recommendedTool;
+  let input: Record<string, unknown> | null = null;
+
+  if (toolName === "prepare_investigation_query") {
+    const query = fixture.investigationQueries.find(
+      (candidate) =>
+        candidate.title === next.objective &&
+        !state.executedInvestigationQueryIds.includes(candidate.id) &&
+        (candidate.requiresStageId === null ||
+          state.releasedStreamStageIds.includes(candidate.requiresStageId)),
+    );
+    if (query) {
+      input = { expectedRevision: state.revision, queryId: query.id };
+    }
+  } else if (toolName === "run_investigation_query") {
+    const prepared = state.preparedQuery;
+    const contract = prepared
+      ? getQueryConsoleContract(prepared.queryId)
+      : null;
+    if (prepared && contract) {
+      input = {
+        expectedRevision: state.revision,
+        queryId: prepared.queryId,
+        queryText: contract.text,
+      };
+    }
+  } else if (toolName === "attach_discovery_stage") {
+    const stage = getNextStreamStage(fixture, state);
+    if (stage) {
+      input = {
+        expectedRevision: state.revision,
+        stageId: stage.id,
+        rationale: `Required query evidence supports adding ${stage.title.toLowerCase()} to the shared case.`,
+      };
+    }
+  } else if (toolName === "calculate_reachability") {
+    input = {
+      expectedRevision: state.revision,
+      fromEntityId: fixture.reachability.sourceEntityId,
+      maxDepth: 6,
+    };
+  } else if (toolName === "simulate_control") {
+    input = {
+      expectedRevision: state.revision,
+      control: fixture.counterfactual.control,
+    };
+  } else if (toolName === "prepare_response_bundle") {
+    const bundle = getNextAvailableResponseBundle(fixture, state);
+    if (bundle) {
+      input = { expectedRevision: state.revision, bundleId: bundle.id };
+    }
+  } else if (
+    toolName === "enrich_identity" ||
+    toolName === "enrich_network_indicator" ||
+    toolName === "enrich_cloud_role" ||
+    toolName === "enrich_resource" ||
+    toolName === "enrich_endpoint" ||
+    toolName === "enrich_file"
+  ) {
+    if (next.targetEntityId) {
+      input = {
+        expectedRevision: state.revision,
+        entityId: next.targetEntityId,
+      };
+    }
+  } else if (
+    toolName === "propose_response_action" ||
+    toolName === "simulate_response_action"
+  ) {
+    const action = state.responseActions.find((candidate) =>
+      toolName === "propose_response_action"
+        ? candidate.status === "available"
+        : candidate.status === "proposed",
+    );
+    const definition = action
+      ? fixture.responseActions.find(
+          (candidate) => candidate.id === action.actionId,
+        )
+      : null;
+    if (action && definition) {
+      input = {
+        expectedRevision: state.revision,
+        actionId: action.actionId,
+        ...(toolName === "propose_response_action"
+          ? { reasoning: definition.proposalReasoning }
+          : {}),
+      };
+    }
+  } else if (toolName === "generate_case_report") {
+    input = { expectedRevision: state.revision };
+  }
+
+  if (!input) return null;
+  return {
+    validForRevision: state.revision,
+    singleUse: true,
+    toolName,
+    input,
+    objective: next.objective,
+    completionEvidence: completionEvidenceFor(toolName),
+  };
+}
+
+export function getAnalystGate(
+  fixture: CaseFixture,
+  state: CaseState,
+): AnalystGate | null {
+  const handoff = getCollaborationHandoff(fixture, state);
+  if (handoff.nextOwner !== "analyst") return null;
+
+  if (handoff.pendingGate === "report_approval" && state.report.report) {
+    return {
+      kind: "report_approval",
+      title: "Approve the evidence-bound case report",
+      reason:
+        "The report is drafted from the recorded evidence, modeled effects, and analyst-authorized response records.",
+      reviewArtifactIds: [state.report.report.id],
+      resumeCondition:
+        "The analyst records a closure note and approves the current report revision.",
+    };
+  }
+
+  if (
+    handoff.pendingGate === "response_authorization" &&
+    state.responseBundle
+  ) {
+    const bundle = getResponseBundles(fixture).find(
+      (candidate) => candidate.id === state.responseBundle?.bundleId,
+    );
+    return {
+      kind: "response_authorization",
+      title:
+        bundle?.approvalPrompt ?? "Authorize the prepared response package",
+      reason:
+        "The response effects are modeled and recorded only; WebMCP cannot authorize them.",
+      reviewArtifactIds: [
+        state.responseBundle.id,
+        ...state.responseBundle.actionIds,
+      ],
+      resumeCondition:
+        "The analyst authorizes or rejects the prepared package at the current revision.",
+    };
+  }
+
+  if (handoff.pendingGate === "evidence_disposition") {
+    return {
+      kind: "evidence_disposition",
+      title: fixture.decision.question,
+      reason: handoff.whyNow,
+      reviewArtifactIds: [...fixture.decision.requiresEnrichmentIds],
+      resumeCondition:
+        "The analyst records one case-defined evidence disposition with rationale.",
+    };
+  }
+
+  if (handoff.pendingGate === "case_hold") {
+    return {
+      kind: "case_hold",
+      title: "Case held for further evidence",
+      reason: handoff.objective,
+      reviewArtifactIds: [...state.attachedEnrichmentIds],
+      resumeCondition:
+        "The analyst resets the synthetic case before choosing a different decision path.",
+    };
+  }
+
+  return null;
+}
+
+export function getCaseCoordination(
+  fixture: CaseFixture,
+  state: CaseState,
+): CaseCoordination {
+  return {
+    collaborationHandoff: getCollaborationHandoff(fixture, state),
+    nextAgentAction: getNextAgentAction(fixture, state),
+    analystGate: getAnalystGate(fixture, state),
+  };
 }
 
 function executeRead(
@@ -1040,7 +1346,7 @@ function executeRead(
                 : "blocked",
         })),
         nextStep: getDerivedNextStep(fixture, state),
-        collaborationHandoff: getCollaborationHandoff(fixture, state),
+        ...getCaseCoordination(fixture, state),
       },
       {
         title: "Read case context",
@@ -3162,7 +3468,19 @@ export function executeCaseTool(
   if (readResult) return readResult;
 
   const writeResult = executeWrite(fixture, state, request);
-  if (writeResult) return writeResult;
+  if (writeResult) {
+    if (!writeResult.ok || !writeResult.mutatesState) return writeResult;
+    const operationData = isRecord(writeResult.data)
+      ? writeResult.data
+      : { operationResult: writeResult.data };
+    return {
+      ...writeResult,
+      data: {
+        ...operationData,
+        ...getCaseCoordination(fixture, writeResult.state),
+      },
+    };
+  }
 
   return fail(
     state,

@@ -2058,8 +2058,26 @@ test("an alternate disposition produces explicit review and reset guidance", () 
 
   const nextStep = getDerivedNextStep(fixture, state);
   assert.equal(nextStep.phase, "review");
-  assert.equal(nextStep.recommendedTool, "get_case_context");
+  assert.equal(nextStep.recommendedTool, null);
   assert.match(nextStep.objective, /reset the case/i);
+  const context = execute(fixture, state, "get_case_context", {});
+  assert.equal(context.ok, true);
+  if (context.ok) {
+    const data = context.data as {
+      collaborationHandoff: {
+        nextOwner: string;
+        pendingGate: string | null;
+        exactNextTool: string | null;
+      };
+      nextAgentAction: unknown;
+      analystGate: { kind: string } | null;
+    };
+    assert.equal(data.collaborationHandoff.nextOwner, "analyst");
+    assert.equal(data.collaborationHandoff.pendingGate, "case_hold");
+    assert.equal(data.collaborationHandoff.exactNextTool, null);
+    assert.equal(data.nextAgentAction, null);
+    assert.equal(data.analystGate?.kind, "case_hold");
+  }
 });
 
 test("malicious case completes staged containment, recovery, report, and closure", () => {

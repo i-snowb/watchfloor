@@ -116,6 +116,14 @@ export function InvestigationDrawer({
           ? { label: "Decision", value: "Recorded" }
           : { label: "Evidence complete", value: "Analyst review required" };
   const reportReadiness = getReportReadiness(fixture, state);
+  const reportApprovalReceipt =
+    [...receipts]
+      .reverse()
+      .find(
+        (receipt) =>
+          receipt.status === "completed" &&
+          receipt.toolName === "approve_case_report",
+      ) ?? null;
 
   return (
     <details
@@ -230,6 +238,7 @@ export function InvestigationDrawer({
               <small>Review before approval</small>
             </header>
             <CaseReportPanel
+              approvalReceipt={reportApprovalReceipt}
               busy={busy}
               fixture={fixture}
               findingsSectionId={findingsSectionId}
@@ -324,16 +333,16 @@ function getReportReadiness(fixture: CaseFixture, state: CaseState) {
   const eligible =
     investigationComplete && decisionComplete && responseComplete;
   const status = reportApproved
-    ? "Signed and closed"
+    ? "Approved and closed"
     : reportDrafted
-      ? "Analyst sign-off required"
+      ? "Analyst approval required"
       : eligible
         ? "Ready for agent"
         : "Prerequisites incomplete";
   const detail = reportApproved
-    ? "The signed evidence report and analyst closure note are retained with the case."
+    ? "The approved evidence report and analyst closure note are retained with the case."
     : reportDrafted
-      ? "Review the evidence basis, recorded response, limitations, and residual risk before sign-off."
+      ? "Review the evidence basis, recorded response, limitations, and residual risk before approval."
       : eligible
         ? "The agent can draft the evidence report from the current case revision."
         : `${evidenceRemaining + streamRemaining} evidence item${evidenceRemaining + streamRemaining === 1 ? "" : "s"}, ${decisionComplete ? 0 : 1} decision, and ${requiredActionRemaining + (modelComplete ? 0 : 1)} response item${requiredActionRemaining + (modelComplete ? 0 : 1) === 1 ? "" : "s"} remain.`;
@@ -373,7 +382,7 @@ function getReportReadiness(fixture: CaseFixture, state: CaseState) {
       {
         label: "Report",
         detail: reportApproved
-          ? "Signed"
+          ? "Approved"
           : reportDrafted
             ? "Review"
             : eligible

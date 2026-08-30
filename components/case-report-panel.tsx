@@ -10,9 +10,11 @@ import type {
   AnalystReportSignoff,
   CaseFixture,
   CaseState,
+  OperationReceipt,
 } from "@/domain/types";
 
 interface CaseReportPanelProps {
+  approvalReceipt: OperationReceipt | null;
   busy: boolean;
   fixture: CaseFixture;
   findingsSectionId: string;
@@ -22,6 +24,7 @@ interface CaseReportPanelProps {
 }
 
 export function CaseReportPanel({
+  approvalReceipt,
   busy,
   fixture,
   findingsSectionId,
@@ -93,11 +96,11 @@ export function CaseReportPanel({
 
       {approved ? (
         <section
-          aria-label="Signed report certificate"
-          className="report-signed-certificate"
+          aria-label="Analyst approval record"
+          className="report-approval-record"
         >
           <div>
-            <span>Analyst-signed evidence report</span>
+            <span>Analyst-approved evidence report</span>
             <strong>
               {evidenceFindings.length} findings · {recordedActions.length}{" "}
               recorded controls · shared revision r{state.revision}
@@ -105,6 +108,16 @@ export function CaseReportPanel({
             <small>
               Approved {formatUtcTime(state.report.approvedAt)} · synthetic case
               record · no external system contacted
+            </small>
+            {approvalReceipt ? (
+              <small>
+                Approval receipt {approvalReceipt.id} · analyst control · r
+                {approvalReceipt.baseRevision}→r
+                {approvalReceipt.resultRevision}
+              </small>
+            ) : null}
+            <small>
+              Attribution assurance: client-reported, unauthenticated
             </small>
           </div>
           <blockquote>{state.report.analystClosureNote}</blockquote>
@@ -223,7 +236,7 @@ export function CaseReportPanel({
           }}
         >
           <div className="report-signoff-copy">
-            <p className="report-section-label">Analyst sign-off</p>
+            <p className="report-section-label">Analyst approval</p>
             <h4>Record the basis for closure</h4>
             <p>
               The generated evidence remains read-only. Your closure note is
@@ -247,13 +260,13 @@ export function CaseReportPanel({
               it does not execute an external action.
             </p>
             <button disabled={busy || !canApprove} type="submit">
-              {busy ? "Recording sign-off" : "Sign off and close case"}
+              {busy ? "Recording approval" : "Approve and close case"}
             </button>
           </div>
         </form>
       ) : (
-        <section className="report-signed-record">
-          <p className="report-section-label">Analyst sign-off</p>
+        <section className="report-approval-summary">
+          <p className="report-section-label">Analyst approval</p>
           <blockquote>{state.report.analystClosureNote}</blockquote>
           <p>
             Approved {formatUtcTime(state.report.approvedAt)} · No external

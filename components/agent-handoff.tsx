@@ -5,15 +5,11 @@ import { useModalDialog } from "./use-modal-dialog";
 import styles from "./agent-handoff.module.css";
 
 function buildAgentHandoffPrompt(caseId: string): string {
-  const firstSequence =
-    caseId === "case-endpoint-0448"
-      ? `Start with QRY-ENDPOINT-IDENTITY-03. Prepare its exact KQL, run it, inspect the returned records, and attach STREAM-LAT-01 when ready. Complete only the remaining decision-required approved skills, including QRY-ENDPOINT-APP-05. Then call calculate_reachability and stop when the analyst disposition boundary is returned.`
-      : `Start with QRY-CLOUD-IDENTITY-01. Prepare its exact KQL, run it, inspect the returned records, and attach DISCOVERY-CLOUD-01 when ready. Complete the remaining decision-required approved skills, then stop at the analyst disposition boundary.`;
   return `Inspect the registered page tools, then investigate ${caseId}.
 
-Read the case context and list the approved investigation skills. ${firstSequence}
+Call get_case_context first. If nextAgentAction is present, call exactly that tool with its supplied input. Continue from the nextAgentAction returned by each successful write. Do not invent case IDs, query IDs, stage IDs, response IDs, or revisions.
 
-After every analyst action, read the case context again and follow collaborationHandoff.exactNextTool. Keep observed evidence, modeled impact, simulated controls, and approvals distinct. Pause at every analyst-only decision or authorization. Do not imply external execution.`;
+If analystGate is present, stop and tell the analyst what must be reviewed. Resume by reading case context after the analyst acts. Keep observed evidence, modeled impact, simulated controls, and approvals distinct. Do not imply external execution.`;
 }
 
 export function AgentHandoff({ caseId }: { caseId: string }) {
@@ -102,8 +98,8 @@ export function AgentHandoff({ caseId }: { caseId: string }) {
                 <div>
                   <span>Agent instruction</span>
                   <p>
-                    List approved skills, run one bounded query at a time,
-                    inspect raw records, and stop at analyst gates.
+                    Read case context, follow its revision-bound action, inspect
+                    raw records, and stop at analyst gates.
                   </p>
                 </div>
                 <button onClick={() => void copyPrompt()} type="button">

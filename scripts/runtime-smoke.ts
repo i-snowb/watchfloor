@@ -320,8 +320,11 @@ async function endpointPath(): Promise<void> {
     ).snapshot.state.revision;
   }
   revision = (
-    await op(endpoint, 9, "release_next_synthetic_signal", "analyst_control", {
+    await op(endpoint, 9, "attach_discovery_stage", "webmcp_callback", {
       expectedRevision: revision,
+      stageId: "STREAM-LAT-01",
+      rationale:
+        "The identity query and service scope evidence support adding the blocked remote-service discovery.",
     })
   ).snapshot.state.revision;
   revision = (
@@ -407,15 +410,11 @@ async function endpointPath(): Promise<void> {
     })
   ).snapshot.state.revision;
   revision = (
-    await op(endpoint, 18, "request_next_observation", "webmcp_callback", {
+    await op(endpoint, 18, "attach_discovery_stage", "webmcp_callback", {
       expectedRevision: revision,
       stageId: "STREAM-LAT-02",
-      rationale: "Request credential and workload recovery evidence.",
-    })
-  ).snapshot.state.revision;
-  revision = (
-    await op(endpoint, 19, "release_next_synthetic_signal", "analyst_control", {
-      expectedRevision: revision,
+      rationale:
+        "Approved containment and application-host evidence support adding the recovery discovery.",
     })
   ).snapshot.state.revision;
   revision = (
@@ -511,7 +510,7 @@ async function endpointPath(): Promise<void> {
     },
   );
   const { state } = final.snapshot;
-  assert.equal(state.revision, 29);
+  assert.equal(state.revision, 28);
   assert.equal(state.lifecycle, "closed_in_demo");
   assert.equal(state.decision.status, "confirmed_malicious");
   assert.deepEqual(state.releasedStreamStageIds, [

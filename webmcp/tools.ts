@@ -100,10 +100,13 @@ function definition(
   readOnly: boolean,
   handler: WebMcpHandler,
 ): WebMcpToolDefinition {
+  const coordinatedDescription = readOnly
+    ? description
+    : `Start with get_case_context, then call this tool only when it is returned as nextAgentAction. Successful writes return the next revision-bound action or analyst gate. ${description}`;
   return {
     name,
     title,
-    description,
+    description: coordinatedDescription,
     inputSchema: {
       type: "object",
       properties,
@@ -199,7 +202,7 @@ export function createCaseToolDefinitions(
     definition(
       "get_case_context",
       "Read case context",
-      "Return the case revision, Tier 1 observations and unresolved gaps, attached evidence, blockers, and available investigations.",
+      "Always call this first. Return the case revision, Tier 1 observations and unresolved gaps, attached evidence, blockers, and exactly one revision-bound nextAgentAction, analystGate, or completed handoff.",
       {},
       [],
       true,

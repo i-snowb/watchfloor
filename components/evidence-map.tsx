@@ -602,12 +602,16 @@ export function EvidenceMap({
   const nextStep = getDerivedNextStep(fixture, state);
   const reportTrigger =
     state.report.status === "approved_in_demo"
-      ? { label: "Case report", value: "Closed", detail: "View signed record" }
+      ? {
+          label: "Case report",
+          value: "Closed",
+          detail: "View approval record",
+        }
       : state.report.status === "drafted"
         ? {
             label: "Case report",
             value: "Draft",
-            detail: "Review and sign off",
+            detail: "Review and approve",
           }
         : {
             label: "Case evidence",

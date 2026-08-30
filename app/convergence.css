@@ -4219,7 +4219,7 @@ body {
 }
 
 .case-view .report-signoff-form,
-.case-view .report-signed-record {
+.case-view .report-approval-summary {
   border-top: 2px solid #376f76;
   margin-top: 28px;
   padding-top: 20px;
@@ -4287,7 +4287,7 @@ body {
   color: #777b74;
 }
 
-.case-view .report-signed-record blockquote {
+.case-view .report-approval-summary blockquote {
   border-left: 2px solid #376f76;
   color: #313631;
   font-size: 13px;
@@ -4296,13 +4296,13 @@ body {
   padding-left: 14px;
 }
 
-.case-view .report-signed-record > p:not(.report-section-label),
-.case-view .report-signed-record > a {
+.case-view .report-approval-summary > p:not(.report-section-label),
+.case-view .report-approval-summary > a {
   color: #555b54;
   font-size: 11px;
 }
 
-.case-view .report-signed-record > a {
+.case-view .report-approval-summary > a {
   color: #27646c;
   display: inline-block;
   margin-top: 12px;
