@@ -388,31 +388,51 @@ export function useTraceCamera(
     const viewport = viewportRef.current;
     if (!viewport) return;
     const handleWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
       cancelInertia();
-      if (!wheelGeometryRef.current) {
-        const sizes = sizesRef.current ?? measureSizes();
-        if (!sizes) return;
-        wheelGeometryRef.current = {
-          bounds: viewport.getBoundingClientRect(),
-          ...sizes,
-        };
+      if (event.ctrlKey || event.metaKey) {
+        if (!wheelGeometryRef.current) {
+          const sizes = sizesRef.current ?? measureSizes();
+          if (!sizes) return;
+          wheelGeometryRef.current = {
+            bounds: viewport.getBoundingClientRect(),
+            ...sizes,
+          };
+        }
+        const geometry = wheelGeometryRef.current;
+        applyCamera(
+          zoomTraceCameraAt(
+            cameraRef.current,
+            cameraRef.current.scale * Math.exp(-event.deltaY * 0.0015),
+            {
+              x: event.clientX - geometry.bounds.left,
+              y: event.clientY - geometry.bounds.top,
+            },
+            geometry.viewport,
+            geometry.world,
+            minimumReadableScale,
+          ),
+        );
+      } else {
+        wheelGeometryRef.current = null;
+        const unit =
+          event.deltaMode === WheelEvent.DOM_DELTA_LINE
+            ? 16
+            : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+              ? viewport.clientHeight
+              : 1;
+        const horizontalDelta =
+          event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX;
+        const verticalDelta =
+          event.shiftKey && event.deltaX === 0 ? 0 : event.deltaY;
+        applyCamera(
+          constrainCamera({
+            ...cameraRef.current,
+            x: cameraRef.current.x - horizontalDelta * unit,
+            y: cameraRef.current.y - verticalDelta * unit,
+          }),
+        );
       }
-      const geometry = wheelGeometryRef.current;
-      applyCamera(
-        zoomTraceCameraAt(
-          cameraRef.current,
-          cameraRef.current.scale * Math.exp(-event.deltaY * 0.0015),
-          {
-            x: event.clientX - geometry.bounds.left,
-            y: event.clientY - geometry.bounds.top,
-          },
-          geometry.viewport,
-          geometry.world,
-          minimumReadableScale,
-        ),
-      );
       if (wheelCommitTimerRef.current !== null) {
         window.clearTimeout(wheelCommitTimerRef.current);
       }
@@ -431,7 +451,13 @@ export function useTraceCamera(
       }
       wheelGeometryRef.current = null;
     };
-  }, [applyCamera, cancelInertia, measureSizes, minimumReadableScale]);
+  }, [
+    applyCamera,
+    cancelInertia,
+    constrainCamera,
+    measureSizes,
+    minimumReadableScale,
+  ]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -440,16 +466,11 @@ export function useTraceCamera(
     const updateBounds = () => {
       const sizes = measureSizes();
       if (!sizes) return;
-      const previousSizes = sizesRef.current;
       sizesRef.current = sizes;
       wheelGeometryRef.current = null;
-      const viewportChanged =
-        previousSizes !== null &&
-        (Math.abs(previousSizes.viewport.width - sizes.viewport.width) > 8 ||
-          Math.abs(previousSizes.viewport.height - sizes.viewport.height) > 8);
       const worldChanged = worldRevisionRef.current !== worldRevision;
       worldRevisionRef.current = worldRevision;
-      if (!initializedRef.current || viewportChanged || worldChanged) {
+      if (!initializedRef.current || worldChanged) {
         initializedRef.current = true;
         const activeBounds = measureActiveTraceBounds(plane);
         commitCamera(
@@ -522,18 +543,29 @@ export function useTraceCamera(
       if (!target) return;
       const viewportBounds = viewport.getBoundingClientRect();
       const targetBounds = target.getBoundingClientRect();
+      const horizontalMargin = Math.min(48, viewportBounds.width * 0.08);
+      const verticalMargin = Math.min(36, viewportBounds.height * 0.08);
+      const safeLeft = viewportBounds.left + horizontalMargin;
+      const safeRight = viewportBounds.right - horizontalMargin;
+      const safeTop = viewportBounds.top + verticalMargin;
+      const safeBottom = viewportBounds.bottom - verticalMargin;
+      const deltaX =
+        targetBounds.left < safeLeft
+          ? safeLeft - targetBounds.left
+          : targetBounds.right > safeRight
+            ? safeRight - targetBounds.right
+            : 0;
+      const deltaY =
+        targetBounds.top < safeTop
+          ? safeTop - targetBounds.top
+          : targetBounds.bottom > safeBottom
+            ? safeBottom - targetBounds.bottom
+            : 0;
+      if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) return;
       const next = constrainCamera({
         ...cameraRef.current,
-        x:
-          cameraRef.current.x +
-          viewportBounds.left +
-          viewportBounds.width / 2 -
-          (targetBounds.left + targetBounds.width / 2),
-        y:
-          cameraRef.current.y +
-          viewportBounds.top +
-          viewportBounds.height * 0.15 -
-          (targetBounds.top + targetBounds.height / 2),
+        x: cameraRef.current.x + deltaX,
+        y: cameraRef.current.y + deltaY,
       });
       setFocusing(true);
       window.requestAnimationFrame(() => commitCamera(next));

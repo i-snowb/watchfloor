@@ -91,7 +91,7 @@ test("active evidence fit favors readable scale over unused world space", () => 
         .scale,
   );
   assert.equal(camera.x, -350);
-  assert.equal(camera.y, -148);
+  assert.equal(camera.y, -155);
 });
 
 test("active evidence fit uses natural scale when the evidence fits", () => {
@@ -117,11 +117,11 @@ test("case fit keeps room for graph expansion at the 1280 recording viewport", (
 
   assert.equal(camera.scale, TRACE_CASE_READABLE_SCALE);
   assert.equal(camera.x, -34);
-  assert.equal(camera.y, 24);
+  assert.ok(Math.abs(camera.y - 1.7) < 0.001);
   assert.ok(camera.x + bounds.x * camera.scale > 0);
   assert.ok(camera.x + (bounds.x + bounds.width) * camera.scale < 1020);
-  assert.ok(camera.y + bounds.y * camera.scale >= 32);
-  assert.ok(camera.y + (bounds.y + bounds.height) * camera.scale <= 346);
+  assert.ok(camera.y + bounds.y * camera.scale > 0);
+  assert.ok(camera.y + (bounds.y + bounds.height) * camera.scale < 333);
 });
 
 test("case fit holds a readable scale with bounded panning at 1024", () => {

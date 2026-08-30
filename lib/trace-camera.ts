@@ -83,11 +83,16 @@ export function fitTraceCameraToBounds(
     availableHeight / bounds.height,
   );
   const scale = clampTraceScale(Math.max(minimumReadableScale, naturalScale));
+  const scaledBoundsHeight = bounds.height * scale;
+  const y =
+    scaledBoundsHeight > availableHeight
+      ? (viewport.height - scaledBoundsHeight) / 2 - bounds.y * scale
+      : margin - bounds.y * scale;
 
   return clampTraceCamera(
     {
       x: (viewport.width - bounds.width * scale) / 2 - bounds.x * scale,
-      y: margin - bounds.y * scale,
+      y,
       scale,
     },
     viewport,

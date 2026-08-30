@@ -568,11 +568,11 @@ export function EvidenceMap({
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         const heading = document.getElementById("attached-findings-heading");
+        const drawerBody = heading?.closest<HTMLElement>(
+          ".investigation-drawer-body",
+        );
+        drawerBody?.scrollTo({ top: 0, left: 0, behavior: "auto" });
         heading?.focus({ preventScroll: true });
-        heading?.scrollIntoView({
-          behavior: "auto",
-          block: "start",
-        });
       });
     });
   }, []);
@@ -582,12 +582,21 @@ export function EvidenceMap({
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         const report = document.getElementById(reportReviewId);
+        const drawerBody = report?.closest<HTMLElement>(
+          ".investigation-drawer-body",
+        );
         report
           ?.querySelector<HTMLElement>(".report-document-header h3")
           ?.focus({
             preventScroll: true,
           });
-        report?.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (drawerBody && report) {
+          drawerBody.scrollTo({
+            top: Math.max(0, report.offsetTop - 12),
+            left: 0,
+            behavior: "smooth",
+          });
+        }
       });
     });
   }, [reportReviewId]);
@@ -656,7 +665,7 @@ export function EvidenceMap({
   } = useTraceCamera(
     selection,
     `${fixture.id}:${view}:${replayCursor}:${mapEntities.length}:${edges.length}`,
-    132,
+    0,
     TRACE_CASE_READABLE_SCALE,
   );
   const focusFromDrawer = useCallback(
@@ -664,14 +673,10 @@ export function EvidenceMap({
       selectEvidence(nextSelection);
       setDrawerOpen(false);
       window.requestAnimationFrame(() => {
-        viewportRef.current?.scrollIntoView({
-          behavior: "auto",
-          block: "start",
-        });
-        window.requestAnimationFrame(() => focusTarget(nextSelection));
+        focusTarget(nextSelection);
       });
     },
-    [focusTarget, selectEvidence, viewportRef],
+    [focusTarget, selectEvidence],
   );
   const focusThreatIssue = useCallback(
     (issue: ThreatHierarchyIssue) => {
@@ -860,34 +865,43 @@ export function EvidenceMap({
         </div>
       </header>
 
-      <div className="evidence-stage-frame">
-        {actionDock ? (
-          <div className="map-command-dock">{actionDock}</div>
-        ) : null}
-        {threatHierarchy ? (
-          <ThreatPriorityRail
-            activity={investigationActivity}
-            decisionStatus={state.decision.status}
-            escalationObservationCount={
-              fixture.tier1Escalation.observations.length
-            }
-            escalationReason={fixture.tier1Escalation.escalationReason}
-            hierarchy={threatHierarchy}
-            latestReceipt={latestReceipt}
-            onFocusIssue={focusThreatIssue}
-            onFocusRoute={focusPriorityRoute}
-            reachabilityAttached={state.reachabilityAttached}
-            revision={state.revision}
-            routeSelected={
-              selection.kind === "model" &&
-              selection.id === threatHierarchy.priorityRoute.id
-            }
-            selectedEntityId={
-              selection.kind === "entity" || selection.kind === "model"
-                ? selection.id
-                : null
-            }
-          />
+      <div
+        className={`evidence-stage-frame ${actionDock || threatHierarchy ? "evidence-stage-frame-with-context" : "evidence-stage-frame-without-context"}`}
+      >
+        {actionDock || threatHierarchy ? (
+          <aside
+            aria-label="Case investigation context"
+            className="case-context-rail"
+          >
+            {threatHierarchy ? (
+              <ThreatPriorityRail
+                activity={investigationActivity}
+                decisionStatus={state.decision.status}
+                escalationObservationCount={
+                  fixture.tier1Escalation.observations.length
+                }
+                escalationReason={fixture.tier1Escalation.escalationReason}
+                hierarchy={threatHierarchy}
+                latestReceipt={latestReceipt}
+                onFocusIssue={focusThreatIssue}
+                onFocusRoute={focusPriorityRoute}
+                reachabilityAttached={state.reachabilityAttached}
+                revision={state.revision}
+                routeSelected={
+                  selection.kind === "model" &&
+                  selection.id === threatHierarchy.priorityRoute.id
+                }
+                selectedEntityId={
+                  selection.kind === "entity" || selection.kind === "model"
+                    ? selection.id
+                    : null
+                }
+              />
+            ) : null}
+            {actionDock ? (
+              <div className="map-command-dock">{actionDock}</div>
+            ) : null}
+          </aside>
         ) : null}
         <button className="map-skip-link" onClick={openFindings} type="button">
           Open results and notes
@@ -906,6 +920,7 @@ export function EvidenceMap({
           ref={viewportRef}
           role="region"
           tabIndex={0}
+          title="Wheel or trackpad to pan. Command or Control plus wheel to zoom."
         >
           <div
             className="trace-field-grid evidence-map-grid"
@@ -1557,10 +1572,10 @@ export function EvidenceMap({
             </div>
           ) : null}
 
-          <div className="trace-camera-status" id="evidence-map-help">
-            <span>Click inspect</span>
-            <span>Drag pan</span>
-            <span>⌘/Ctrl + wheel zoom</span>
+          <div className="visually-hidden" id="evidence-map-help">
+            Click an entity or connection to inspect it. Drag, use the arrow
+            keys, or use the wheel or trackpad to pan. Hold Command or Control
+            while using the wheel to zoom. Press zero to fit the case.
           </div>
           {latestReceipt ? (
             <div

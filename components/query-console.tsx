@@ -46,7 +46,7 @@ export function QueryConsole({
   const prepared =
     state.preparedQuery?.queryId === query.id &&
     state.preparedQuery.preparedAtRevision === state.revision;
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [draftInput, setDraftInput] = useState<string | null>(null);
   const [showAttachedQuery, setShowAttachedQuery] = useState(false);
   const animationKey = useRef<string | null>(null);

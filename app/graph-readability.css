@@ -259,199 +259,164 @@
   width: auto;
 }
 
-/* The issue list and escalation brief are one stable analyst column. */
-@media (min-width: 981px) {
-  .case-view
-    .evidence-stage-frame:not(:has(> .threat-priority-rail)):has(
-      > .map-command-dock > .escalation-brief
-    ) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
-  }
+/* One stable workbench owns panel, graph, and timeline geometry. */
+.case-view .evidence-map {
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
 
-  .case-view
-    .evidence-stage-frame:not(:has(> .threat-priority-rail)):has(
-      > .map-command-dock > .escalation-brief
-    )
-    > .map-command-dock {
-    background: #071012;
-    border-bottom: 1px solid rgba(150, 178, 184, 0.25);
-    bottom: auto !important;
-    grid-column: 1;
-    grid-row: 1;
-    left: auto !important;
-    margin: 0;
-    max-width: none;
-    padding: 10px 18px;
-    position: relative !important;
-    right: auto !important;
-    top: auto !important;
-    width: auto !important;
-  }
+.case-view .evidence-stage-frame {
+  align-items: stretch;
+  block-size: clamp(520px, calc(100dvh - 189px), 690px) !important;
+  display: grid !important;
+  grid-template-columns: 250px minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) 116px !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow: hidden;
+  position: relative;
+}
 
-  .case-view
-    .evidence-stage-frame:not(:has(> .threat-priority-rail)):has(
-      > .map-command-dock > .escalation-brief
-    )
-    > .evidence-map-viewport {
-    grid-column: 1;
-    grid-row: 2;
-  }
+.case-view .case-context-rail {
+  align-self: stretch;
+  background: #071012;
+  border-right: 1px solid rgba(150, 178, 184, 0.25);
+  display: flex;
+  flex-direction: column;
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: visible;
+  z-index: 5;
+}
 
-  .case-view
-    .evidence-stage-frame:not(:has(> .threat-priority-rail)):has(
-      > .map-command-dock > .escalation-brief
-    )
-    > .case-timeline-dock {
-    grid-column: 1;
-    grid-row: 3;
-  }
+.case-view .case-context-rail > .threat-priority-rail {
+  bottom: auto;
+  flex: 0 0 auto;
+  left: auto;
+  margin: 0;
+  max-height: 62%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  position: relative;
+  right: auto;
+  top: auto;
+  width: auto;
+}
 
-  .case-view
-    .evidence-stage-frame:not(:has(> .threat-priority-rail))
-    > .map-command-dock
-    > .escalation-brief
-    > summary {
-    align-items: center;
-    gap: 10px 14px;
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-    min-height: 52px;
-    padding: 8px 12px;
-  }
+.case-view .case-context-rail > .map-command-dock {
+  background: #071012;
+  bottom: auto !important;
+  flex: 1 1 auto;
+  left: auto !important;
+  margin: 0 !important;
+  max-height: none;
+  max-width: none !important;
+  min-width: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  position: static !important;
+  right: auto !important;
+  top: auto !important;
+  width: auto !important;
+  z-index: auto;
+}
 
-  .case-view
-    .evidence-stage-frame:not(:has(> .threat-priority-rail))
-    > .map-command-dock
-    > .escalation-brief
-    > summary
-    > span {
-    grid-column: 1;
-    grid-row: 1;
-  }
+.case-view .evidence-stage-frame > .evidence-map-viewport {
+  border: 1px solid rgba(121, 197, 207, 0.26);
+  box-shadow: inset 0 0 0 1px rgba(121, 197, 207, 0.05);
+  display: block !important;
+  grid-column: 2;
+  grid-row: 1;
+  height: auto !important;
+  min-height: 0 !important;
+  min-width: 0;
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+  touch-action: none;
+  width: auto !important;
+}
 
-  .case-view
-    .evidence-stage-frame:not(:has(> .threat-priority-rail))
-    > .map-command-dock
-    > .escalation-brief
-    > summary
-    > strong {
-    display: block;
-    grid-column: 2;
-    grid-row: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+.case-view .evidence-stage-frame > .evidence-map-viewport:focus-visible {
+  border-color: rgba(121, 197, 207, 0.72);
+  box-shadow:
+    inset 0 0 0 1px rgba(121, 197, 207, 0.26),
+    0 0 0 2px rgba(121, 197, 207, 0.14);
+}
 
-  .case-view
-    .evidence-stage-frame:not(:has(> .threat-priority-rail))
-    > .map-command-dock
-    > .escalation-brief
-    > summary
-    > small {
-    grid-column: 3;
-    grid-row: 1;
-  }
+.case-view .evidence-stage-frame > .case-timeline-dock {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  height: 116px;
+  min-height: 116px;
+  overflow: hidden;
+}
 
-  .case-view
-    .evidence-stage-frame:not(:has(> .threat-priority-rail))
-    > .map-command-dock
-    > .escalation-brief
-    > summary::after {
-    grid-column: 4;
-    grid-row: 1;
-  }
+.case-view .evidence-stage-frame-without-context {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
 
-  .case-view .evidence-stage-frame:has(> .threat-priority-rail) {
-    align-items: stretch;
-    display: grid;
-    grid-template-columns: 250px minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-  }
+.case-view .evidence-stage-frame-without-context > .evidence-map-viewport {
+  grid-column: 1;
+}
 
-  .case-view .evidence-stage-frame:has(> .threat-priority-rail[open]) {
-    grid-template-columns: clamp(274px, 21vw, 310px) minmax(0, 1fr);
-  }
+/* The query is an intentional bounded workspace, never a layout row. */
+.case-view
+  .evidence-stage-frame:has(.query-console[open])
+  .case-context-rail
+  > .map-command-dock {
+  bottom: 128px !important;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.52);
+  left: auto !important;
+  max-height: none;
+  max-width: min(600px, calc(100% - 286px)) !important;
+  overflow: hidden;
+  padding: 0;
+  position: absolute !important;
+  right: 12px !important;
+  top: 12px !important;
+  width: clamp(440px, 48vw, 600px) !important;
+  z-index: 30;
+}
 
-  .case-view
-    .evidence-stage-frame:has(> .threat-priority-rail[open])
-    > .map-command-dock:has(> .escalation-brief) {
-    display: none;
-  }
+.case-view .evidence-stage-frame .query-console[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  max-height: none;
+  overflow: hidden;
+}
 
-  .case-view
-    .evidence-stage-frame:has(> .threat-priority-rail)
-    > .threat-priority-rail {
-    grid-column: 1;
-    grid-row: 1;
-    left: auto;
-    margin: 0;
-    max-height: none;
-    position: relative;
-    top: auto;
-    width: auto;
-  }
+.case-view .evidence-stage-frame .query-console[open] .query-console-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
 
-  .case-view
-    .evidence-stage-frame:has(> .threat-priority-rail)
-    > .map-command-dock:has(> .escalation-brief) {
-    align-self: stretch;
-    background: #071012;
-    border-bottom: 1px solid rgba(150, 178, 184, 0.25);
-    border-right: 1px solid rgba(150, 178, 184, 0.25);
-    bottom: auto !important;
-    grid-column: 1;
-    grid-row: 2;
-    left: auto !important;
-    margin: 0;
-    max-width: none;
-    min-width: 0;
-    overflow-y: auto;
-    padding: 12px;
-    position: relative !important;
-    right: auto !important;
-    top: auto !important;
-    width: auto !important;
-    z-index: 5;
-  }
+/* Results and report review open above their stable summary row. */
+.case-view .case-investigation-drawer {
+  position: relative;
+  z-index: 40;
+}
 
-  .case-view
-    .evidence-stage-frame:has(> .threat-priority-rail)
-    > .evidence-map-viewport {
-    grid-column: 2;
-    grid-row: 1 / 3;
-    min-width: 0;
-    width: auto !important;
-  }
-
-  .case-view
-    .evidence-stage-frame:has(> .threat-priority-rail)
-    > .case-timeline-dock {
-    grid-column: 1 / -1;
-    grid-row: 3;
-  }
-
-  .case-view
-    .evidence-stage-frame:has(> .threat-priority-rail):has(.query-console[open])
-    > .map-command-dock {
-    grid-column: 1 / -1;
-    grid-row: 1;
-  }
-
-  .case-view
-    .evidence-stage-frame:has(> .threat-priority-rail):has(.query-console[open])
-    > .threat-priority-rail {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .case-view
-    .evidence-stage-frame:has(> .threat-priority-rail):has(.query-console[open])
-    > .evidence-map-viewport {
-    grid-column: 2;
-    grid-row: 2;
-  }
+.case-view .case-investigation-drawer[open] > .investigation-drawer-body {
+  background: #071012;
+  bottom: calc(100% + 8px);
+  box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.52);
+  left: 12px;
+  max-height: min(68dvh, 560px) !important;
+  overflow: auto !important;
+  overscroll-behavior: contain;
+  position: absolute !important;
+  right: 12px;
+  scrollbar-gutter: stable;
+  top: auto !important;
+  width: auto;
+  z-index: 40;
 }
 
 .case-view .escalation-brief {
@@ -510,13 +475,68 @@
 }
 
 @media (max-width: 980px) {
-  .case-view .evidence-stage-frame > .threat-priority-rail {
-    left: auto;
-    margin: 8px 12px 0;
-    max-height: min(360px, calc(100dvh - 180px));
-    position: relative;
-    top: auto;
-    width: calc(100% - 24px);
+  .case-view .evidence-stage-frame {
+    block-size: auto !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto clamp(520px, 68dvh, 720px) 116px !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible;
+  }
+
+  .case-view .case-context-rail {
+    border-bottom: 1px solid rgba(150, 178, 184, 0.25);
+    border-right: 0;
+    display: grid;
+    grid-column: 1;
+    grid-row: 1;
+    grid-template-columns: minmax(0, 1fr);
+    max-height: 190px;
+    overflow: hidden;
+  }
+
+  .case-view .case-context-rail > .threat-priority-rail {
+    max-height: 110px;
+    width: 100%;
+  }
+
+  .case-view .case-context-rail > .map-command-dock {
+    max-height: 132px;
+    padding: 8px 12px;
+  }
+
+  .case-view .evidence-stage-frame > .evidence-map-viewport {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .case-view .evidence-stage-frame > .case-timeline-dock {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(.query-console[open])
+    .case-context-rail
+    > .map-command-dock {
+    bottom: 12px !important;
+    left: 12px !important;
+    max-width: none !important;
+    position: fixed !important;
+    right: 12px !important;
+    top: 72px !important;
+    width: auto !important;
+    z-index: 100;
+  }
+
+  .case-view .case-investigation-drawer[open] > .investigation-drawer-body {
+    bottom: 12px;
+    left: 12px;
+    max-height: none !important;
+    position: fixed !important;
+    right: 12px;
+    top: 72px !important;
+    z-index: 100;
   }
 
   .case-view .evidence-entity-copy small,
