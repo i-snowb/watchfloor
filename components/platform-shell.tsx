@@ -15,6 +15,7 @@ interface PlatformShellProps {
   onReset?: () => void;
   mainRef?: Ref<HTMLElement>;
   queueCount?: number;
+  queueSummary?: string;
   children: ReactNode;
 }
 
@@ -26,6 +27,7 @@ export function PlatformShell({
   onReset,
   mainRef,
   queueCount,
+  queueSummary,
   children,
 }: PlatformShellProps) {
   return (
@@ -43,7 +45,8 @@ export function PlatformShell({
           <span className="context-separator">/</span>
           <span className="header-case-id">
             {activeView === "alerts"
-              ? `${queueCount ?? fixture.alerts.length} active cases`
+              ? (queueSummary ??
+                `${queueCount ?? fixture.alerts.length} active cases`)
               : formatCaseId(fixture.id)}
           </span>
           {activeView === "case" ? (

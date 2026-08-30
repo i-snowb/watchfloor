@@ -150,6 +150,14 @@ async function cloudPath(): Promise<void> {
     )
   ).snapshot.state.revision;
   revision = (
+    await op(cloud, "2d", "attach_discovery_stage", "webmcp_callback", {
+      expectedRevision: revision,
+      stageId: "DISCOVERY-CLOUD-01",
+      rationale:
+        "Attach the managed endpoint attribution supported by the identity query records.",
+    })
+  ).snapshot.state.revision;
+  revision = (
     await prepareAndRunQuery(
       cloud,
       3,
@@ -175,6 +183,14 @@ async function cloudPath(): Promise<void> {
       revision,
       "QRY-CLOUD-EXPORT-04",
     )
+  ).snapshot.state.revision;
+  revision = (
+    await op(cloud, "5d", "attach_discovery_stage", "webmcp_callback", {
+      expectedRevision: revision,
+      stageId: "DISCOVERY-CLOUD-02",
+      rationale:
+        "Attach the approved export role identified by the role and object query records.",
+    })
   ).snapshot.state.revision;
   rejected(
     await op(
@@ -211,7 +227,7 @@ async function cloudPath(): Promise<void> {
     ...completeReportReview,
   });
   const { state, receipts } = final.snapshot;
-  assert.equal(state.revision, 12);
+  assert.equal(state.revision, 14);
   assert.equal(state.lifecycle, "closed_in_demo");
   assert.equal(state.decision.status, "authorized_exception");
   assert.equal(state.report.status, "approved_in_demo");
@@ -225,7 +241,7 @@ async function cloudPath(): Promise<void> {
     "authorized_activity_policy_exception",
   );
   assert.deepEqual(state.report.report?.actionIds, []);
-  assert.equal(receipts.length, 13);
+  assert.equal(receipts.length, 15);
 }
 
 async function endpointPath(): Promise<void> {
@@ -522,7 +538,7 @@ async function endpointPath(): Promise<void> {
     "rotate_deployment_credential",
     "rollback_workload_image",
   ]);
-  assert.equal(state.report.report?.evidenceIds.length, 27);
+  assert.equal(state.report.report?.evidenceIds.length, 29);
 }
 
 await request<CaseApiResponse>(`/api/cases/${cloud}`);

@@ -15,7 +15,7 @@ The competition build runs on ChatGPT Sites. It does not connect to live securit
 - Human-gated forensic collection, endpoint isolation, exact-IP blocking, identity disablement, credential rotation, and known-good image redeploy records.
 - A deterministic evidence report with findings, limitations, residual risk, evidence references, response provenance, and a persisted analyst closure note.
 
-The WebMCP surface contains 33 internal case operations, 19 tools on the cloud case, 26 tools on the endpoint case, and two queue tools. The page never exposes the five analyst-only gates through WebMCP:
+The operation layer contains 34 case operations. The state-aware WebMCP surface registers 20 tools on the cloud case, 26 tools on the endpoint case, and two queue tools. The page never exposes the five analyst-only gates through WebMCP:
 
 - `record_evidence_decision`
 - `release_next_synthetic_signal`

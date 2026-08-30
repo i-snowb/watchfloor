@@ -364,7 +364,7 @@ const oauthCase: ReferenceCase = {
       targetEntityId: "scope:mail-read",
       capability: "query_consent_history",
       sources: [
-        { label: "Entra directory audit", records: 2604118, window: "7 days" },
+        { label: "Entra directory audit", records: 26411, window: "7 days" },
       ],
       matchedRecords: 2,
       returnedRecords: 2,
@@ -383,7 +383,7 @@ const oauthCase: ReferenceCase = {
       sources: [
         {
           label: "Microsoft Graph activity",
-          records: 864272,
+          records: 86427,
           window: "10 hours",
         },
       ],
@@ -672,7 +672,7 @@ const kubernetesCase: ReferenceCase = {
       targetEntityId: "workload:build-runner",
       capability: "enrich_kubernetes_workload",
       sources: [
-        { label: "Runtime inventory", records: 184226, window: "7 days" },
+        { label: "Runtime inventory", records: 18422, window: "7 days" },
         { label: "Network inventory", records: 12884, window: "7 days" },
       ],
       matchedRecords: 6,
@@ -690,8 +690,8 @@ const kubernetesCase: ReferenceCase = {
       targetEntityId: "identity:k8s-build-runner",
       capability: "enrich_kubernetes_identity",
       sources: [
-        { label: "Kubernetes audit", records: 7384401, window: "30 days" },
-        { label: "RBAC inventory", records: 36428, window: "Current" },
+        { label: "Kubernetes audit", records: 73844, window: "30 days" },
+        { label: "RBAC inventory", records: 3642, window: "Current" },
       ],
       matchedRecords: 19,
       returnedRecords: 5,
@@ -711,7 +711,7 @@ const kubernetesCase: ReferenceCase = {
       sources: [
         {
           label: "CloudTrail role corpus",
-          records: 2108823,
+          records: 21088,
           window: "35 minutes",
         },
       ],
@@ -1007,7 +1007,7 @@ const cicdCase: ReferenceCase = {
       targetEntityId: "oidc:pull-request",
       capability: "query_trust_policy_history",
       sources: [
-        { label: "GitHub OIDC audit", records: 182441, window: "30 days" },
+        { label: "GitHub OIDC audit", records: 18244, window: "30 days" },
         {
           label: "IAM configuration history",
           records: 3264,
@@ -1031,7 +1031,7 @@ const cicdCase: ReferenceCase = {
       sources: [
         {
           label: "Registry provenance index",
-          records: 94122,
+          records: 9412,
           window: "90 days",
         },
         {

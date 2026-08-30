@@ -507,6 +507,23 @@ export function EvidenceMap({
     fixture.presentation.graphHeight,
   );
   const nextStep = getDerivedNextStep(fixture, state);
+  const reportTrigger =
+    state.report.status === "approved_in_demo"
+      ? { label: "Case report", value: "Closed", detail: "View signed record" }
+      : state.report.status === "drafted"
+        ? {
+            label: "Case report",
+            value: "Draft",
+            detail: "Review and sign off",
+          }
+        : {
+            label: "Case evidence",
+            value: String(attachedFindingCount),
+            detail:
+              nextStep.recommendedTool === "generate_case_report"
+                ? "Report ready to draft"
+                : "Open findings",
+          };
   const nextGapEntityId =
     nextStep.phase === "inspect" ? nextStep.targetEntityId : null;
   const findingsSectionId = `${fixture.id}-attached-findings`;
@@ -530,9 +547,11 @@ export function EvidenceMap({
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         const report = document.getElementById(reportReviewId);
-        report?.querySelector<HTMLElement>(".report-heading h3")?.focus({
-          preventScroll: true,
-        });
+        report
+          ?.querySelector<HTMLElement>(".report-document-header h3")
+          ?.focus({
+            preventScroll: true,
+          });
         report?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });
@@ -724,9 +743,9 @@ export function EvidenceMap({
           onClick={openFindings}
           type="button"
         >
-          <span>Findings</span>
-          <strong>{attachedFindingCount}</strong>
-          <small>Open evidence</small>
+          <span>{reportTrigger.label}</span>
+          <strong aria-live="polite">{reportTrigger.value}</strong>
+          <small>{reportTrigger.detail}</small>
         </button>
         <div className="evidence-view-switch" aria-label="Evidence view">
           <button

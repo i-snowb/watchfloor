@@ -8,6 +8,7 @@ import type {
   ReferenceJoin,
   ReferenceQueryInsight,
 } from "@/domain/reference-cases";
+import { getReferenceQueryExecution } from "@/domain/reference-evidence";
 import { formatUtcTime } from "@/lib/format";
 import { PlatformShell, type AgentStatus } from "./platform-shell";
 
@@ -149,13 +150,15 @@ export function ReferenceCaseWorkbench({
           (candidate) => candidate.id === input.queryId,
         );
         if (!query) throw new Error("queryId is not part of this dossier.");
+        const execution = getReferenceQueryExecution(query.id);
+        if (!execution) throw new Error("Query evidence is unavailable.");
         setActivity({
           status: "running",
           actor,
           headline: query.title,
           detail: `${formatCount(recordsInScope(query))} records`,
         });
-        await boundedDelay(360, signal);
+        await boundedDelay(referenceQueryDelay(query), signal);
         setAttachedQueryIds((current) =>
           current.includes(query.id) ? current : [...current, query.id],
         );
@@ -172,7 +175,15 @@ export function ReferenceCaseWorkbench({
           toolName,
           `${query.title} · ${query.dominantMetric}`,
         );
-        return { query, result: query.result, synthetic: true };
+        return {
+          queryId: query.id,
+          language: execution.language,
+          queryText: execution.text,
+          matchedRecords: query.matchedRecords,
+          returnedRecords: execution.records,
+          result: query.result,
+          synthetic: true,
+        };
       }
       if (toolName === "run_reference_investigation_plan") {
         setActivity({
@@ -182,7 +193,7 @@ export function ReferenceCaseWorkbench({
           detail: `${formatCount(dossier.queries.reduce((sum, query) => sum + recordsInScope(query), 0))} records`,
         });
         for (const query of dossier.queries) {
-          await boundedDelay(180, signal);
+          await boundedDelay(720, signal);
           setAttachedQueryIds((current) =>
             current.includes(query.id) ? current : [...current, query.id],
           );
@@ -283,7 +294,7 @@ export function ReferenceCaseWorkbench({
         <header className="reference-case-rail">
           <div>
             <span className="severity severity-high">High</span>
-            <span>Tier 1 reference brief</span>
+            <span>Tier 1 evidence brief</span>
             <strong>{dossier.title}</strong>
           </div>
           <p>{dossier.observedImpact}</p>
@@ -320,9 +331,7 @@ export function ReferenceCaseWorkbench({
               }
               type="button"
             >
-              {planComplete
-                ? "All available queries attached"
-                : "Run available queries"}
+              {planComplete ? "Evidence plan complete" : "Run evidence plan"}
             </button>
           </header>
 
@@ -368,7 +377,7 @@ export function ReferenceCaseWorkbench({
                 {attachedQueryIds.length} finding
                 {attachedQueryIds.length === 1 ? "" : "s"} attached
               </strong>
-              <small>Archived case sources</small>
+              <small>Bounded source snapshots</small>
             </header>
             <div>
               {dossier.queries.map((query) => {
@@ -404,6 +413,10 @@ export function ReferenceCaseWorkbench({
                           ? "Archived malware analysis · no binary executed"
                           : query.caveat}
                       </small>
+                      <ReferenceQueryEvidence
+                        attached={attached}
+                        query={query}
+                      />
                     </div>
                   </details>
                 );
@@ -452,7 +465,7 @@ export function ReferenceCaseWorkbench({
         </section>
 
         <footer className="reference-boundary">
-          Evidence brief · archived case data · no shared response workflow or
+          Evidence brief · bounded case snapshot · no response workflow or
           external control
         </footer>
       </div>
@@ -633,6 +646,7 @@ function ReferenceInspector({
           <span>Copilot capability</span>
           <code>{query.capability}</code>
           <strong>{attached ? query.dominantMetric : query.question}</strong>
+          <ReferenceQuerySource query={query} />
           <button
             disabled={running || attached}
             onClick={() => onRunQuery(query)}
@@ -647,6 +661,67 @@ function ReferenceInspector({
         </small>
       )}
     </aside>
+  );
+}
+
+function ReferenceQuerySource({ query }: { query: ReferenceQueryInsight }) {
+  const execution = getReferenceQueryExecution(query.id);
+  if (!execution) return null;
+  return (
+    <details className="reference-query-source">
+      <summary>View query</summary>
+      <div>
+        <span>{execution.language}</span>
+        <code>{query.id}</code>
+      </div>
+      <pre>{execution.text}</pre>
+    </details>
+  );
+}
+
+function ReferenceQueryEvidence({
+  attached,
+  query,
+}: {
+  attached: boolean;
+  query: ReferenceQueryInsight;
+}) {
+  const execution = getReferenceQueryExecution(query.id);
+  if (!execution) return null;
+  return (
+    <div className="reference-query-evidence">
+      <ReferenceQuerySource query={query} />
+      {attached ? (
+        <details className="reference-returned-records">
+          <summary>
+            Source records <strong>{execution.records.length}</strong>
+          </summary>
+          <div>
+            {execution.records.map((record) => (
+              <details key={record.id}>
+                <summary>
+                  <time dateTime={record.timestamp}>
+                    {formatUtcTime(record.timestamp)}
+                  </time>
+                  <span>{record.source}</span>
+                  <strong>{record.recordType}</strong>
+                </summary>
+                <dl>
+                  {record.fields.map((field) => (
+                    <div key={field.label}>
+                      <dt>{field.label}</dt>
+                      <dd>{field.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </details>
+            ))}
+          </div>
+        </details>
+      ) : (
+        <small>Run the query to attach exact returned records.</small>
+      )}
+    </div>
   );
 }
 
@@ -669,7 +744,7 @@ function ReferenceCapabilityDrawer({
       >
         <header className="drawer-header">
           <div>
-            <p className="eyebrow">Reference tool surface</p>
+            <p className="eyebrow">Evidence brief tools</p>
             <h2>Copilot capabilities</h2>
           </div>
           <button
@@ -689,8 +764,8 @@ function ReferenceCapabilityDrawer({
           </article>
           <article>
             <span>Can query</span>
-            <strong>{dossier.queries.length} evidence insights</strong>
-            <small>Archived case sources</small>
+            <strong>{dossier.queries.length} bounded investigations</strong>
+            <small>Canonical KQL and returned source records</small>
           </article>
           <article>
             <span>Can lead</span>
@@ -871,7 +946,7 @@ function createReferenceToolDefinitions(
     create(
       "run_reference_query",
       "Run reference query",
-      "Run one bounded query and add its returned result to the shared brief.",
+      "Run one bounded canonical query, return its exact source records, and add the result to the shared brief.",
       {
         queryId: {
           type: "string",
@@ -907,6 +982,10 @@ function entityKindLabel(kind: ReferenceEntity["kind"]): string {
 
 function recordsInScope(query: ReferenceQueryInsight): number {
   return query.sources.reduce((sum, source) => sum + source.records, 0);
+}
+
+function referenceQueryDelay(query: ReferenceQueryInsight): number {
+  return 1_200 + Math.min(900, query.returnedRecords * 180);
 }
 
 function formatCount(value: number): string {

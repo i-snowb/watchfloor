@@ -601,12 +601,20 @@ function CommandControls({
     }
     if (nextTool === "generate_case_report") {
       return (
-        <div className="case-command-agent-handoff">
-          <span>Evidence complete</span>
-          <strong>Copilot can draft the case report</strong>
-          <small>
-            The draft will cite the attached findings and response record.
-          </small>
+        <div className="case-command-report-ready">
+          <button
+            className="case-command-primary"
+            disabled={busy}
+            onClick={() =>
+              void onExecute("generate_case_report", {
+                expectedRevision: state.revision,
+              })
+            }
+            type="button"
+          >
+            Draft evidence report
+          </button>
+          <code>Copilot · generate_case_report</code>
         </div>
       );
     }

@@ -1142,6 +1142,45 @@ body {
   margin-top: 10px;
 }
 
+.reference-query-source {
+  border: 1px solid var(--field-rule);
+  margin-top: 9px;
+}
+
+.reference-query-source > summary {
+  color: var(--field-cyan);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  list-style: none;
+  padding: 8px 9px;
+  text-transform: uppercase;
+}
+
+.reference-query-source > summary::-webkit-details-marker {
+  display: none;
+}
+
+.reference-query-source > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 9px 6px;
+}
+
+.reference-query-source pre {
+  background: #080d0d;
+  border-top: 1px solid var(--field-rule);
+  color: var(--field-soft);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  margin: 0;
+  max-height: 160px;
+  overflow: auto;
+  padding: 10px;
+  white-space: pre-wrap;
+}
+
 .reference-query-field {
   background: #0a0f0f;
   border-top: 1px solid var(--field-rule-strong);
@@ -1174,13 +1213,13 @@ body {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.reference-query-field details {
+.reference-query-field > div > details {
   border-right: 1px solid var(--field-rule);
   min-width: 0;
   position: relative;
 }
 
-.reference-query-field summary {
+.reference-query-field > div > details > summary {
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -1189,13 +1228,13 @@ body {
   padding: 10px 12px;
 }
 
-.reference-query-field summary::-webkit-details-marker {
+.reference-query-field > div > details > summary::-webkit-details-marker {
   display: none;
 }
 
-.reference-query-field summary span,
-.reference-query-field summary em,
-.reference-query-field details > div small,
+.reference-query-field > div > details > summary span,
+.reference-query-field > div > details > summary em,
+.reference-query-field > div > details > div > small,
 .reference-query-field dt {
   color: var(--field-muted);
   font-family: var(--font-mono);
@@ -1204,16 +1243,16 @@ body {
   text-transform: uppercase;
 }
 
-.reference-query-field summary strong {
+.reference-query-field > div > details > summary strong {
   font-size: 11px;
   margin: 5px 0;
 }
 
-.reference-query-field .query-attached summary em {
+.reference-query-field .query-attached > summary em {
   color: var(--field-green);
 }
 
-.reference-query-field details > div {
+.reference-query-field > div > details > div {
   background: #111716;
   border: 1px solid var(--field-rule-strong);
   box-shadow: 0 22px 44px rgba(0, 0, 0, 0.48);
@@ -1225,12 +1264,12 @@ body {
   z-index: 36;
 }
 
-.reference-query-field details:nth-child(3) > div {
+.reference-query-field > div > details:nth-child(3) > div {
   left: auto;
   right: 0;
 }
 
-.reference-query-field details > div p {
+.reference-query-field > div > details > div > p {
   color: var(--field-soft);
   font-size: 10px;
   line-height: 1.45;
@@ -1252,6 +1291,88 @@ body {
   font-family: var(--font-mono);
   font-size: 11px;
   margin: 4px 0 0;
+}
+
+.reference-query-evidence {
+  border-top: 1px solid var(--field-rule);
+  margin-top: 10px;
+  padding-top: 2px;
+}
+
+.reference-query-evidence > small {
+  display: block;
+  padding: 8px 0 2px;
+}
+
+.reference-returned-records {
+  border: 1px solid var(--field-rule);
+  margin-top: 8px;
+}
+
+.reference-returned-records > summary {
+  align-items: center;
+  color: var(--field-cyan);
+  cursor: pointer;
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  justify-content: space-between;
+  list-style: none;
+  padding: 8px 9px;
+  text-transform: uppercase;
+}
+
+.reference-returned-records > summary::-webkit-details-marker {
+  display: none;
+}
+
+.reference-returned-records > div {
+  max-height: 250px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.reference-returned-records > div > details {
+  border-top: 1px solid var(--field-rule);
+}
+
+.reference-returned-records > div > details > summary {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 62px minmax(90px, 0.65fr) minmax(120px, 1fr);
+  list-style: none;
+  padding: 8px 9px;
+}
+
+.reference-returned-records time,
+.reference-returned-records span {
+  color: var(--field-muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.reference-returned-records strong {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.reference-returned-records dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding: 4px 9px 9px;
+}
+
+.reference-returned-records dl div {
+  border-top: 1px solid var(--field-rule);
+  padding: 7px 0;
+}
+
+.reference-returned-records dd {
+  color: var(--field-soft);
+  font-size: 10px;
+  overflow-wrap: anywhere;
 }
 
 .reference-lower-field {
@@ -3736,6 +3857,83 @@ body {
   line-height: 1.4;
 }
 
+.case-view .case-command-report-ready {
+  align-items: stretch;
+  display: grid;
+  gap: 6px;
+}
+
+.case-view .case-command-report-ready code {
+  color: var(--field-muted);
+  font-size: 9px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.case-view .report-readiness-section {
+  background: rgba(8, 15, 15, 0.74);
+}
+
+.case-view .report-readiness-track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.case-view .report-readiness-track li {
+  border-right: 1px solid var(--field-rule);
+  border-top: 1px solid var(--field-rule);
+  display: grid;
+  gap: 4px;
+  min-height: 58px;
+  padding: 10px 12px;
+}
+
+.case-view .report-readiness-track li:last-child {
+  border-right: 0;
+}
+
+.case-view .report-readiness-track span {
+  color: var(--field-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.case-view .report-readiness-track strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.case-view .report-readiness-track .is-complete {
+  box-shadow: inset 3px 0 var(--field-green);
+}
+
+.case-view .report-readiness-track .is-complete strong {
+  color: var(--field-mint);
+}
+
+.case-view .report-readiness-track .is-current {
+  box-shadow: inset 3px 0 var(--field-amber);
+}
+
+.case-view .report-readiness-track .is-pending {
+  opacity: 0.58;
+}
+
+.case-view .report-readiness-detail {
+  border-top: 1px solid var(--field-rule);
+  color: var(--field-soft);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 10px 12px;
+}
+
 .case-view .findings-tray-report .case-report-document {
   background: var(--docket-paper);
   border: 1px solid #b9b9ae;
@@ -4159,6 +4357,10 @@ body {
 
   .case-view .report-signoff-footer button {
     width: 100%;
+  }
+
+  .case-view .report-readiness-track {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

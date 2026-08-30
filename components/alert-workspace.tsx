@@ -215,6 +215,7 @@ export function AlertWorkspace({
       fixture={fixture}
       onOpenAgent={() => setAgentPanelOpen(true)}
       queueCount={queueItems.length}
+      queueSummary="2 investigations · 3 evidence briefs"
     >
       <div className="queue-workspace">
         <header className="ledger-masthead">

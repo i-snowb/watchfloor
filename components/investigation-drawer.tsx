@@ -115,6 +115,7 @@ export function InvestigationDrawer({
         : decisionRecorded
           ? { label: "Decision", value: "Recorded" }
           : { label: "Evidence complete", value: "Analyst review required" };
+  const reportReadiness = getReportReadiness(fixture, state);
 
   return (
     <details
@@ -200,6 +201,25 @@ export function InvestigationDrawer({
           )}
         </section>
 
+        <section className="drawer-section report-readiness-section">
+          <header className="drawer-section-heading">
+            <div>
+              <span>Case closure</span>
+              <h2>Report readiness</h2>
+            </div>
+            <small>{reportReadiness.status}</small>
+          </header>
+          <ol className="report-readiness-track">
+            {reportReadiness.stages.map((stage) => (
+              <li className={`is-${stage.state}`} key={stage.label}>
+                <span>{stage.label}</span>
+                <strong>{stage.detail}</strong>
+              </li>
+            ))}
+          </ol>
+          <p className="report-readiness-detail">{reportReadiness.detail}</p>
+        </section>
+
         {state.report.status !== "unavailable" ? (
           <section className="drawer-section findings-tray-report">
             <header className="drawer-section-heading">
@@ -275,6 +295,98 @@ export function InvestigationDrawer({
       </div>
     </details>
   );
+}
+
+function getReportReadiness(fixture: CaseFixture, state: CaseState) {
+  const evidenceRemaining = fixture.conclusion.requiredEnrichmentIds.filter(
+    (id) => !state.attachedEnrichmentIds.includes(id),
+  ).length;
+  const streamRemaining =
+    fixture.stream.stages.length - state.releasedStreamStageIds.length;
+  const investigationComplete =
+    evidenceRemaining === 0 && streamRemaining === 0;
+  const decisionComplete =
+    state.decision.status === fixture.conclusion.requiredDecision;
+  const requiredActionRemaining = fixture.conclusion.requiredActionIds.filter(
+    (actionId) =>
+      state.responseActions.find((action) => action.actionId === actionId)
+        ?.status !== "authorized_in_demo",
+  ).length;
+  const modelRequired =
+    fixture.impact.atRiskEntityIds.length > 0 ||
+    fixture.responseActions.length > 0;
+  const modelComplete =
+    !modelRequired ||
+    (state.reachabilityAttached && state.counterfactualAttached);
+  const responseComplete = requiredActionRemaining === 0 && modelComplete;
+  const reportDrafted = state.report.status !== "unavailable";
+  const reportApproved = state.report.status === "approved_in_demo";
+  const eligible =
+    investigationComplete && decisionComplete && responseComplete;
+  const status = reportApproved
+    ? "Signed and closed"
+    : reportDrafted
+      ? "Analyst sign-off required"
+      : eligible
+        ? "Ready for Copilot"
+        : "Prerequisites incomplete";
+  const detail = reportApproved
+    ? "The signed evidence report and analyst closure note are retained with the case."
+    : reportDrafted
+      ? "Review the evidence basis, recorded response, limitations, and residual risk before sign-off."
+      : eligible
+        ? "Copilot can draft the evidence report from the current case revision."
+        : `${evidenceRemaining + streamRemaining} evidence item${evidenceRemaining + streamRemaining === 1 ? "" : "s"}, ${decisionComplete ? 0 : 1} decision, and ${requiredActionRemaining + (modelComplete ? 0 : 1)} response item${requiredActionRemaining + (modelComplete ? 0 : 1) === 1 ? "" : "s"} remain.`;
+  return {
+    status,
+    detail,
+    stages: [
+      {
+        label: "Investigate",
+        detail: investigationComplete
+          ? "Complete"
+          : `${evidenceRemaining + streamRemaining} remaining`,
+        state: investigationComplete ? "complete" : "current",
+      },
+      {
+        label: "Decide",
+        detail: decisionComplete ? "Recorded" : "Required",
+        state: decisionComplete
+          ? "complete"
+          : investigationComplete
+            ? "current"
+            : "pending",
+      },
+      {
+        label: "Respond",
+        detail: responseComplete
+          ? fixture.conclusion.requiredActionIds.length > 0
+            ? "Approved"
+            : "Not required"
+          : `${requiredActionRemaining + (modelComplete ? 0 : 1)} remaining`,
+        state: responseComplete
+          ? "complete"
+          : decisionComplete
+            ? "current"
+            : "pending",
+      },
+      {
+        label: "Report",
+        detail: reportApproved
+          ? "Signed"
+          : reportDrafted
+            ? "Review"
+            : eligible
+              ? "Draft ready"
+              : "Locked",
+        state: reportApproved
+          ? "complete"
+          : reportDrafted || eligible
+            ? "current"
+            : "pending",
+      },
+    ] as const,
+  };
 }
 
 function isQueryExecutionReceipt(receipt: OperationReceipt): boolean {
