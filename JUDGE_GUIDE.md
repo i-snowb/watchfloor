@@ -18,6 +18,24 @@ Expected result: the agent operates the same visible workbench as the analyst. I
 
 ## Three-minute filming sequence
 
+Build the recording around these three hero moments. Keep the intervening
+receipts short and visible; they establish depth but should not compete with
+the proof of shared human-agent work.
+
+1. **Shared evidence, not click automation:** the copilot prepares visible KQL,
+   runs the exact prepared query, and attaches inspectable records to the same
+   graph and timeline the analyst sees.
+2. **Human authority with bounded agent progress:** the copilot adds only a
+   provenance-backed discovery after its required evidence exists, then stops
+   for the analyst's malicious disposition.
+3. **A defensible counterfactual:** the copilot models the possible route and
+   simulates an allowlisted control; the analyst alone authorizes the recorded
+   demo response, visibly severing the modeled path without external execution.
+
+The full response and recovery lifecycle remains available for hands-on review.
+For the video, use the report final frame to show that the evidence, limits,
+response provenance, and analyst closure remain connected.
+
 | Time      | Screen action                                                                                     | Point to establish                                                                                                              |
 | --------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | 0:00–0:08 | Show the five-case incident ledger and open the critical endpoint case.                           | Tier 1 escalated a cross-domain chain; this is not a raw alert feed.                                                            |
@@ -74,3 +92,15 @@ Do not record or submit the build if any condition occurs:
 - The copilot can record a disposition, call the analyst-only replay release, authorize response, or approve the report.
 - Any receipt implies that an external endpoint, firewall, directory, secret store, deployment system, sandbox, or intelligence provider was contacted.
 - The hosted case cannot complete twice from revision 1 without stale state, clipped controls, duplicate receipts, or lost tools.
+
+## Submission format
+
+- Publish a narrated video shorter than three minutes. The video must stand on
+  its own: show the working page, the visible WebMCP effects, and the human
+  authority boundary.
+- Provide a live URL that judges can access during judging. Do not describe the
+  current hosted build as publicly verified until judge access is configured and
+  tested.
+- Publish the source repository with the application source, the actual
+  `document.modelContext.registerTool(...)` implementation, setup instructions,
+  and a visible open-source license.

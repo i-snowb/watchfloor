@@ -15,12 +15,57 @@ export interface ToolRegistrationOutcome {
   name: string;
   status: "registered" | "failed" | "unavailable";
   error: string | null;
+  attempts?: number;
+}
+
+export interface ToolRegistrationReadiness {
+  ready: boolean;
+  criticalToolNames: string[];
+  missingCriticalToolNames: string[];
 }
 
 export interface RegistrationResult {
   supported: boolean;
   registered: number;
   outcomes: ToolRegistrationOutcome[];
+  readiness: ToolRegistrationReadiness;
+}
+
+const maxRegistrationAttempts = 2;
+
+const criticalToolNames = new Set<CaseToolName>([
+  "get_case_context",
+  "prepare_investigation_query",
+  "run_investigation_query",
+  "attach_discovery_stage",
+  "calculate_reachability",
+  "simulate_control",
+  // The public containment operation is intentionally named by its bounded
+  // side effect: it prepares a package; it does not execute containment.
+  "prepare_response_bundle",
+  "generate_case_report",
+]);
+
+function getRegistrationReadiness(
+  definitions: readonly WebMcpToolDefinition[],
+  outcomes: readonly ToolRegistrationOutcome[],
+): ToolRegistrationReadiness {
+  const criticalToolNamesForCase = definitions
+    .map((definition) => definition.name)
+    .filter((name) => criticalToolNames.has(name as CaseToolName));
+  const registered = new Set(
+    outcomes
+      .filter((outcome) => outcome.status === "registered")
+      .map((outcome) => outcome.name),
+  );
+  const missingCriticalToolNames = criticalToolNamesForCase.filter(
+    (name) => !registered.has(name),
+  );
+  return {
+    ready: missingCriticalToolNames.length === 0,
+    criticalToolNames: criticalToolNamesForCase,
+    missingCriticalToolNames,
+  };
 }
 
 const stringId = {
@@ -585,14 +630,17 @@ export async function registerCaseTools(
     : document.modelContext,
 ): Promise<RegistrationResult> {
   if (!modelContext || typeof modelContext.registerTool !== "function") {
+    const outcomes = definitions.map((tool) => ({
+      name: tool.name,
+      status: "unavailable" as const,
+      error: "WebMCP is unavailable in this browser context.",
+      attempts: 0,
+    }));
     return {
       supported: false,
       registered: 0,
-      outcomes: definitions.map((tool) => ({
-        name: tool.name,
-        status: "unavailable",
-        error: "WebMCP is unavailable in this browser context.",
-      })),
+      outcomes,
+      readiness: getRegistrationReadiness(definitions, outcomes),
     };
   }
 
@@ -600,24 +648,46 @@ export async function registerCaseTools(
   let registered = 0;
   for (const tool of definitions) {
     if (controller.signal.aborted) break;
-    try {
-      await modelContext.registerTool(tool, {
-        signal: controller.signal,
-      });
-      if (controller.signal.aborted) break;
-      registered += 1;
-      outcomes.push({ name: tool.name, status: "registered", error: null });
-    } catch (error) {
-      if (controller.signal.aborted) break;
+    let attempts = 0;
+    let failure: unknown = null;
+    let completed = false;
+    while (attempts < maxRegistrationAttempts && !controller.signal.aborted) {
+      attempts += 1;
+      try {
+        await modelContext.registerTool(tool, {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) break;
+        registered += 1;
+        outcomes.push({
+          name: tool.name,
+          status: "registered",
+          error: null,
+          attempts,
+        });
+        completed = true;
+        break;
+      } catch (error) {
+        failure = error;
+      }
+    }
+    if (controller.signal.aborted) break;
+    if (!completed) {
       outcomes.push({
         name: tool.name,
         status: "failed",
         error:
-          error instanceof Error
-            ? error.message.replace(/\s+/g, " ").slice(0, 160)
+          failure instanceof Error
+            ? failure.message.replace(/\s+/g, " ").slice(0, 160)
             : "Tool registration failed.",
+        attempts,
       });
     }
   }
-  return { supported: true, registered, outcomes };
+  return {
+    supported: true,
+    registered,
+    outcomes,
+    readiness: getRegistrationReadiness(definitions, outcomes),
+  };
 }

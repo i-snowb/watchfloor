@@ -40,6 +40,7 @@ import type {
   InvestigationResultView,
 } from "./investigation-activity";
 import { AgentNowRail } from "./agent-now-rail";
+import { DemoPathStrip } from "./demo-path-strip";
 import { InvestigationDrawer } from "./investigation-drawer";
 import {
   buildCausalPhasePlanes,
@@ -147,6 +148,8 @@ export function EvidenceMap({
           ? fixture.presentation.defaultEvidenceView
           : "trace",
       );
+    } else if (!modeledViewActivated.current && state.reachabilityAttached) {
+      setView("impact");
     } else if (modeledViewActivated.current && !state.reachabilityAttached) {
       setView("trace");
     }
@@ -837,6 +840,8 @@ export function EvidenceMap({
           </button>
         </div>
       </header>
+
+      <DemoPathStrip fixture={fixture} state={state} />
 
       <div className="evidence-stage-frame">
         {actionDock ? (
@@ -2052,7 +2057,7 @@ function ThreatPriorityRail({
           : "Copilot ready on the shared case";
 
   return (
-    <details className="threat-priority-rail" open>
+    <details className="threat-priority-rail">
       <summary>
         <span>Issue priority</span>
         <strong>{urgentCount} urgent</strong>

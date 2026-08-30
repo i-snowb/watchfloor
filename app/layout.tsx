@@ -3,6 +3,7 @@ import "./globals.css";
 import "./workbench.css";
 import "./convergence.css";
 import "./causal-field.css";
+import "./demo-path.css";
 
 const metadataBase = new URL(
   process.env.NEXT_PUBLIC_SITE_URL ??

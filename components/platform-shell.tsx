@@ -4,8 +4,13 @@ import type { ReactNode, Ref } from "react";
 export type AgentStatus =
   | { state: "checking"; count: 0 }
   | { state: "unavailable"; count: 0 }
-  | { state: "available"; count: number }
-  | { state: "partial"; count: number };
+  | { state: "available"; count: number; total?: number }
+  | {
+      state: "partial";
+      count: number;
+      total?: number;
+      missingCriticalToolNames?: string[];
+    };
 
 interface PlatformShellProps {
   fixture: { id: string; alerts: readonly unknown[] };
@@ -114,7 +119,10 @@ function agentStatusLabel(status: AgentStatus): string {
     return "Copilot unavailable in this browser";
   }
   if (status.state === "available") {
-    return `Copilot connected · ${status.count} tools`;
+    return `Copilot connected · ${status.count} tools ready`;
   }
-  return `Copilot limited · ${status.count} tools`;
+  const criticalMissing = status.missingCriticalToolNames?.length ?? 0;
+  return criticalMissing > 0
+    ? `Copilot blocked · ${criticalMissing} critical ${criticalMissing === 1 ? "tool" : "tools"} missing`
+    : `Copilot limited · ${status.count}/${status.total ?? status.count} tools`;
 }

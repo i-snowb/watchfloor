@@ -1,0 +1,483 @@
+.case-view .demo-path-strip {
+  align-items: stretch;
+  background: #081113;
+  border-bottom: 1px solid rgba(150, 178, 184, 0.24);
+  color: #e9eeee;
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) auto;
+  min-height: 70px;
+}
+
+.case-view .demo-path-intro {
+  align-content: center;
+  border-right: 1px solid rgba(150, 178, 184, 0.24);
+  display: grid;
+  gap: 4px;
+  padding: 10px 16px;
+}
+
+.case-view .demo-path-intro span,
+.case-view .demo-path-strip > p {
+  color: #79d5a5;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.case-view .demo-path-intro strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.case-view .demo-path-strip ol {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.case-view .demo-path-strip li {
+  align-items: center;
+  border-right: 1px solid rgba(150, 178, 184, 0.18);
+  display: grid;
+  gap: 4px 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-width: 0;
+  padding: 9px 12px;
+  position: relative;
+}
+
+.case-view .demo-path-strip li > span {
+  color: #6f858a;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  grid-row: 1 / 3;
+}
+
+.case-view .demo-path-strip li div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.case-view .demo-path-strip li strong {
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.case-view .demo-path-strip li small,
+.case-view .demo-path-strip li em {
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.case-view .demo-path-strip li small {
+  color: #9aaeb1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-view .demo-path-strip li em {
+  color: #6f858a;
+  grid-column: 2;
+  font-family: var(--font-mono);
+}
+
+.case-view .demo-path-strip .demo-path-current {
+  background: linear-gradient(90deg, rgba(88, 194, 202, 0.12), transparent);
+  box-shadow: inset 0 -2px #62c5cf;
+}
+
+.case-view .demo-path-strip .demo-path-current > span,
+.case-view .demo-path-strip .demo-path-current em {
+  color: #75d8df;
+}
+
+.case-view .demo-path-strip .demo-path-complete > span,
+.case-view .demo-path-strip .demo-path-complete em {
+  color: #79d5a5;
+}
+
+.case-view .demo-path-strip .demo-path-upcoming {
+  opacity: 0.66;
+}
+
+.case-view .demo-path-strip > p {
+  align-items: center;
+  color: #8fa1a5;
+  display: flex;
+  font-size: 12px;
+  margin: 0;
+  max-width: 178px;
+  padding: 10px 14px;
+}
+
+@media (max-width: 1180px) {
+  .case-view .demo-path-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .case-view .demo-path-intro,
+  .case-view .demo-path-strip > p {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .case-view .demo-path-strip {
+    overflow-x: auto;
+  }
+
+  .case-view .demo-path-strip ol {
+    min-width: 720px;
+  }
+}
+
+/* Keep the shared-work proof readable before the compact mobile header takes over. */
+@media (min-width: 901px) and (max-width: 1100px) {
+  .case-view .evidence-map-header {
+    grid-template-columns: minmax(0, 1fr) 112px auto;
+  }
+
+  .case-view
+    .evidence-map-header
+    > section[aria-label="WebMCP shared-work proof"] {
+    border-left: 0;
+    border-top: 1px solid rgba(150, 178, 184, 0.24);
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.webmcp-readiness-block {
+  align-items: center;
+  background: #21170d;
+  border-bottom: 1px solid rgba(232, 179, 95, 0.72);
+  color: #f2e8d7;
+  display: grid;
+  gap: 8px 18px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 12px 20px;
+}
+
+.webmcp-readiness-block div {
+  display: grid;
+  gap: 2px;
+}
+
+.webmcp-readiness-block span,
+.webmcp-readiness-block code,
+.webmcp-readiness-block p {
+  font-size: 12px;
+}
+
+.webmcp-readiness-block span {
+  color: #e8b35f;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+
+.webmcp-readiness-block strong {
+  font-size: 14px;
+}
+
+.webmcp-readiness-block code {
+  color: #e8c58c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.webmcp-readiness-block p {
+  color: #c9bda9;
+  margin: 0;
+}
+
+/* Stack commands beneath the threat rail so they never cover the graph. */
+@media (min-width: 981px) {
+  .case-view .evidence-stage-frame:has(> .threat-priority-rail) {
+    align-items: stretch;
+    grid-template-columns: clamp(250px, 21vw, 310px) minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+  }
+
+  .case-view .evidence-stage-frame:has(> .threat-priority-rail:not([open])) {
+    grid-template-columns: 250px minmax(0, 1fr);
+  }
+
+  .case-view
+    .evidence-stage-frame:has(> .threat-priority-rail)
+    > .map-command-dock:not(:has(.query-console[open])) {
+    align-self: auto;
+    background: #071012;
+    border-bottom: 1px solid rgba(150, 178, 184, 0.25);
+    border-right: 1px solid rgba(150, 178, 184, 0.25);
+    bottom: 128px;
+    grid-column: auto;
+    grid-row: auto;
+    left: 0;
+    margin: 0;
+    max-width: none;
+    min-width: 0;
+    padding: 12px;
+    overflow-y: auto;
+    position: absolute;
+    right: auto;
+    top: 43px;
+    width: 250px;
+    z-index: 12;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(> .threat-priority-rail[open])
+    > .map-command-dock:not(:has(.query-console[open])) {
+    top: 246px;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(> .threat-priority-rail)
+    > .evidence-map-viewport {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    min-width: 0;
+    width: auto !important;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(> .threat-priority-rail)
+    > .case-timeline-dock {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(.query-console[open])
+    > .map-command-dock {
+    border-right: 0;
+    bottom: auto;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    left: auto;
+    margin: 0;
+    max-width: none;
+    padding: 16px;
+    position: relative;
+    right: auto;
+    top: auto;
+    width: auto;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(.query-console[open])
+    > .threat-priority-rail {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(.query-console[open])
+    > .evidence-map-viewport {
+    grid-column: 2;
+    grid-row: 2;
+    width: auto !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .case-view .map-command-dock,
+  .case-view .map-command-dock:has(.query-console[open]) {
+    bottom: auto;
+    left: auto;
+    margin: 12px;
+    max-width: none;
+    position: relative;
+    right: auto;
+    top: auto;
+    width: auto;
+  }
+}
+
+.case-view .map-command-dock .case-command-next {
+  align-items: start;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  padding: 10px;
+}
+
+.case-view .map-command-dock .case-command-label small {
+  display: none;
+}
+
+.case-view .map-command-dock .case-command-label,
+.case-view .map-command-dock .case-command-copy,
+.case-view .map-command-dock .case-command-control {
+  grid-column: 1;
+  width: 100%;
+}
+
+.case-view .map-command-dock .case-command-label span,
+.case-view .map-command-dock .case-command-label small,
+.case-view .map-command-dock .case-command-copy p,
+.case-view .map-command-dock .case-command-primary,
+.case-view .map-command-dock .case-command-secondary,
+.case-view .map-command-dock .case-command-agent-handoff span,
+.case-view .map-command-dock .case-command-agent-handoff small {
+  font-size: 12px;
+}
+
+.case-view .map-command-dock .case-command-copy h2 {
+  font-size: 17px;
+  line-height: 1.25;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.case-view .map-command-dock .case-command-copy p {
+  line-height: 1.45;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.case-view .map-command-dock .case-command-control {
+  justify-content: stretch;
+}
+
+.case-view .map-command-dock .case-command-primary,
+.case-view .map-command-dock .case-command-secondary,
+.case-view .map-command-dock .case-command-decision-actions {
+  max-width: none;
+  min-height: 38px;
+  width: 100%;
+}
+
+.case-view .map-command-dock .case-command-decision-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.case-view .map-command-dock .case-command-decision-actions button {
+  line-height: 1.25;
+  padding: 9px 10px;
+  white-space: normal;
+}
+
+.case-view .evidence-map-viewport {
+  height: clamp(460px, calc(100dvh - 255px), 820px) !important;
+  min-height: 460px !important;
+}
+
+/* Recording-scale type: remove microcopy from the hero surfaces. */
+.case-view .case-map-identity p span,
+.case-view .case-findings-trigger > span,
+.case-view .case-findings-trigger > small,
+.case-view .evidence-view-switch button > small,
+.case-view .model-reveal-status,
+.case-view .agent-target-callout small,
+.case-view .trace-operation-seam span,
+.case-view .trace-operation-seam code,
+.case-view .trace-operation-seam small,
+.case-view .query-result-packet span,
+.case-view .query-result-packet small {
+  font-size: 12px;
+}
+
+.case-view .evidence-entity-copy strong,
+.case-view .query-result-packet strong,
+.case-view .agent-target-callout strong,
+.case-view .trace-operation-seam strong {
+  font-size: 14px;
+}
+
+.case-view .threat-priority-rail > summary span,
+.case-view .threat-priority-rail > summary strong,
+.case-view .threat-priority-rail li em,
+.case-view .threat-priority-rail li small {
+  font-size: 12px;
+}
+
+.case-view .threat-priority-rail li strong {
+  font-size: 14px;
+}
+
+.case-view .query-console-table details > summary {
+  min-height: 52px;
+}
+
+.case-view .query-console-table details > summary > span:last-child {
+  display: -webkit-box;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@media (max-height: 800px) and (min-width: 981px) {
+  .case-view .evidence-map-viewport {
+    height: clamp(430px, calc(100dvh - 255px), 520px) !important;
+    min-height: 430px !important;
+  }
+}
+
+.case-view .report-signed-certificate {
+  align-items: start;
+  background: rgba(31, 92, 72, 0.08);
+  border: 1px solid rgba(42, 116, 88, 0.48);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(250px, 0.8fr) minmax(0, 1.2fr);
+  margin: 22px 0 0;
+  padding: 16px 18px;
+}
+
+.case-view .report-signed-certificate > div {
+  display: grid;
+  gap: 5px;
+}
+
+.case-view .report-signed-certificate span,
+.case-view .report-signed-certificate small {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.case-view .report-signed-certificate span {
+  color: #255d49;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.case-view .report-signed-certificate strong {
+  color: #152a22;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.case-view .report-signed-certificate small {
+  color: #50635b;
+  line-height: 1.4;
+}
+
+.case-view .report-signed-certificate blockquote {
+  border-left: 2px solid #347c61;
+  color: #243b32;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  padding: 2px 0 2px 14px;
+}
+
+@media (max-width: 760px) {
+  .case-view .report-signed-certificate {
+    grid-template-columns: 1fr;
+  }
+}

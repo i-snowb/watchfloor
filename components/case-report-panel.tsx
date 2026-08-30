@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   analystClosureNoteMaxLength,
   analystClosureNoteMinLength,
@@ -30,12 +30,23 @@ export function CaseReportPanel({
   state,
 }: CaseReportPanelProps) {
   const [closureNote, setClosureNote] = useState("");
+  const documentRef = useRef<HTMLElement>(null);
+  const reportApproved = state.report.status === "approved_in_demo";
+
+  useEffect(() => {
+    if (!reportApproved) return;
+    const frame = window.requestAnimationFrame(() => {
+      documentRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [reportApproved, state.report.approvedAt]);
+
   if (state.decision.status === "pending") return null;
   if (state.report.status === "unavailable") return null;
 
   const report = state.report.report;
   if (!report) return null;
-  const approved = state.report.status === "approved_in_demo";
+  const approved = reportApproved;
   const recordedActions = report.actionIds.flatMap((actionId) => {
     const action = fixture.responseActions.find(
       (candidate) => candidate.id === actionId,
@@ -67,6 +78,7 @@ export function CaseReportPanel({
       aria-live="polite"
       className={`case-report-document ${approved ? "case-report-approved" : ""}`}
       id={reportId}
+      ref={documentRef}
     >
       <header className="report-document-header">
         <div>
@@ -78,6 +90,26 @@ export function CaseReportPanel({
         </div>
         <span>{approved ? "Approved" : "Draft"}</span>
       </header>
+
+      {approved ? (
+        <section
+          aria-label="Signed report certificate"
+          className="report-signed-certificate"
+        >
+          <div>
+            <span>Analyst-signed evidence report</span>
+            <strong>
+              {evidenceFindings.length} findings · {recordedActions.length}{" "}
+              recorded controls · shared revision r{state.revision}
+            </strong>
+            <small>
+              Approved {formatUtcTime(state.report.approvedAt)} · synthetic case
+              record · no external system contacted
+            </small>
+          </div>
+          <blockquote>{state.report.analystClosureNote}</blockquote>
+        </section>
+      ) : null}
 
       <section className="report-document-section report-assessment">
         <p className="report-section-label">Assessment</p>

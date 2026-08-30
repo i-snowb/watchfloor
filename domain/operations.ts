@@ -536,6 +536,7 @@ export function getDerivedNextStep(
   const nextDiscovery = getNextStreamStage(fixture, state);
   if (
     nextDiscovery &&
+    containmentAuthorizationSatisfied(fixture, state, nextDiscovery) &&
     nextDiscovery.admission.requiredEnrichmentIds.every((id) =>
       attached.has(id),
     ) &&
@@ -642,30 +643,6 @@ export function getDerivedNextStep(
     };
   }
 
-  const nextVisibleEnrichment = visibleEnrichments.find(
-    (artifact) => !attached.has(artifact.id),
-  );
-  if (nextVisibleEnrichment) {
-    const query = fixture.investigationQueries.find(
-      (candidate) =>
-        candidate.resultArtifactId === nextVisibleEnrichment.id &&
-        (candidate.requiresStageId === null ||
-          state.releasedStreamStageIds.includes(candidate.requiresStageId)),
-    );
-    return {
-      phase: "inspect",
-      objective: query
-        ? query.title
-        : `Attach ${nextVisibleEnrichment.title.toLowerCase()} for ${labelForEntity(fixture, nextVisibleEnrichment.entityId)}.`,
-      recommendedTool: query
-        ? state.preparedQuery?.queryId === query.id
-          ? "run_investigation_query"
-          : "prepare_investigation_query"
-        : nextVisibleEnrichment.toolName,
-      targetEntityId: nextVisibleEnrichment.entityId,
-    };
-  }
-
   const requiresImpactModel =
     fixture.impact.atRiskEntityIds.length > 0 ||
     fixture.responseActions.length > 0;
@@ -729,6 +706,30 @@ export function getDerivedNextStep(
       objective: `Prepare ${nextBundle.title.toLowerCase()} for analyst review.`,
       recommendedTool: "prepare_response_bundle",
       targetEntityId: nextBundle.targetEntityIds[0] ?? null,
+    };
+  }
+
+  const nextVisibleEnrichment = visibleEnrichments.find(
+    (artifact) => !attached.has(artifact.id),
+  );
+  if (nextVisibleEnrichment) {
+    const query = fixture.investigationQueries.find(
+      (candidate) =>
+        candidate.resultArtifactId === nextVisibleEnrichment.id &&
+        (candidate.requiresStageId === null ||
+          state.releasedStreamStageIds.includes(candidate.requiresStageId)),
+    );
+    return {
+      phase: "inspect",
+      objective: query
+        ? query.title
+        : `Attach ${nextVisibleEnrichment.title.toLowerCase()} for ${labelForEntity(fixture, nextVisibleEnrichment.entityId)}.`,
+      recommendedTool: query
+        ? state.preparedQuery?.queryId === query.id
+          ? "run_investigation_query"
+          : "prepare_investigation_query"
+        : nextVisibleEnrichment.toolName,
+      targetEntityId: nextVisibleEnrichment.entityId,
     };
   }
 
@@ -878,23 +879,40 @@ function executeRead(
         },
         discoveries: {
           nextStageId: getNextStreamStage(fixture, state)?.id ?? null,
-          available: fixture.stream.stages.map((stage) => ({
-            id: stage.id,
-            title: stage.title,
-            requiredEnrichmentIds: stage.admission.requiredEnrichmentIds,
-            sourceQueryIds: stage.admission.sourceQueryIds,
-            progress: state.releasedStreamStageIds.includes(stage.id)
-              ? "attached"
-              : stage.id === getNextStreamStage(fixture, state)?.id &&
-                  stage.admission.requiredEnrichmentIds.every((id) =>
-                    state.attachedEnrichmentIds.includes(id),
-                  ) &&
-                  stage.admission.sourceQueryIds.every((id) =>
-                    state.executedInvestigationQueryIds.includes(id),
-                  )
-                ? "ready"
-                : "blocked",
-          })),
+          available: fixture.stream.stages.map((stage) => {
+            const attached = state.releasedStreamStageIds.includes(stage.id);
+            const containmentReady = containmentAuthorizationSatisfied(
+              fixture,
+              state,
+              stage,
+            );
+            const evidenceReady =
+              stage.admission.requiredEnrichmentIds.every((id) =>
+                state.attachedEnrichmentIds.includes(id),
+              ) &&
+              stage.admission.sourceQueryIds.every((id) =>
+                state.executedInvestigationQueryIds.includes(id),
+              );
+            const isNext = stage.id === getNextStreamStage(fixture, state)?.id;
+            return {
+              id: stage.id,
+              title: stage.title,
+              requiredEnrichmentIds: stage.admission.requiredEnrichmentIds,
+              sourceQueryIds: stage.admission.sourceQueryIds,
+              progress: attached
+                ? "attached"
+                : isNext && containmentReady && evidenceReady
+                  ? "ready"
+                  : "blocked",
+              blocker: attached
+                ? null
+                : !containmentReady
+                  ? "containment_authorization_required"
+                  : !evidenceReady
+                    ? "required_query_evidence"
+                    : null,
+            };
+          }),
         },
         responseActions: releasedResponseActions,
         tier1Handoff: {
@@ -930,12 +948,15 @@ function executeRead(
               question: query.question,
               objective: query.objective,
               targetEntityId: query.targetEntityId,
-              sourceScopes: query.sourceScopes,
-              console: getQueryConsoleContract(query.id),
+              language: getQueryConsoleContract(query.id)?.language ?? "KQL",
+              sourceLabels: query.sourceScopes.map(
+                (scope) => scope.sourceLabel,
+              ),
               syntheticRecordCount: query.sourceScopes.reduce(
                 (total, scope) => total + scope.syntheticRecordCount,
                 0,
               ),
+              queryTextAvailableVia: "prepare_investigation_query",
               progress:
                 state.attachedEnrichmentIds.includes(query.resultArtifactId) &&
                 state.executedInvestigationQueryIds.includes(query.id)
@@ -1953,11 +1974,36 @@ function applyDiscoveryStage(
   );
 }
 
+function containmentAuthorizationSatisfied(
+  fixture: CaseFixture,
+  state: CaseState,
+  stage: CaseFixture["stream"]["stages"][number],
+): boolean {
+  const containmentActions = fixture.responseActions.filter(
+    (action) => action.phase === "containment",
+  );
+  if (containmentActions.length === 0 || stage.ordinal <= 1) return true;
+  return containmentActions.every(
+    (definition) =>
+      state.responseActions.find((action) => action.actionId === definition.id)
+        ?.status === "authorized_in_demo",
+  );
+}
+
 function validateDiscoveryAdmission(
+  fixture: CaseFixture,
   state: CaseState,
   stage: CaseFixture["stream"]["stages"][number],
   toolName: CaseToolName,
 ): ToolFailure | null {
+  if (!containmentAuthorizationSatisfied(fixture, state, stage)) {
+    return fail(
+      state,
+      toolName,
+      "Authorize the containment response package before adding recovery discovery.",
+      "CONTAINMENT_AUTHORIZATION_REQUIRED",
+    );
+  }
   const missingEvidence = stage.admission.requiredEnrichmentIds.filter(
     (id) => !state.attachedEnrichmentIds.includes(id),
   );
@@ -2107,7 +2153,12 @@ function executeWrite(
         "rationale must contain 8 to 240 characters.",
       );
     }
-    const admissionFailure = validateDiscoveryAdmission(state, stage, toolName);
+    const admissionFailure = validateDiscoveryAdmission(
+      fixture,
+      state,
+      stage,
+      toolName,
+    );
     if (admissionFailure) return admissionFailure;
     return applyDiscoveryStage(fixture, state, stage, toolName);
   }
@@ -2128,6 +2179,14 @@ function executeWrite(
         toolName,
         "stageId must identify the next bounded observation.",
         "STREAM_STAGE_NOT_AVAILABLE",
+      );
+    }
+    if (!containmentAuthorizationSatisfied(fixture, state, stage)) {
+      return fail(
+        state,
+        toolName,
+        "Authorize the containment response package before requesting recovery discovery.",
+        "CONTAINMENT_AUTHORIZATION_REQUIRED",
       );
     }
     if (
@@ -2205,7 +2264,12 @@ function executeWrite(
         "STREAM_COMPLETE",
       );
     }
-    const admissionFailure = validateDiscoveryAdmission(state, stage, toolName);
+    const admissionFailure = validateDiscoveryAdmission(
+      fixture,
+      state,
+      stage,
+      toolName,
+    );
     if (admissionFailure) return admissionFailure;
     return applyDiscoveryStage(fixture, state, stage, toolName);
   }

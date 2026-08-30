@@ -716,6 +716,61 @@ test("every catalog query executes through the shared WebMCP operation", () => {
           nextStage,
           "A pending query must have an attachable discovery",
         );
+        if (
+          fixture.id === endpointLateralScenario.id &&
+          nextStage.ordinal > 1
+        ) {
+          state = succeed(
+            execute(fixture, state, "record_evidence_decision", {
+              expectedRevision: state.revision,
+              decision: "confirmed_malicious",
+              rationale:
+                "The bounded endpoint evidence supports the synthetic containment decision.",
+            }),
+          );
+          state = succeed(
+            execute(
+              fixture,
+              state,
+              "calculate_reachability",
+              {
+                expectedRevision: state.revision,
+                fromEntityId: fixture.reachability.sourceEntityId,
+                maxDepth: 6,
+              },
+              "webmcp_callback",
+            ),
+          );
+          state = succeed(
+            execute(
+              fixture,
+              state,
+              "simulate_control",
+              {
+                expectedRevision: state.revision,
+                control: fixture.counterfactual.control,
+              },
+              "webmcp_callback",
+            ),
+          );
+          state = succeed(
+            execute(
+              fixture,
+              state,
+              "prepare_response_bundle",
+              { expectedRevision: state.revision, bundleId: "containment" },
+              "webmcp_callback",
+            ),
+          );
+          state = succeed(
+            execute(fixture, state, "authorize_response_bundle", {
+              expectedRevision: state.revision,
+              bundleId: "containment",
+              proposalId: state.responseBundle?.id,
+              acknowledgement: "AUTHORIZE_SYNTHETIC_BUNDLE",
+            }),
+          );
+        }
         state = succeed(attachDiscovery(fixture, state, nextStage.id));
         continue;
       }
@@ -782,7 +837,6 @@ test("query workset withholds unreleased results and fails closed", () => {
     queryWorkset: {
       available: readonly {
         id: string;
-        matchedRecordCount?: number;
         returnedRecordCount?: number;
       }[];
       blockedCount: number;
@@ -798,9 +852,7 @@ test("query workset withholds unreleased results and fails closed", () => {
   );
   assert.equal(
     data.queryWorkset.available.some(
-      (query) =>
-        query.matchedRecordCount !== undefined ||
-        query.returnedRecordCount !== undefined,
+      (query) => query.returnedRecordCount !== undefined,
     ),
     false,
   );
@@ -1082,24 +1134,7 @@ test("response bundles prepare atomically and require analyst authorization", ()
   const fixture = endpointLateralScenario;
   let state = createInitialCaseState(fixture);
   state = completeInvestigationPlan(fixture, state, "tier1_initial");
-  state = succeed(
-    execute(
-      fixture,
-      state,
-      "request_next_observation",
-      {
-        expectedRevision: state.revision,
-        stageId: "STREAM-LAT-01",
-        rationale: "Request the blocked service-start result for disposition.",
-      },
-      "webmcp_callback",
-    ),
-  );
-  state = succeed(
-    execute(fixture, state, "release_next_synthetic_signal", {
-      expectedRevision: state.revision,
-    }),
-  );
+  state = succeed(attachDiscovery(fixture, state, "STREAM-LAT-01"));
   state = completeInvestigationPlan(fixture, state, "stage_1_verification");
   state = succeed(
     execute(fixture, state, "record_evidence_decision", {
@@ -1254,6 +1289,170 @@ test("response bundles prepare atomically and require analyst authorization", ()
   assert.equal(state.lifecycle, "contained_in_demo");
 });
 
+test("endpoint context orders containment before recovery discovery", () => {
+  const fixture = endpointLateralScenario;
+  let state = createInitialCaseState(fixture);
+  state = completeInvestigationPlan(fixture, state, "tier1_initial");
+  state = succeed(attachDiscovery(fixture, state, "STREAM-LAT-01"));
+  state = completeInvestigationPlan(fixture, state, "stage_1_verification");
+  state = succeed(
+    execute(fixture, state, "record_evidence_decision", {
+      expectedRevision: state.revision,
+      decision: "confirmed_malicious",
+      rationale:
+        "Unsigned execution and the blocked remote-service attempt meet the synthetic containment threshold.",
+    }),
+  );
+
+  const nextTool = (): CaseToolName | null => {
+    const context = execute(fixture, state, "get_case_context", {});
+    assert.equal(context.ok, true);
+    if (!context.ok) return null;
+    return (
+      context.data as {
+        collaborationHandoff: { exactNextTool: CaseToolName | null };
+      }
+    ).collaborationHandoff.exactNextTool;
+  };
+
+  assert.equal(state.revision, 15);
+  assert.equal(nextTool(), "calculate_reachability");
+
+  const gatedContext = execute(fixture, state, "get_case_context", {});
+  assert.equal(gatedContext.ok, true);
+  if (gatedContext.ok) {
+    const gatedDiscovery = (
+      gatedContext.data as {
+        discoveries: {
+          available: Array<{
+            id: string;
+            progress: string;
+            blocker: string | null;
+          }>;
+        };
+      }
+    ).discoveries.available.find((stage) => stage.id === "STREAM-LAT-02");
+    assert.equal(gatedDiscovery?.progress, "blocked");
+    assert.equal(gatedDiscovery?.blocker, "containment_authorization_required");
+  }
+  state = succeed(
+    execute(
+      fixture,
+      state,
+      "calculate_reachability",
+      {
+        expectedRevision: state.revision,
+        fromEntityId: fixture.reachability.sourceEntityId,
+        maxDepth: 6,
+      },
+      "webmcp_callback",
+    ),
+  );
+  assert.equal(state.revision, 16);
+  assert.equal(nextTool(), "simulate_control");
+  state = succeed(
+    execute(
+      fixture,
+      state,
+      "simulate_control",
+      {
+        expectedRevision: state.revision,
+        control: fixture.counterfactual.control,
+      },
+      "webmcp_callback",
+    ),
+  );
+  assert.equal(state.revision, 17);
+  assert.equal(nextTool(), "prepare_response_bundle");
+
+  const blockedRecovery = execute(
+    fixture,
+    state,
+    "request_next_observation",
+    {
+      expectedRevision: state.revision,
+      stageId: "STREAM-LAT-02",
+      rationale: "Request credential and workload recovery inventory.",
+    },
+    "webmcp_callback",
+  );
+  assert.equal(blockedRecovery.ok, false);
+  if (!blockedRecovery.ok) {
+    assert.equal(
+      blockedRecovery.error.code,
+      "CONTAINMENT_AUTHORIZATION_REQUIRED",
+    );
+  }
+
+  state = succeed(
+    execute(
+      fixture,
+      state,
+      "prepare_response_bundle",
+      { expectedRevision: state.revision, bundleId: "containment" },
+      "webmcp_callback",
+    ),
+  );
+  assert.equal(state.revision, 18);
+  assert.equal(nextTool(), null);
+  state = succeed(
+    execute(fixture, state, "authorize_response_bundle", {
+      expectedRevision: state.revision,
+      bundleId: "containment",
+      proposalId: state.responseBundle?.id,
+      acknowledgement: "AUTHORIZE_SYNTHETIC_BUNDLE",
+    }),
+  );
+  assert.equal(state.revision, 19);
+  assert.equal(nextTool(), "attach_discovery_stage");
+});
+
+test("case context lists query readiness without embedding canonical KQL", () => {
+  const fixture = endpointLateralScenario;
+  const context = execute(
+    fixture,
+    createInitialCaseState(fixture),
+    "get_case_context",
+    {},
+  );
+  assert.equal(context.ok, true);
+  if (!context.ok) return;
+  const data = context.data as {
+    queryWorkset: {
+      available: Array<{
+        id: string;
+        language: string;
+        sourceLabels: readonly string[];
+        queryTextAvailableVia: string;
+        console?: unknown;
+      }>;
+    };
+  };
+  const fileQuery = data.queryWorkset.available.find(
+    (query) => query.id === "QRY-ENDPOINT-FILE-01",
+  );
+  assert.deepEqual(fileQuery, {
+    id: "QRY-ENDPOINT-FILE-01",
+    title: "Helper behavior and prevalence",
+    question: "What did the unsigned helper do, and has it appeared elsewhere?",
+    objective:
+      "Correlate file creation, process lineage, signer state, and peer prevalence before deeper analysis.",
+    targetEntityId: "file:invoice-sync-helper",
+    language: "KQL",
+    sourceLabels: ["Endpoint telemetry", "Enterprise file prevalence"],
+    syntheticRecordCount: 2496,
+    queryTextAvailableVia: "prepare_investigation_query",
+    progress: "available",
+  });
+  assert.equal("console" in (fileQuery ?? {}), false);
+  assert.equal(
+    JSON.stringify(data.queryWorkset).includes(
+      getQueryConsoleContract("QRY-ENDPOINT-FILE-01")?.text ?? "",
+    ),
+    false,
+  );
+});
+
 test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
   assert.equal(caseToolNames.length, 34);
   const cloudNames = new Set(
@@ -1404,11 +1603,115 @@ test("tool registration uses the caller-owned teardown signal", async () => {
     result.outcomes.every((outcome) => outcome.status === "registered"),
     true,
   );
+  assert.equal(result.readiness.ready, true);
+  assert.deepEqual(result.readiness.missingCriticalToolNames, []);
+  assert.deepEqual(result.readiness.criticalToolNames, [
+    "get_case_context",
+    "prepare_investigation_query",
+    "run_investigation_query",
+    "attach_discovery_stage",
+    "generate_case_report",
+  ]);
   controller.abort();
   assert.equal(
     signals.every((signal) => signal.aborted),
     true,
   );
+});
+
+test("tool registration retries a transient failure without duplicating successes", async () => {
+  const definitions = createCaseToolDefinitions(
+    endpointLateralScenario,
+    async () => ({ ok: true }),
+  );
+  const calls = new Map<string, number>();
+  const registry: DocumentModelContext = {
+    async registerTool(definition) {
+      const attempts = (calls.get(definition.name) ?? 0) + 1;
+      calls.set(definition.name, attempts);
+      if (definition.name === "prepare_investigation_query" && attempts === 1) {
+        throw new Error("Native host was initializing");
+      }
+    },
+  };
+
+  const result = await registerCaseTools(
+    definitions,
+    new AbortController(),
+    registry,
+  );
+
+  assert.equal(result.registered, definitions.length);
+  assert.equal(result.readiness.ready, true);
+  assert.deepEqual(result.readiness.missingCriticalToolNames, []);
+  assert.equal(calls.get("prepare_investigation_query"), 2);
+  for (const definition of definitions) {
+    assert.equal(
+      calls.get(definition.name),
+      definition.name === "prepare_investigation_query" ? 2 : 1,
+      `${definition.name} should register once after another tool retries`,
+    );
+  }
+  assert.deepEqual(
+    result.outcomes.find(
+      (outcome) => outcome.name === "prepare_investigation_query",
+    ),
+    {
+      name: "prepare_investigation_query",
+      status: "registered",
+      error: null,
+      attempts: 2,
+    },
+  );
+});
+
+test("tool registration reports missing critical capabilities deterministically", async () => {
+  const definitions = createCaseToolDefinitions(
+    endpointLateralScenario,
+    async () => ({ ok: true }),
+  );
+  const calls = new Map<string, number>();
+  const registry: DocumentModelContext = {
+    async registerTool(definition) {
+      const attempts = (calls.get(definition.name) ?? 0) + 1;
+      calls.set(definition.name, attempts);
+      if (definition.name === "simulate_control") {
+        throw new Error("Native host rejected this capability");
+      }
+    },
+  };
+
+  const result = await registerCaseTools(
+    definitions,
+    new AbortController(),
+    registry,
+  );
+
+  assert.equal(result.registered, definitions.length - 1);
+  assert.equal(result.readiness.ready, false);
+  assert.deepEqual(result.readiness.criticalToolNames, [
+    "get_case_context",
+    "prepare_investigation_query",
+    "run_investigation_query",
+    "calculate_reachability",
+    "simulate_control",
+    "attach_discovery_stage",
+    "prepare_response_bundle",
+    "generate_case_report",
+  ]);
+  assert.deepEqual(result.readiness.missingCriticalToolNames, [
+    "simulate_control",
+  ]);
+  assert.deepEqual(
+    result.outcomes.find((outcome) => outcome.name === "simulate_control"),
+    {
+      name: "simulate_control",
+      status: "failed",
+      error: "Native host rejected this capability",
+      attempts: 2,
+    },
+  );
+  assert.equal(calls.get("simulate_control"), 2);
 });
 
 test("tool registration stops immediately when the caller aborts", async () => {

@@ -407,10 +407,18 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       } else {
         setAgentStatus({
           state:
-            result.registered === caseDefinitions.length
+            result.registered === caseDefinitions.length &&
+            result.readiness.ready
               ? "available"
               : "partial",
           count: result.registered,
+          total: caseDefinitions.length,
+          ...(result.readiness.ready
+            ? {}
+            : {
+                missingCriticalToolNames:
+                  result.readiness.missingCriticalToolNames,
+              }),
         });
       }
     }
@@ -607,6 +615,17 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       onOpenAgent={() => setAgentDrawerOpen(true)}
       onReset={() => void handleReset()}
     >
+      {agentStatus.state === "partial" &&
+      (agentStatus.missingCriticalToolNames?.length ?? 0) > 0 ? (
+        <aside className="webmcp-readiness-block" role="alert">
+          <div>
+            <span>WebMCP demo path paused</span>
+            <strong>Critical page tools did not register</strong>
+          </div>
+          <code>{agentStatus.missingCriticalToolNames?.join(" · ")}</code>
+          <p>Reload this page before a live demonstration.</p>
+        </aside>
+      ) : null}
       <div className="case-view">
         <div className="investigation-cockpit">
           <div className="workbench-grid">
@@ -868,23 +887,23 @@ function waitForOperation(
 }
 
 function operationLatencyMs(toolName: CaseToolName): number {
-  if (toolName === "prepare_investigation_query") return 1_400;
-  if (toolName === "generate_case_report") return 2_600;
-  if (toolName === "run_investigation_plan") return 2_800;
-  if (toolName === "run_investigation_query") return 2_400;
-  if (toolName === "request_next_observation") return 900;
-  if (toolName === "attach_discovery_stage") return 1_100;
-  if (toolName === "calculate_reachability") return 1_800;
-  if (toolName === "prepare_response_bundle") return 1_400;
+  if (toolName === "prepare_investigation_query") return 700;
+  if (toolName === "generate_case_report") return 1_200;
+  if (toolName === "run_investigation_plan") return 1_300;
+  if (toolName === "run_investigation_query") return 1_100;
+  if (toolName === "request_next_observation") return 500;
+  if (toolName === "attach_discovery_stage") return 650;
+  if (toolName === "calculate_reachability") return 900;
+  if (toolName === "prepare_response_bundle") return 750;
   if (
     toolName === "query_related_activity" ||
     toolName === "find_first_occurrence" ||
     toolName === "compare_timepoints" ||
     toolName === "search_events"
   ) {
-    return 1_100;
+    return 650;
   }
-  if (toolName.startsWith("enrich_")) return 1_800;
+  if (toolName.startsWith("enrich_")) return 900;
   return 0;
 }
 

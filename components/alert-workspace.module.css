@@ -1,0 +1,168 @@
+.featuredPath {
+  background: linear-gradient(
+    120deg,
+    rgba(79, 150, 119, 0.16),
+    rgba(18, 23, 20, 0.84)
+  );
+  border-bottom: 1px solid var(--ledger-rule);
+  border-top: 1px solid rgba(116, 186, 148, 0.28);
+  color: #e4e3db;
+  margin: 0;
+  padding: 22px clamp(22px, 3vw, 48px);
+}
+
+.featuredHeader,
+.featuredBody,
+.promptHeader {
+  align-items: start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.eyebrow,
+.toolCount,
+.promptHeader,
+.workflowBadge {
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  color: #8fc5a8;
+  font-size: 12px;
+  margin: 0 0 7px;
+}
+
+.featuredHeader h2 {
+  font-size: clamp(19px, 2.2vw, 29px);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  margin: 0;
+}
+
+.toolCount,
+.workflowBadge {
+  border: 1px solid rgba(143, 197, 168, 0.54);
+  color: #a7d7ba;
+  font-size: 12px;
+  line-height: 1;
+  padding: 7px 8px;
+  white-space: nowrap;
+}
+
+.featuredBody {
+  margin-top: 16px;
+}
+
+.featuredSummary {
+  max-width: 570px;
+}
+
+.featuredSummary > p,
+.promptPanel > p {
+  color: #b9bdb4;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.openCase,
+.copyPrompt {
+  align-items: center;
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  justify-content: center;
+  letter-spacing: 0.06em;
+  min-height: 36px;
+  text-transform: uppercase;
+}
+
+.openCase {
+  background: #e1e5dc;
+  border: 0;
+  color: #172019;
+  cursor: pointer;
+  gap: 16px;
+  margin-top: 15px;
+  padding: 0 12px;
+}
+
+.openCase:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.openCase:hover {
+  background: #ffffff;
+}
+
+.promptPanel {
+  background: rgba(7, 10, 8, 0.44);
+  border: 1px solid rgba(177, 185, 174, 0.22);
+  max-width: 550px;
+  padding: 12px;
+}
+
+.promptHeader {
+  align-items: center;
+  color: #a9afa5;
+  font-size: 12px;
+  margin-bottom: 9px;
+}
+
+.copyPrompt {
+  background: transparent;
+  border: 1px solid #70776d;
+  color: #e4e3db;
+  cursor: pointer;
+  padding: 0 8px;
+}
+
+.copyPrompt:hover {
+  border-color: #dce3d7;
+}
+
+.copyPrompt:focus-visible,
+.openCase:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
+}
+
+.workflowBadge.workflowBadge {
+  align-self: flex-start;
+  display: inline-flex;
+  flex-direction: row;
+  gap: 0;
+  margin: 0;
+  width: fit-content;
+}
+
+.workflowBadgeFull {
+  border-color: rgba(143, 197, 168, 0.68);
+  color: #82bf9d;
+}
+
+.workflowBadgeBrief {
+  border-color: rgba(218, 162, 86, 0.72);
+  color: #d7a968;
+}
+
+@media (max-width: 760px) {
+  .featuredHeader,
+  .featuredBody {
+    flex-direction: column;
+  }
+
+  .featuredBody,
+  .promptPanel {
+    width: 100%;
+  }
+
+  .toolCount {
+    align-self: flex-start;
+  }
+}
