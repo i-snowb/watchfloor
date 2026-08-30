@@ -19,8 +19,11 @@ interface QueryConsoleProps {
   activity: InvestigationActivity;
   busy: boolean;
   candidates: readonly InvestigationQueryDefinition[];
+  continueLabel?: string;
+  continueOwner?: string;
   fixture: CaseFixture;
   onChooseQuery: (queryId: string) => void;
+  onContinue?: () => Promise<void>;
   onPrepare: (input: Record<string, unknown>) => Promise<void>;
   onExecute: (input: Record<string, unknown>) => Promise<void>;
   onSelect: (selection: TraceSelection) => void;
@@ -32,8 +35,11 @@ export function QueryConsole({
   activity,
   busy,
   candidates,
+  continueLabel,
+  continueOwner,
   fixture,
   onChooseQuery,
+  onContinue,
   onPrepare,
   onExecute,
   onSelect,
@@ -46,7 +52,7 @@ export function QueryConsole({
   const prepared =
     state.preparedQuery?.queryId === query.id &&
     state.preparedQuery.preparedAtRevision === state.revision;
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!attached);
   const [dismissedRevealKey, setDismissedRevealKey] = useState<string | null>(
     null,
   );
@@ -320,6 +326,21 @@ export function QueryConsole({
 
         {attached ? (
           <QueryConsoleResults onSelect={onSelect} query={query} />
+        ) : null}
+        {attached && onContinue && continueLabel ? (
+          <footer className="query-console-next-step">
+            <div>
+              <span>{continueOwner ?? "Evidence attached"}</span>
+              <strong>The case is ready to advance.</strong>
+            </div>
+            <button
+              disabled={busy}
+              onClick={() => void onContinue()}
+              type="button"
+            >
+              {continueLabel}
+            </button>
+          </footer>
         ) : null}
       </div>
     </details>

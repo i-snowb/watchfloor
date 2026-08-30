@@ -5,8 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import {
   getDerivedNextStep,
   getInvestigationPlans,
+  getNextAgentAction,
   getResponseBundles,
   type CaseToolName,
+  type NextAgentAction,
 } from "@/domain/operations";
 import { getAllEntities } from "@/domain/incident-stream";
 import type {
@@ -56,6 +58,7 @@ export function CaseCommandBar({
   onOpenReportReview,
 }: CaseCommandBarProps) {
   const nextStep = getDerivedNextStep(fixture, state);
+  const nextAgentAction = getNextAgentAction(fixture, state);
   const releasedStageCount = state.releasedStreamStageIds.length;
   const nextStage = fixture.stream.stages[releasedStageCount] ?? null;
   const streamScope =
@@ -95,10 +98,21 @@ export function CaseCommandBar({
     state,
     selection,
   );
+  const availableQueries = fixture.investigationQueries.filter(
+    (query) =>
+      query.requiresStageId === null ||
+      state.releasedStreamStageIds.includes(query.requiresStageId),
+  );
+  const pendingQueries = availableQueries.filter(
+    (query) => !state.attachedEnrichmentIds.includes(query.resultArtifactId),
+  );
   const investigationOpen =
     state.decision.status === "pending" && !decisionReady;
   const [preferredQueryId, setPreferredQueryId] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [reviewedResultKey, setReviewedResultKey] = useState<string | null>(
+    null,
+  );
   const [dismissedStopActivity, setDismissedStopActivity] =
     useState<InvestigationActivity | null>(null);
   const previousRevision = useRef(state.revision);
@@ -120,36 +134,54 @@ export function CaseCommandBar({
   }, [state.revision]);
   const activityQuery =
     investigationActivity.status !== "idle"
-      ? (selectedQueries.find(
+      ? (availableQueries.find(
           (query) => query.id === investigationActivity.queryId,
         ) ?? null)
       : null;
   const preferredQuery = preferredQueryId
-    ? (selectedQueries.find((query) => query.id === preferredQueryId) ?? null)
+    ? (pendingQueries.find((query) => query.id === preferredQueryId) ?? null)
     : null;
   const preparedQuery = state.preparedQuery
-    ? (selectedQueries.find(
+    ? (pendingQueries.find(
         (query) => query.id === state.preparedQuery?.queryId,
       ) ?? null)
     : null;
-  const nextQuery =
-    investigationOpen &&
-    (showInvestigationControls ||
-      activityQuery !== null ||
-      preparedQuery !== null) &&
-    selectedQueries.length > 0
-      ? investigationActivity.status === "running" && activityQuery
-        ? activityQuery
-        : (preferredQuery ??
-          activityQuery ??
-          preparedQuery ??
-          selectedQueries.find(
-            (query) =>
-              !state.attachedEnrichmentIds.includes(query.resultArtifactId),
-          ) ??
-          selectedQueries[0] ??
-          null)
+  const coordinatedQueryId = readActionQueryId(nextAgentAction);
+  const coordinatedQuery = coordinatedQueryId
+    ? (pendingQueries.find((query) => query.id === coordinatedQueryId) ?? null)
+    : null;
+  const selectedPendingQuery = selectedQueries.find(
+    (query) => !state.attachedEnrichmentIds.includes(query.resultArtifactId),
+  );
+  const completedResultKey =
+    investigationActivity.status === "completed" &&
+    investigationActivity.toolName === "run_investigation_query" &&
+    activityQuery &&
+    state.attachedEnrichmentIds.includes(activityQuery.resultArtifactId)
+      ? `${activityQuery.id}:${investigationActivity.resultRevision}`
       : null;
+  const resultReviewPending =
+    completedResultKey !== null && completedResultKey !== reviewedResultKey;
+  const queryLifecycleActive =
+    nextAgentAction?.toolName === "prepare_investigation_query" ||
+    nextAgentAction?.toolName === "run_investigation_query";
+  const nextQuery =
+    resultReviewPending && activityQuery
+      ? activityQuery
+      : investigationOpen &&
+          (queryLifecycleActive ||
+            preparedQuery !== null ||
+            (showInvestigationControls && selectedPendingQuery !== undefined))
+        ? investigationActivity.status === "running" && activityQuery
+          ? activityQuery
+          : (preparedQuery ??
+            preferredQuery ??
+            (showInvestigationControls ? selectedPendingQuery : null) ??
+            coordinatedQuery ??
+            null)
+        : null;
+  const queryCandidates =
+    resultReviewPending && activityQuery ? [activityQuery] : pendingQueries;
   const commandOwner = getCommandOwner(
     state,
     decisionReady,
@@ -200,28 +232,6 @@ export function CaseCommandBar({
     );
   }
 
-  if (nextQuery) {
-    return (
-      <QueryConsole
-        key={nextQuery.id}
-        activity={investigationActivity}
-        busy={busy}
-        candidates={selectedQueries}
-        fixture={fixture}
-        onChooseQuery={setPreferredQueryId}
-        onPrepare={(input) => onExecute("prepare_investigation_query", input)}
-        onExecute={(input) => onExecute("run_investigation_query", input)}
-        onSelect={onSelect}
-        query={nextQuery}
-        state={state}
-      />
-    );
-  }
-
-  if (investigationOpen) {
-    return null;
-  }
-
   if (state.report.status === "drafted" && state.report.report) {
     return (
       <button
@@ -231,13 +241,70 @@ export function CaseCommandBar({
         type="button"
       >
         <span>Report ready</span>
-        <strong>Review the evidence report</strong>
-        <em>Open report</em>
+        <strong>Review report and close case</strong>
+        <em>Add closure note</em>
       </button>
     );
   }
 
-  if (dismissed) return null;
+  if (dismissed) {
+    return (
+      <button
+        className="case-command-restore"
+        onClick={() => setDismissed(false)}
+        type="button"
+      >
+        <span>{commandSequenceLabel(fixture, state)}</span>
+        <strong>
+          {commandTitle(
+            fixture,
+            state,
+            nextStep.objective,
+            nextStep.recommendedTool,
+            activeAction,
+          )}
+        </strong>
+        <em>Open</em>
+      </button>
+    );
+  }
+
+  if (nextQuery) {
+    const nextResultAction = resultReviewPending
+      ? getResultContinuation(nextAgentAction)
+      : null;
+    return (
+      <QueryConsole
+        key={nextQuery.id}
+        activity={investigationActivity}
+        busy={busy}
+        candidates={queryCandidates}
+        fixture={fixture}
+        onChooseQuery={setPreferredQueryId}
+        {...(completedResultKey && nextResultAction
+          ? {
+              continueLabel: nextResultAction.label,
+              continueOwner: nextResultAction.owner,
+              onContinue: () => {
+                if (nextResultAction.execute) {
+                  return onExecute(
+                    nextResultAction.execute.toolName,
+                    nextResultAction.execute.input,
+                  );
+                }
+                setReviewedResultKey(completedResultKey);
+                return Promise.resolve();
+              },
+            }
+          : {})}
+        onPrepare={(input) => onExecute("prepare_investigation_query", input)}
+        onExecute={(input) => onExecute("run_investigation_query", input)}
+        onSelect={onSelect}
+        query={nextQuery}
+        state={state}
+      />
+    );
+  }
 
   return (
     <section
@@ -268,6 +335,7 @@ export function CaseCommandBar({
               activeAction,
               nextStage,
               commandOwner,
+              nextStep.recommendedTool,
             )}
           </p>
         </div>
@@ -279,6 +347,7 @@ export function CaseCommandBar({
             decisionReady={decisionReady}
             fixture={fixture}
             nextStage={nextStage}
+            nextAgentAction={nextAgentAction}
             nextTool={nextStep.recommendedTool}
             onExecute={onExecute}
             onReset={onReset}
@@ -334,6 +403,7 @@ function CommandControls({
   nextTool,
   targetEntityId,
   nextStage,
+  nextAgentAction,
   activeAction,
   activeActionState,
   onExecute,
@@ -348,6 +418,7 @@ function CommandControls({
   nextTool: CaseToolName | null;
   targetEntityId: string | null;
   nextStage: CaseFixture["stream"]["stages"][number] | null;
+  nextAgentAction: NextAgentAction | null;
   activeAction: ResponseActionDefinition | null;
   activeActionState: ResponseActionState | undefined;
   onExecute: CaseCommandBarProps["onExecute"];
@@ -547,16 +618,32 @@ function CommandControls({
         </button>
       );
     }
-    if (
-      (nextTool === "attach_discovery_stage" ||
-        nextTool === "request_next_observation") &&
-      nextStage
-    ) {
+    if (nextTool === "attach_discovery_stage" && nextStage) {
+      return (
+        <button
+          className="case-command-primary"
+          disabled={
+            busy || nextAgentAction?.toolName !== "attach_discovery_stage"
+          }
+          onClick={() =>
+            nextAgentAction?.toolName === "attach_discovery_stage"
+              ? void onExecute(nextAgentAction.toolName, nextAgentAction.input)
+              : undefined
+          }
+          type="button"
+        >
+          Add to case graph
+        </button>
+      );
+    }
+    if (nextTool === "request_next_observation" && nextStage) {
       return (
         <div className="case-command-agent-handoff">
-          <span>Evidence ready</span>
-          <strong>Discovery available: {nextStage.title}</strong>
-          <small>Supporting evidence is attached to this case.</small>
+          <span>Evidence required</span>
+          <strong>{nextStage.title}</strong>
+          <small>
+            Run the outstanding approved skill to verify this scope.
+          </small>
         </div>
       );
     }
@@ -682,6 +769,40 @@ function findSelectedInvestigationQueries(
   );
 }
 
+function readActionQueryId(action: NextAgentAction | null): string | null {
+  if (
+    action?.toolName !== "prepare_investigation_query" &&
+    action?.toolName !== "run_investigation_query"
+  ) {
+    return null;
+  }
+  return typeof action.input.queryId === "string" ? action.input.queryId : null;
+}
+
+function getResultContinuation(action: NextAgentAction | null): {
+  label: string;
+  owner: string;
+  execute?: NextAgentAction;
+} {
+  if (!action) {
+    return { label: "Review analyst decision", owner: "Analyst decision" };
+  }
+  if (action.toolName === "attach_discovery_stage") {
+    return {
+      label: "Add to case graph",
+      owner: "Analyst control",
+      execute: action,
+    };
+  }
+  if (
+    action.toolName === "prepare_investigation_query" ||
+    action.toolName === "run_investigation_query"
+  ) {
+    return { label: "Open next approved skill", owner: "Next operation" };
+  }
+  return { label: "Review next operation", owner: "Next operation" };
+}
+
 function ResponsePlan({
   fixture,
   state,
@@ -739,6 +860,7 @@ function getCommandOwner(
   if (state.report.status === "drafted") return "analyst";
   if (activeActionState?.status === "simulated") return "analyst";
   if (state.decision.status === "pending" && decisionReady) return "analyst";
+  if (nextTool === "attach_discovery_stage") return "evidence";
   if (!nextTool && nextStage) return "evidence";
   return "agent";
 }
@@ -828,6 +950,7 @@ function commandDetail(
   activeAction: ResponseActionDefinition | null,
   nextStage: CaseFixture["stream"]["stages"][number] | null,
   commandOwner: CommandOwner,
+  recommendedTool: CaseToolName | null,
 ): string {
   if (state.lifecycle === "closed_in_demo") {
     return "Evidence and approved response records are complete. No external system was contacted.";
@@ -851,6 +974,9 @@ function commandDetail(
     : null;
   if (activeState?.status === "simulated") {
     return `${activeAction?.simulatedEffect ?? ""} Approval records the response decision; no external system is contacted.`;
+  }
+  if (recommendedTool === "attach_discovery_stage" && nextStage) {
+    return `Evidence is verified. Add ${nextStage.entities.length} ${nextStage.entities.length === 1 ? "entity" : "entities"}, ${nextStage.events.length} ${nextStage.events.length === 1 ? "event" : "events"}, and ${nextStage.joins.length} ${nextStage.joins.length === 1 ? "relationship" : "relationships"} to the shared graph.`;
   }
   if (state.decision.status === "pending") {
     if (commandOwner === "analyst") {
@@ -935,7 +1061,7 @@ function authorizationLabel(action: ResponseActionDefinition): string {
 
 function commandOwnerLabel(owner: CommandOwner): string {
   if (owner === "analyst") return "Automation paused · analyst required";
-  if (owner === "evidence") return "Telemetry update";
+  if (owner === "evidence") return "Verified evidence ready";
   if (owner === "complete") return "Case complete";
   return "Investigation automation";
 }

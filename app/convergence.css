@@ -3832,6 +3832,51 @@ body {
   outline: none;
 }
 
+.case-view .case-command-restore {
+  align-items: center;
+  background: rgba(7, 15, 17, 0.985);
+  border: 1px solid rgba(121, 197, 207, 0.58);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.38);
+  color: var(--field-ink);
+  display: grid;
+  gap: 4px 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 48px;
+  padding: 8px 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.case-view .case-command-restore span,
+.case-view .case-command-restore em {
+  color: var(--field-cyan);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-style: normal;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.case-view .case-command-restore strong {
+  font-size: 13px;
+  grid-column: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-view .case-command-restore em {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.case-view .case-command-restore:hover,
+.case-view .case-command-restore:focus-visible {
+  background: rgba(11, 27, 29, 0.98);
+  border-color: rgba(121, 213, 165, 0.72);
+  outline: none;
+}
+
 .case-view .case-command-agent-handoff {
   display: grid;
   gap: 4px;
@@ -7561,6 +7606,50 @@ body {
 }
 
 .case-view .query-console-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.case-view .query-console-next-step {
+  align-items: center;
+  background: rgba(76, 203, 151, 0.07);
+  border-top: 1px solid rgba(100, 217, 164, 0.38);
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  padding: 11px 14px;
+}
+
+.case-view .query-console-next-step > div {
+  display: grid;
+  gap: 3px;
+}
+
+.case-view .query-console-next-step span {
+  color: var(--field-mint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.case-view .query-console-next-step strong {
+  font-size: 13px;
+}
+
+.case-view .query-console-next-step button {
+  background: rgba(76, 176, 133, 0.13);
+  border: 1px solid rgba(100, 217, 164, 0.62);
+  color: var(--field-mint);
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  min-height: 38px;
+  padding: 0 13px;
+  text-transform: uppercase;
+}
+
+.case-view .query-console-next-step button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }

@@ -1,5 +1,4 @@
 import type { CaseToolName } from "@/domain/operations";
-import { getQueryConsoleContract } from "@/domain/query-console";
 import type { CSSProperties } from "react";
 import type {
   CaseFixture,
@@ -131,23 +130,21 @@ export function InvestigationDeck({
             className="probe-primary"
             disabled={busy || attached}
             onClick={() =>
-              void onExecute("run_investigation_query", {
+              void onExecute("prepare_investigation_query", {
                 expectedRevision: state.revision,
                 queryId: selectedQuery.id,
-                queryText:
-                  getQueryConsoleContract(selectedQuery.id)?.text ?? "",
               })
             }
             type="button"
           >
-            <span>{attached ? "Finding attached" : "Run query"}</span>
+            <span>{attached ? "Finding attached" : "Open approved query"}</span>
             <strong>{selectedQuery.title}</strong>
             <small>
-              {selectedQuery.sourceScopes.length} sources · results appear here
-              when complete
+              {selectedQuery.sourceScopes.length} approved sources · review
+              bounded KQL before execution
             </small>
             <em className="probe-action" aria-hidden="true">
-              {attached ? "Attached" : "Run →"}
+              {attached ? "Attached" : "Open →"}
             </em>
           </button>
         ) : (
