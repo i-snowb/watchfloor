@@ -271,51 +271,51 @@ test("fixture validation rejects a noncontiguous priority route", () => {
   );
 });
 
-test("endpoint result packets do not cover another investigation entity", () => {
+test("result packets do not cover another investigation entity", () => {
   const nodeWidth = 220;
   const nodeHeight = 152;
   const packetWidth = 196;
   const packetHeight = 96;
-  const nodes = endpointLateralScenario.presentation.nodes;
-  const nodeById = new Map(nodes.map((node) => [node.entityId, node]));
-  const visibleEntityIds = new Set(nodes.map((node) => node.entityId));
-  const targetEntityIds = [
-    ...new Set(
-      endpointLateralScenario.investigationQueries.map(
-        (query) => query.targetEntityId,
+  for (const fixture of [cloudIdentityScenario, endpointLateralScenario]) {
+    const nodes = fixture.presentation.nodes;
+    const nodeById = new Map(nodes.map((node) => [node.entityId, node]));
+    const visibleEntityIds = new Set(nodes.map((node) => node.entityId));
+    const targetEntityIds = [
+      ...new Set(
+        fixture.investigationQueries.map((query) => query.targetEntityId),
       ),
-    ),
-  ];
-  const placements = layoutTraceResultPackets(
-    targetEntityIds,
-    nodes,
-    visibleEntityIds,
-    endpointLateralScenario.presentation.graphWidth,
-    endpointLateralScenario.presentation.graphHeight,
-  );
+    ];
+    const placements = layoutTraceResultPackets(
+      targetEntityIds,
+      nodes,
+      visibleEntityIds,
+      fixture.presentation.graphWidth,
+      fixture.presentation.graphHeight,
+    );
 
-  for (const targetEntityId of targetEntityIds) {
-    const placement = placements.get(targetEntityId);
-    assert.ok(placement);
-    const packet = {
-      left: placement.x,
-      top: placement.y,
-      right: placement.x + packetWidth,
-      bottom: placement.y + packetHeight,
-    };
+    for (const targetEntityId of targetEntityIds) {
+      const placement = placements.get(targetEntityId);
+      assert.ok(placement);
+      const packet = {
+        left: placement.x,
+        top: placement.y,
+        right: placement.x + packetWidth,
+        bottom: placement.y + packetHeight,
+      };
 
-    for (const [entityId, node] of nodeById) {
-      if (entityId === targetEntityId) continue;
-      const overlaps =
-        packet.left < node.x + nodeWidth &&
-        packet.right > node.x &&
-        packet.top < node.y + nodeHeight &&
-        packet.bottom > node.y;
-      assert.equal(
-        overlaps,
-        false,
-        `${targetEntityId} result packet overlaps ${entityId}`,
-      );
+      for (const [entityId, node] of nodeById) {
+        if (entityId === targetEntityId) continue;
+        const overlaps =
+          packet.left < node.x + nodeWidth &&
+          packet.right > node.x &&
+          packet.top < node.y + nodeHeight &&
+          packet.bottom > node.y;
+        assert.equal(
+          overlaps,
+          false,
+          `${fixture.scenarioId}: ${targetEntityId} result packet overlaps ${entityId}`,
+        );
+      }
     }
   }
 });

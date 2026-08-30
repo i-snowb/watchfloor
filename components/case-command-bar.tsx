@@ -182,8 +182,8 @@ export function CaseCommandBar({
           <span>Escalation brief</span>
           <strong>{fixture.tier1Escalation.escalationReason}</strong>
           <small>
-            {fixture.tier1Escalation.observations.length} observations ·
-            response withheld
+            {fixture.tier1Escalation.observations.length} observed relationships
+            · no response authorized
           </small>
         </summary>
         <div>
@@ -196,7 +196,10 @@ export function CaseCommandBar({
               <li key={observation.id}>{observation.title}</li>
             ))}
           </ul>
-          <small>Select an entity to inspect its evidence and actions.</small>
+          <small>
+            Select an entity for evidence. Select a connection for relationship
+            evidence. Review actions in the activity timeline.
+          </small>
         </div>
       </details>
     );

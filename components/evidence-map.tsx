@@ -868,6 +868,10 @@ export function EvidenceMap({
           <ThreatPriorityRail
             activity={investigationActivity}
             decisionStatus={state.decision.status}
+            escalationObservationCount={
+              fixture.tier1Escalation.observations.length
+            }
+            escalationReason={fixture.tier1Escalation.escalationReason}
             hierarchy={threatHierarchy}
             latestReceipt={latestReceipt}
             onFocusIssue={focusThreatIssue}
@@ -1323,6 +1327,19 @@ export function EvidenceMap({
                   : (containedLabel ??
                     threatStateLabel ??
                     (modeledOnly ? "Modeled · not observed" : evidenceState));
+              const cardStateLabel =
+                causalState === "contained"
+                  ? "Contained"
+                  : causalState === "prevented"
+                    ? "Prevented"
+                    : causalState === "modeled"
+                      ? "Modeled"
+                      : causalState === "disputed"
+                        ? "Disputed"
+                        : "Observed";
+              const cardStateDetail = modeledOnly
+                ? "Not observed"
+                : `${entityEvents.length} ${entityEvents.length === 1 ? "event" : "events"}`;
               return (
                 <button
                   aria-label={`${entityStateLabel} ${humanizeEntityKind(entity.kind)} ${entity.label}${impactPosition?.hop === null || view !== "impact" ? "" : `, modeled hop ${impactPosition?.hop}`}`}
@@ -1375,15 +1392,21 @@ export function EvidenceMap({
                   </span>
                   <span className="evidence-entity-copy">
                     <small>
-                      {view === "impact"
-                        ? `${modeledOnly ? "Modeled reach" : "Observed evidence"}${impactPosition?.hop === null || impactPosition?.hop === undefined ? "" : ` · hop ${impactPosition.hop}`}`
-                        : `${humanizeEntityKind(entity.kind)} · ${position.lane}`}
+                      <span>{humanizeEntityKind(entity.kind)}</span>
+                      <em>
+                        {view === "impact"
+                          ? modeledOnly
+                            ? "Modeled entity"
+                            : "Observed entity"
+                          : "Entity"}
+                      </em>
                     </small>
                     <strong>{entity.label}</strong>
                     <span>{entity.summary}</span>
                   </span>
                   <span className="evidence-entity-state">
-                    {entityStateLabel}
+                    <span>{cardStateLabel}</span>
+                    <small>{cardStateDetail}</small>
                   </span>
                   {threatIssue ? (
                     <span aria-hidden="true" className="evidence-threat-rank">
@@ -1400,7 +1423,7 @@ export function EvidenceMap({
                   ) : agentFocusEntityId === entity.id ? (
                     <b>Investigation focus</b>
                   ) : nextGap && investigationActivity.status === "idle" ? (
-                    <b>Suggested inquiry</b>
+                    <b>Evidence gap</b>
                   ) : null}
                 </button>
               );
@@ -1809,12 +1832,12 @@ function TraceSequenceRail({
     >
       <header className="evidence-replay-controls timeline-controls">
         <div>
-          <span>Incident timeline</span>
+          <span>Activity timeline</span>
           <strong>
             {String(cursor).padStart(2, "0")} /{" "}
             {String(orderedJoins.length).padStart(2, "0")}
           </strong>
-          <small>Telemetry and recorded investigation work</small>
+          <small>Observed relationships and investigation work</small>
         </div>
         <div className="replay-buttons">
           <button aria-label="Reset timeline" onClick={onRestart} type="button">
@@ -2038,6 +2061,8 @@ function ImpactEnvelope({
 function ThreatPriorityRail({
   activity,
   decisionStatus,
+  escalationObservationCount,
+  escalationReason,
   hierarchy,
   latestReceipt,
   onFocusIssue,
@@ -2049,6 +2074,8 @@ function ThreatPriorityRail({
 }: {
   activity: InvestigationActivity;
   decisionStatus: CaseState["decision"]["status"];
+  escalationObservationCount: number;
+  escalationReason: string;
   hierarchy: NonNullable<ReturnType<typeof buildThreatHierarchy>>;
   latestReceipt: OperationReceipt | null;
   onFocusIssue: (issue: ThreatHierarchyIssue) => void;
@@ -2076,9 +2103,18 @@ function ThreatPriorityRail({
   return (
     <details className="threat-priority-rail">
       <summary>
-        <span>Issue priority</span>
-        <strong>{urgentCount} urgent</strong>
+        <span>Active issues</span>
+        <strong>
+          {urgentCount} urgent {urgentCount === 1 ? "issue" : "issues"}
+        </strong>
       </summary>
+      <div className="threat-priority-context">
+        <strong>{escalationReason}</strong>
+        <span>
+          {escalationObservationCount} observed relationships · no response
+          authorized
+        </span>
+      </div>
       <ol>
         {hierarchy.issues.map((issue) => (
           <li
@@ -2216,7 +2252,24 @@ function buildSelectionFocus(
 }
 
 function humanizeRelation(value: string): string {
-  return value.replaceAll("_", " ");
+  const labels: Record<string, string> = {
+    accessed_object: "Accessed object",
+    assumed_role: "Assumed role",
+    assigned_device: "Assigned device",
+    attempted_remote_service_control: "Attempted service control",
+    authenticated_as: "Authenticated as",
+    authenticated_to: "Authenticated to",
+    authorizes_deployment_to: "Authorizes deployment to",
+    connected_to: "Connected to",
+    executed_on: "Executed on",
+    exceeds_required_role: "Exceeded required role",
+    federated_into: "Assumed role",
+    normally_scoped_to: "Normally scoped to",
+    read_object: "Accessed object",
+    read_secret: "Read credential",
+    used_identity: "Used service identity",
+  };
+  return labels[value] ?? value.replaceAll("_", " ");
 }
 
 function activityCategory(toolName: string): string {

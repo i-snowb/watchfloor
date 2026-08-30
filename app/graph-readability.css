@@ -1,0 +1,527 @@
+/*
+ * Final graph release contract.
+ *
+ * Earlier styles define the product language and component variants. This
+ * layer owns the fixed map geometry, text budget, and desktop stage layout so
+ * later typography changes cannot make cards or analyst panels overlap.
+ */
+
+.case-view .evidence-entity {
+  box-sizing: border-box;
+  column-gap: 12px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 30px;
+  height: 152px;
+  padding: 14px 14px 0;
+  row-gap: 0;
+  width: 220px;
+}
+
+.case-view .evidence-entity-glyph {
+  grid-column: 1;
+  grid-row: 1;
+  height: 34px;
+  width: 34px;
+}
+
+.case-view .evidence-entity-copy {
+  align-self: start;
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.case-view .evidence-entity-copy small {
+  align-items: center;
+  color: #83a0a6;
+  display: flex;
+  font-size: 12.5px;
+  gap: 6px;
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-view .evidence-entity-copy small em {
+  color: rgba(131, 160, 166, 0.64);
+  flex: 0 0 auto;
+  font: inherit;
+  font-style: normal;
+}
+
+.case-view .evidence-entity-copy small em::before {
+  content: "\00b7";
+  margin-right: 6px;
+}
+
+.case-view .evidence-entity-threat .evidence-entity-copy small {
+  padding-right: 32px;
+}
+
+.case-view .evidence-entity-copy strong {
+  color: #dbe6e7;
+  display: -webkit-box;
+  font-size: 15.5px;
+  line-height: 1.22;
+  margin-top: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.case-view .evidence-entity-copy > span {
+  color: #91a4a8;
+  display: -webkit-box;
+  font-size: 13.5px;
+  line-height: 1.28;
+  margin-top: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.case-view .evidence-entity-state {
+  align-items: center;
+  align-self: stretch;
+  border-top: 1px solid rgba(131, 160, 166, 0.2);
+  bottom: auto;
+  color: #9eb2b6;
+  display: flex;
+  font-size: 12.5px;
+  gap: 8px;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-content: space-between;
+  left: auto;
+  line-height: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding-right: 18px;
+  position: static;
+  white-space: nowrap;
+}
+
+.case-view .evidence-entity-state > span {
+  color: currentColor;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.case-view .evidence-entity-state > small {
+  color: rgba(158, 178, 182, 0.62);
+  flex: 0 0 auto;
+  font: inherit;
+}
+
+.case-view .causal-state-modeled .evidence-entity-state,
+.case-view .evidence-entity-modeled-only .evidence-entity-state {
+  color: var(--instrument-model);
+}
+
+.case-view .causal-state-prevented .evidence-entity-state {
+  color: var(--instrument-warning);
+}
+
+.case-view .causal-state-contained .evidence-entity-state,
+.case-view .evidence-entity-contained .evidence-entity-state {
+  color: var(--instrument-agent);
+}
+
+.case-view .causal-state-disputed .evidence-entity-state {
+  color: var(--instrument-danger);
+}
+
+.case-view .threat-priority-rail > summary {
+  gap: 8px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.case-view .threat-priority-rail > summary span,
+.case-view .threat-priority-rail > summary strong {
+  font-size: 10.5px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.case-view .threat-priority-context {
+  border-top: 1px solid rgba(128, 167, 174, 0.28);
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.case-view .threat-priority-context > strong {
+  color: var(--field-ink);
+  display: -webkit-box;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.case-view .threat-priority-context > span {
+  color: var(--field-green);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+/* Connection tags stay compact. The relationship action expands on intent. */
+.case-view .evidence-edge-label {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 0;
+  max-width: none;
+  min-height: 24px;
+  padding: 4px 8px;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.case-view .evidence-edge-label > span {
+  font-size: 12.5px;
+  line-height: 1;
+}
+
+.case-view .evidence-edge-label > strong {
+  background: rgba(6, 14, 17, 0.98);
+  border: 1px solid rgba(121, 197, 207, 0.48);
+  color: #dbe6e7;
+  display: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  left: 50%;
+  line-height: 1.25;
+  max-width: 210px;
+  padding: 7px 9px;
+  position: absolute;
+  text-align: center;
+  top: calc(100% + 5px);
+  transform: translateX(-50%);
+  white-space: normal;
+  width: max-content;
+}
+
+.case-view .evidence-edge-label:hover,
+.case-view .evidence-edge-label:focus-visible,
+.case-view .evidence-edge-label[aria-pressed="true"] {
+  max-width: none;
+  z-index: 8;
+}
+
+.case-view .evidence-edge-label:hover > strong,
+.case-view .evidence-edge-label:focus-visible > strong,
+.case-view .evidence-edge-label[aria-pressed="true"] > strong {
+  display: block;
+}
+
+/* Packet geometry must match lib/trace-result-layout.ts. */
+.case-view .query-result-stack .query-result-packet {
+  box-sizing: border-box;
+  height: 96px;
+  max-height: 96px;
+  min-height: 96px;
+  overflow: hidden;
+}
+
+.case-view .query-result-stack .query-result-packet strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.case-view .query-result-stack .query-result-packet small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Timelines participate in document flow in every case. */
+.case-view .case-timeline-dock {
+  bottom: auto;
+  left: auto;
+  position: relative;
+  right: auto;
+  width: auto;
+}
+
+/* The issue list and escalation brief are one stable analyst column. */
+@media (min-width: 981px) {
+  .case-view
+    .evidence-stage-frame:not(:has(> .threat-priority-rail)):has(
+      > .map-command-dock > .escalation-brief
+    ) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+  }
+
+  .case-view
+    .evidence-stage-frame:not(:has(> .threat-priority-rail)):has(
+      > .map-command-dock > .escalation-brief
+    )
+    > .map-command-dock {
+    background: #071012;
+    border-bottom: 1px solid rgba(150, 178, 184, 0.25);
+    bottom: auto !important;
+    grid-column: 1;
+    grid-row: 1;
+    left: auto !important;
+    margin: 0;
+    max-width: none;
+    padding: 10px 18px;
+    position: relative !important;
+    right: auto !important;
+    top: auto !important;
+    width: auto !important;
+  }
+
+  .case-view
+    .evidence-stage-frame:not(:has(> .threat-priority-rail)):has(
+      > .map-command-dock > .escalation-brief
+    )
+    > .evidence-map-viewport {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .case-view
+    .evidence-stage-frame:not(:has(> .threat-priority-rail)):has(
+      > .map-command-dock > .escalation-brief
+    )
+    > .case-timeline-dock {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .case-view
+    .evidence-stage-frame:not(:has(> .threat-priority-rail))
+    > .map-command-dock
+    > .escalation-brief
+    > summary {
+    align-items: center;
+    gap: 10px 14px;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    min-height: 52px;
+    padding: 8px 12px;
+  }
+
+  .case-view
+    .evidence-stage-frame:not(:has(> .threat-priority-rail))
+    > .map-command-dock
+    > .escalation-brief
+    > summary
+    > span {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .case-view
+    .evidence-stage-frame:not(:has(> .threat-priority-rail))
+    > .map-command-dock
+    > .escalation-brief
+    > summary
+    > strong {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .case-view
+    .evidence-stage-frame:not(:has(> .threat-priority-rail))
+    > .map-command-dock
+    > .escalation-brief
+    > summary
+    > small {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .case-view
+    .evidence-stage-frame:not(:has(> .threat-priority-rail))
+    > .map-command-dock
+    > .escalation-brief
+    > summary::after {
+    grid-column: 4;
+    grid-row: 1;
+  }
+
+  .case-view .evidence-stage-frame:has(> .threat-priority-rail) {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .case-view .evidence-stage-frame:has(> .threat-priority-rail[open]) {
+    grid-template-columns: clamp(274px, 21vw, 310px) minmax(0, 1fr);
+  }
+
+  .case-view
+    .evidence-stage-frame:has(> .threat-priority-rail[open])
+    > .map-command-dock:has(> .escalation-brief) {
+    display: none;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(> .threat-priority-rail)
+    > .threat-priority-rail {
+    grid-column: 1;
+    grid-row: 1;
+    left: auto;
+    margin: 0;
+    max-height: none;
+    position: relative;
+    top: auto;
+    width: auto;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(> .threat-priority-rail)
+    > .map-command-dock:has(> .escalation-brief) {
+    align-self: stretch;
+    background: #071012;
+    border-bottom: 1px solid rgba(150, 178, 184, 0.25);
+    border-right: 1px solid rgba(150, 178, 184, 0.25);
+    bottom: auto !important;
+    grid-column: 1;
+    grid-row: 2;
+    left: auto !important;
+    margin: 0;
+    max-width: none;
+    min-width: 0;
+    overflow-y: auto;
+    padding: 12px;
+    position: relative !important;
+    right: auto !important;
+    top: auto !important;
+    width: auto !important;
+    z-index: 5;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(> .threat-priority-rail)
+    > .evidence-map-viewport {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    min-width: 0;
+    width: auto !important;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(> .threat-priority-rail)
+    > .case-timeline-dock {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(> .threat-priority-rail):has(.query-console[open])
+    > .map-command-dock {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(> .threat-priority-rail):has(.query-console[open])
+    > .threat-priority-rail {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(> .threat-priority-rail):has(.query-console[open])
+    > .evidence-map-viewport {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+
+.case-view .escalation-brief {
+  width: 100%;
+}
+
+.case-view .escalation-brief > summary {
+  align-items: start;
+  gap: 5px 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 9px 10px;
+}
+
+.case-view .escalation-brief > summary > span {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.case-view .escalation-brief > summary::after {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.case-view .escalation-brief > summary > strong {
+  display: -webkit-box;
+  font-size: 13px;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.case-view .escalation-brief > summary > small {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-view .escalation-brief > div {
+  gap: 8px;
+  padding: 10px;
+}
+
+.case-view .escalation-brief > div > p,
+.case-view .escalation-brief li,
+.case-view .escalation-brief > div > small {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@media (max-width: 980px) {
+  .case-view .evidence-stage-frame > .threat-priority-rail {
+    left: auto;
+    margin: 8px 12px 0;
+    max-height: min(360px, calc(100dvh - 180px));
+    position: relative;
+    top: auto;
+    width: calc(100% - 24px);
+  }
+
+  .case-view .evidence-entity-copy small,
+  .case-view .evidence-entity-copy > span,
+  .case-view .evidence-entity-state {
+    font-size: 12px;
+  }
+}

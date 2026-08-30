@@ -37,7 +37,7 @@ export const endpointLateralScenario = {
   classification: "synthetic_demo_data",
   title: "Execution with early lateral movement",
   summary:
-    "An unsigned helper on FIN-WS-044 made two TLS connections 60 seconds apart. The same host then showed an out-of-scope service-identity logon, a remote service-control attempt, and a production credential read.",
+    "An unsigned helper on FIN-WS-044 made two TLS connections 60 seconds apart. The host then originated an out-of-scope service-identity logon, a remote service-control attempt, and a production credential read.",
   severity: "critical",
   status: "investigating",
   timeRange: {
@@ -400,7 +400,7 @@ export const endpointLateralScenario = {
       matchField: "deviceId + processGuid",
       matchValue: "edr-fin-044 + PG-0448-A",
       evidenceIds: ["EVT-EDR-0448-01", "EVT-EDR-0448-02"],
-      label: "Helper execution on finance workstation",
+      label: "Helper executed on FIN-WS-044",
       limitation:
         "The process telemetry does not identify who placed the file.",
     },
@@ -419,7 +419,7 @@ export const endpointLateralScenario = {
       matchField: "processGuid + interval",
       matchValue: "PG-0448-A + 60s",
       evidenceIds: ["EVT-EDR-0448-03", "EVT-EDR-0448-04"],
-      label: "Two process-bound TLS connections",
+      label: "Helper connected to 203.0.113.91",
       limitation: "Connection content and destination ownership are unknown.",
     },
     {
@@ -437,7 +437,7 @@ export const endpointLateralScenario = {
       matchField: "sourceHostname + timeline",
       matchValue: "FIN-WS-044 + 14:04Z",
       evidenceIds: ["EVT-AUTH-0448-05", "EVT-EDR-0448-06"],
-      label: "Endpoint to service identity continuity",
+      label: "Service identity used from FIN-WS-044",
       limitation: "The events do not show how the credential became available.",
     },
     {
@@ -455,7 +455,7 @@ export const endpointLateralScenario = {
       matchField: "targetHostname + logonId",
       matchValue: "APP-SRV-021 + 0xA0448",
       evidenceIds: ["EVT-AUTH-0448-05", "EVT-EDR-0448-07"],
-      label: "Unexpected application-host authentication",
+      label: "Service identity authenticated to APP-SRV-021",
       limitation:
         "Authentication succeeded; remote payload execution is not observed.",
     },
@@ -474,7 +474,7 @@ export const endpointLateralScenario = {
       matchField: "principalId",
       matchValue: "svc-fin-reports",
       evidenceIds: ["EVT-CLOUD-0448-08", "EVT-CLOUD-0448-09"],
-      label: "Service identity to deployment credential",
+      label: "Service identity read deployment credential",
       limitation: "The secret read does not prove disclosure or use.",
     },
   ],
@@ -2201,15 +2201,15 @@ export const endpointLateralScenario = {
   presentation: {
     defaultEvidenceView: "trace",
     graphWidth: 1320,
-    graphHeight: 720,
+    graphHeight: 780,
     nodes: [
       { entityId: "file:invoice-sync-helper", x: 60, y: 130, lane: "entry" },
-      { entityId: "endpoint:fin-ws-044", x: 300, y: 130, lane: "execution" },
-      { entityId: "indicator:203.0.113.91", x: 560, y: 10, lane: "impact" },
-      { entityId: "identity:svc-fin-reports", x: 560, y: 250, lane: "access" },
-      { entityId: "endpoint:app-srv-021", x: 820, y: 90, lane: "lateral" },
-      { entityId: "secret:ci-deploy-token", x: 820, y: 250, lane: "access" },
-      { entityId: "workload:billing-api", x: 1080, y: 250, lane: "impact" },
+      { entityId: "endpoint:fin-ws-044", x: 325, y: 130, lane: "execution" },
+      { entityId: "indicator:203.0.113.91", x: 600, y: 30, lane: "impact" },
+      { entityId: "identity:svc-fin-reports", x: 600, y: 310, lane: "access" },
+      { entityId: "endpoint:app-srv-021", x: 900, y: 100, lane: "lateral" },
+      { entityId: "secret:ci-deploy-token", x: 900, y: 370, lane: "access" },
+      { entityId: "workload:billing-api", x: 1080, y: 370, lane: "impact" },
     ],
     stageQuestions: [
       "Which observed execution, login, and command evidence proves the active chain before containment?",

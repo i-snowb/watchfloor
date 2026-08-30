@@ -108,7 +108,7 @@ export function CaseInspector({
 
         {content.relatedEntities.length > 0 ? (
           <div className="related-entities">
-            <p className="field-label">Connected evidence</p>
+            <p className="field-label">Related entities</p>
             <div>
               {content.relatedEntities.map((entity) => (
                 <button
@@ -126,7 +126,15 @@ export function CaseInspector({
 
       <section className="evidence-shelf-record">
         <div className="evidence-shelf-section-label">
-          <span>Evidence record</span>
+          <span>
+            {selection.kind === "join"
+              ? "Relationship evidence"
+              : selection.kind === "model"
+                ? "Modeled analysis"
+                : selection.kind === "event"
+                  ? "Activity evidence"
+                  : "Entity evidence"}
+          </span>
           <small>{content.fields.length} technical fields</small>
         </div>
         {content.limitation ? (
@@ -230,7 +238,7 @@ export function CaseInspector({
           >
             <div className="enrichment-heading">
               <div>
-                <p className="eyebrow">Context layer</p>
+                <p className="eyebrow">Supporting evidence</p>
                 <h3>{enrichment.title}</h3>
               </div>
               <span className={`truth-badge truth-${enrichment.status}`}>
@@ -407,7 +415,7 @@ export function getSelectionContent(
     );
     const to = visibleEntities.find((entity) => entity.id === join.toEntityId);
     return {
-      eyebrow: `${join.id} · Evidence join`,
+      eyebrow: `${join.id} · Correlated relationship`,
       title: join.label,
       summary: `${from?.label ?? join.fromEntityId} → ${to?.label ?? join.toEntityId}`,
       status: "correlated",

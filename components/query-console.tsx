@@ -161,7 +161,7 @@ export function QueryConsole({
         {attached ? (
           <div className="query-console-execution-summary">
             <div>
-              <span>Query result attached</span>
+              <span>Evidence attached from query</span>
               <strong>{query.title}</strong>
               <small>
                 {query.matchedRecordCount} matched · {query.returnedRecordCount}{" "}
@@ -316,10 +316,10 @@ function QueryConsoleResults({
           <span>Returned records</span>
           <strong>{query.returnedRecordCount}</strong>
         </div>
-        <p>{query.matchedRecordCount} matched · Case data snapshot</p>
+        <p>{query.matchedRecordCount} matches in case-scoped data</p>
       </header>
       <details className="query-console-source-note">
-        <summary>Source boundary</summary>
+        <summary>Evidence scope and limits</summary>
         <p>{query.caveat}</p>
       </details>
       <div className="query-console-table" role="table">
@@ -360,7 +360,7 @@ function QueryConsoleResults({
                   onClick={() => onSelect({ kind: "entity", id: entityId })}
                   type="button"
                 >
-                  Focus on map
+                  Show related entity
                 </button>
               ) : (
                 <span className="query-console-source-only">
