@@ -54,10 +54,10 @@ export function AgentDrawer({
         <div className="drawer-header">
           <div>
             <p className="eyebrow">Shared agent surface</p>
-            <h2 id="agent-drawer-title">Investigative copilot</h2>
+            <h2 id="agent-drawer-title">Investigation agent</h2>
           </div>
           <button
-            aria-label="Close copilot panel"
+            aria-label="Close agent panel"
             className="icon-button"
             onClick={onClose}
             type="button"
@@ -65,7 +65,7 @@ export function AgentDrawer({
             ×
           </button>
         </div>
-        <div className="drawer-tabs" role="tablist" aria-label="Copilot panel">
+        <div className="drawer-tabs" role="tablist" aria-label="Agent panel">
           <button
             aria-controls="agent-activity-panel"
             aria-selected={tab === "activity"}

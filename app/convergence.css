@@ -6311,7 +6311,7 @@ body {
   line-height: 1.2;
 }
 
-/* Camera-scaled evidence text keeps a 12 px rendered floor at 1024 px. */
+/* Camera-scaled primary evidence labels keep a 12 px rendered floor. */
 
 .case-view .evidence-entity-copy small,
 .case-view .evidence-entity-copy > span,
@@ -6386,7 +6386,7 @@ body {
 
 .case-view .evidence-entity-copy > span {
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   line-height: 1.38;
   -webkit-line-clamp: 3;
@@ -6399,7 +6399,7 @@ body {
 .case-view .query-result-packet span,
 .case-view .query-result-packet small {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 13.5px;
   font-weight: 500;
   letter-spacing: 0.035em;
 }
@@ -6407,7 +6407,7 @@ body {
 .case-view .evidence-edge-label strong,
 .case-view .query-result-packet strong {
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.32;
 }
@@ -7307,7 +7307,7 @@ body {
 }
 
 .case-view .query-console[open] > summary::after {
-  content: "−";
+  content: "×";
 }
 
 .case-view .query-console > summary::-webkit-details-marker {

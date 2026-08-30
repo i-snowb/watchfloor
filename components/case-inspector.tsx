@@ -76,7 +76,7 @@ export function CaseInspector({
 
   return (
     <section
-      aria-label="Selected item and copilot activity"
+      aria-label="Selected item and agent activity"
       className="trace-evidence-shelf"
     >
       <p aria-live="polite" className="sr-only">
@@ -163,21 +163,21 @@ export function CaseInspector({
           <span>
             {investigationActivity.status === "running"
               ? investigationActivity.actor === "agent"
-                ? "Copilot investigating this evidence"
+                ? "Agent investigating this evidence"
                 : "Analyst-requested query running"
               : investigationActivity.status === "completed"
                 ? investigationActivity.actor === "agent"
-                  ? "Copilot finding attached"
+                  ? "Agent finding attached"
                   : "Analyst finding attached"
                 : investigationActivity.status === "rejected"
                   ? "Investigation request rejected"
                   : agentReceipt
-                    ? "Copilot finding attached"
+                    ? "Agent finding attached"
                     : state.proposal
-                      ? "Copilot recommendation"
+                      ? "Agent recommendation"
                       : agentAvailable
-                        ? "Copilot ready on selected item"
-                        : "Copilot unavailable · analyst controls remain"}
+                        ? "Agent ready on selected item"
+                        : "Agent unavailable · analyst controls remain"}
           </span>
         </div>
         {investigationActivity.status === "running" ? (
@@ -219,7 +219,7 @@ export function CaseInspector({
                 ? "Recommendation only. No action has run."
                 : agentTarget
                   ? `Target · ${humanizeEntityKind(agentTarget.kind)} · ${agentTarget.label}`
-                  : "The copilot and analyst share this selected item."}
+                  : "The agent and analyst share this selected item."}
             </span>
           </div>
         )}
@@ -258,7 +258,7 @@ export function CaseInspector({
               <div className="shelf-query-status">
                 <p>Available investigation for this item.</p>
                 <code>
-                  {agentAvailable ? "Copilot + analyst" : "Analyst"} ·{" "}
+                  {agentAvailable ? "Agent + analyst" : "Analyst"} ·{" "}
                   {investigationQuery?.id ?? enrichment.toolName}
                 </code>
               </div>

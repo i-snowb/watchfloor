@@ -1,23 +1,23 @@
 # TRACE//LAB
 
-TRACE//LAB is a deterministic WebMCP incident-response workbench. A Tier 1 AI escalates bounded synthetic cases. A security analyst and a page-connected copilot then use the same revisioned evidence state to investigate, model impact, approve response, and close an evidence report.
+TRACE//LAB is a deterministic WebMCP incident-response workbench for escalated Tier 2/3 operations. Tier 1 escalations enter a revisioned case where an analyst and a connected agent investigate evidence, model impact, authorize response, and close an evidence report.
 
-The competition build runs on ChatGPT Sites. It does not connect to live security products, execute malware, submit hashes to external services, or change external controls.
+The reference build runs on ChatGPT Sites. It does not connect to live security products, execute malware, submit hashes to external services, or change external controls.
 
-Incoming implementation and test agents should read [HANDOFF.md](./HANDOFF.md) for the current deployed state and [DEMO_TEST_HANDOVER.md](./DEMO_TEST_HANDOVER.md) for the complete video-readiness rehearsal.
+Incoming implementation and test agents should read [HANDOFF.md](./HANDOFF.md) for the current state and [DEMO_TEST_HANDOVER.md](./DEMO_TEST_HANDOVER.md) for the repeatable endpoint rehearsal.
 
-## What judges can inspect
+## What analysts can inspect
 
 - Five Tier 1 escalations in the incident ledger.
 - Two complete investigations and three evidence briefs.
 - A primary endpoint case with observed execution, repeated egress, service-identity use, blocked remote service control, and a deployment-credential read.
-- A visible KQL workspace. The copilot prepares the canonical query through WebMCP, the page shows the query before execution, and exact returned records remain inspectable.
+- A visible KQL workspace. A connected agent prepares the canonical query through WebMCP, the page shows the query before execution, and exact returned records remain inspectable.
 - Exact SHA-256 intelligence, enterprise prevalence, endpoint posture, Windows authentication, network, target-host prevention, cloud audit, and recovery inventory fixtures.
 - An exposure model that keeps observed, correlated, modeled, simulated, prevented, and analyst-approved states distinct.
 - Human-gated forensic collection, endpoint isolation, exact-IP blocking, identity disablement, credential rotation, and known-good image redeploy records.
 - A deterministic evidence report with findings, limitations, residual risk, evidence references, response provenance, and a persisted analyst closure note.
 
-The operation layer contains 34 case operations. The state-aware WebMCP surface registers 20 tools on the cloud case, 26 tools on the endpoint case, and two queue tools. The page never exposes the five analyst-only gates through WebMCP:
+The operation layer contains 35 case operations. The state-aware WebMCP surface registers 21 tools on the cloud case, 27 tools on the endpoint case, and two queue tools. The page never exposes the five analyst-only gates through WebMCP:
 
 - `record_evidence_decision`
 - `release_next_synthetic_signal`
@@ -52,29 +52,43 @@ npm run smoke
 
 The HTTP smoke test does not prove native browser registration. Before submission, run the primary case twice from revision 1 in the signed-in ChatGPT Sites browser.
 
-## Recommended judge prompt
+## Approved Investigation Skills
 
-Open `case-endpoint-0448`, then give the connected copilot this instruction:
+`list_investigation_skills` returns the case-scoped catalog of approved, versioned investigation playbooks. Each skill maps to one immutable bounded query contract and cannot be redirected to arbitrary telemetry, SQL, URLs, hosts, credentials, or external systems.
 
-> Investigate this synthetic escalation through the page's registered tools. Start with `get_case_context`. Prepare `QRY-ENDPOINT-FILE-01`, wait for the KQL to appear in the shared query workspace, then run the exact returned `queryText` and show the raw records. Prepare and run `QRY-ENDPOINT-HASH-10` next. Continue one revision-changing tool at a time. Stop before every analyst-only decision, telemetry release, response approval, and report approval. Never imply that a simulated action executed externally.
+Use the following model for every skill:
+
+1. List approved skills or read the skill catalog in `get_case_context`.
+2. Select one available skill ID.
+3. Call `prepare_investigation_query` with the corresponding `queryId`. The page loads the immutable KQL into the visible shared console, but does not retrieve evidence.
+4. Inspect the displayed KQL and call `run_investigation_query` with the exact returned `queryText`.
+5. Review the bounded raw records and attached finding before selecting the next skill.
+
+Skill availability follows case state. A blocked skill remains unavailable until its prerequisite discovery or telemetry is present. Preparation is revision-safe; missing, changed, or stale query text fails closed. Skills prepare and run evidence collection only. They do not authorize analyst decisions, telemetry release, response, or report approval.
+
+## Connected-agent operating prompt
+
+Open `case-endpoint-0448`, then give the connected agent this instruction:
+
+> Investigate this case through the page's registered tools. Start with `get_case_context`, then call `list_investigation_skills`. Prepare one available skill at a time, wait for its KQL to appear in the shared query workspace, then run the exact returned `queryText` and inspect the raw records. Continue one revision-changing tool call at a time. Stop before every analyst-only decision, telemetry release, response approval, and report approval. Never imply that a modeled or simulated action executed externally.
 
 Do not paste full KQL into this README. `prepare_investigation_query` returns the versioned canonical text and loads it into the shared workspace. This keeps documentation, execution validation, and the filmed query identical.
 
-See [JUDGE_GUIDE.md](./JUDGE_GUIDE.md) for the 90-second hands-on path, three-minute filming sequence, expected checkpoints, and stop conditions.
+For optional competition recording guidance, see [JUDGE_GUIDE.md](./JUDGE_GUIDE.md). The product does not present a guided demo path in the default workspace.
 
 ## Primary investigation contract
 
 The endpoint case uses this sequence:
 
-1. Read the Tier 1 handoff and current revision.
+1. Open the compact escalation brief if Tier 1 context is needed.
 2. Prepare a bounded query through the analyst control or WebMCP. This creates a shared case-state transition and loads its exact text and sources.
 3. Run that exact prepared query. Direct execution and plan execution both reject missing, mismatched, or stale preparation; modified or unknown query text also fails closed.
 4. Inspect returned source records. The result attaches to the map and activity timeline.
-5. After its cited query evidence is attached, let the copilot call `attach_discovery_stage` to add only the next provenance-backed entities and observations. The analyst replay control remains an alternate path and is not exposed through WebMCP.
+5. After its cited query evidence is attached, let the connected agent call `attach_discovery_stage` to add only the next provenance-backed entities and observations. The analyst replay control remains an alternate path and is not exposed through WebMCP.
 6. Record the analyst disposition.
-7. Let the copilot calculate exposure and simulate the allowlisted control.
-8. Let the copilot prepare response packages. The analyst approves them.
-9. Let the copilot draft the evidence report. The analyst reviews its cited findings and response record, writes a closure note, and signs off. The copilot cannot approve its own report.
+7. Let the connected agent calculate exposure and simulate the allowlisted control.
+8. Let the connected agent prepare response packages. The analyst approves them.
+9. Let the connected agent draft the evidence report. The analyst reviews its cited findings and response record, writes a closure note, and signs off. The agent cannot approve its own report.
 
 The exact file hash is `65fb21f3b3b11f7a7d45f31965dad35935e6d9c860ca6f618999510db74260b9` everywhere it appears. Its intelligence result is an archived deterministic fixture, not live OSINT. `QRY-ENDPOINT-STATIC-08` and `QRY-ENDPOINT-SANDBOX-09` are optional supporting pivots. The latter reviews an archived sandbox behavior record; it does not detonate a sample.
 
@@ -94,7 +108,7 @@ The current Sites deployment is owner-only behind ChatGPT sign-in. Inside the ap
 
 All inputs are allowlisted and bounded. Writes require the current revision and an idempotent request ID. The operation surface does not accept SQL, URLs, shell commands, credentials, secret values, source code, or arbitrary external targets. Every response approval records `externalExecution: false`.
 
-## Submission gates
+## Optional recording and submission gates
 
 Before filming or sharing:
 

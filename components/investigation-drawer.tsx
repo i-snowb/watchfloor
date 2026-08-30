@@ -75,7 +75,7 @@ export function InvestigationDrawer({
         {
           actor:
             receipt?.reportedSurface === "webmcp_callback"
-              ? "Copilot result"
+              ? "Agent result"
               : receipt
                 ? "Analyst result"
                 : "Case evidence",
@@ -255,7 +255,7 @@ export function InvestigationDrawer({
                 <li key={receipt.id}>
                   <span>
                     {receipt.reportedSurface === "webmcp_callback"
-                      ? "Copilot"
+                      ? "Agent"
                       : "Analyst"}
                   </span>
                   <div>
@@ -277,7 +277,7 @@ export function InvestigationDrawer({
             </ol>
           ) : (
             <p className="drawer-empty-state">
-              Copilot work and analyst actions will appear here.
+              Agent work and analyst actions will appear here.
             </p>
           )}
         </section>
@@ -328,14 +328,14 @@ function getReportReadiness(fixture: CaseFixture, state: CaseState) {
     : reportDrafted
       ? "Analyst sign-off required"
       : eligible
-        ? "Ready for Copilot"
+        ? "Ready for agent"
         : "Prerequisites incomplete";
   const detail = reportApproved
     ? "The signed evidence report and analyst closure note are retained with the case."
     : reportDrafted
       ? "Review the evidence basis, recorded response, limitations, and residual risk before sign-off."
       : eligible
-        ? "Copilot can draft the evidence report from the current case revision."
+        ? "The agent can draft the evidence report from the current case revision."
         : `${evidenceRemaining + streamRemaining} evidence item${evidenceRemaining + streamRemaining === 1 ? "" : "s"}, ${decisionComplete ? 0 : 1} decision, and ${requiredActionRemaining + (modelComplete ? 0 : 1)} response item${requiredActionRemaining + (modelComplete ? 0 : 1) === 1 ? "" : "s"} remain.`;
   return {
     status,

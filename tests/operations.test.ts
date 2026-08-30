@@ -412,7 +412,7 @@ test("canonical query text still requires shared preparation", () => {
   assert.deepEqual(outcome.state.attachedEnrichmentIds, []);
 });
 
-test("copilot can prepare a shared visible query without attaching evidence", () => {
+test("agent can prepare a shared visible query without attaching evidence", () => {
   const initial = createInitialCaseState(cloudIdentityScenario);
   const prepared = execute(
     cloudIdentityScenario,
@@ -1453,8 +1453,72 @@ test("case context lists query readiness without embedding canonical KQL", () =>
   );
 });
 
+test("approved investigation skills are allowlisted, revision-safe query playbooks", () => {
+  const fixture = endpointLateralScenario;
+  const initial = createInitialCaseState(fixture);
+  const listed = execute(
+    fixture,
+    initial,
+    "list_investigation_skills",
+    {},
+    "webmcp_callback",
+  );
+  assert.equal(listed.ok, true);
+  if (!listed.ok) return;
+  assert.equal(listed.state.revision, initial.revision);
+  const data = listed.data as {
+    skills: Array<{
+      id: string;
+      version: string;
+      queryId: string;
+      availability: string;
+      constraint: string | null;
+    }>;
+    blockedSkillCount: number;
+  };
+  const fileSkill = data.skills.find(
+    (skill) => skill.id === "QRY-ENDPOINT-FILE-01",
+  );
+  assert.deepEqual(fileSkill, {
+    id: "QRY-ENDPOINT-FILE-01",
+    version: "1.0",
+    title: "Helper behavior and prevalence",
+    objective:
+      "Correlate file creation, process lineage, signer state, and peer prevalence before deeper analysis.",
+    question: "What did the unsigned helper do, and has it appeared elsewhere?",
+    queryId: "QRY-ENDPOINT-FILE-01",
+    targetEntityId: "file:invoice-sync-helper",
+    sourceLabels: ["Endpoint telemetry", "Enterprise file prevalence"],
+    availability: "available",
+    constraint: null,
+  });
+  assert.equal(
+    data.skills.some((skill) => skill.availability === "blocked"),
+    false,
+  );
+  assert.equal(data.blockedSkillCount, 3);
+  assert.equal(
+    JSON.stringify(data).includes(
+      getQueryConsoleContract("QRY-ENDPOINT-FILE-01")?.text ?? "",
+    ),
+    false,
+  );
+
+  const prepared = execute(
+    fixture,
+    initial,
+    "prepare_investigation_query",
+    { expectedRevision: initial.revision, queryId: fileSkill?.id },
+    "webmcp_callback",
+  );
+  assert.equal(prepared.ok, true);
+  if (prepared.ok) {
+    assert.equal(prepared.state.preparedQuery?.queryId, fileSkill?.queryId);
+  }
+});
+
 test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
-  assert.equal(caseToolNames.length, 34);
+  assert.equal(caseToolNames.length, 35);
   const cloudNames = new Set(
     createCaseToolDefinitions(cloudIdentityScenario, async () => ({
       ok: true,
@@ -1476,6 +1540,7 @@ test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
     "find_first_occurrence",
     "compare_timepoints",
     "query_related_activity",
+    "list_investigation_skills",
     "prepare_investigation_query",
     "run_investigation_query",
     "run_investigation_plan",
@@ -1509,8 +1574,8 @@ test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
       "prepare_response_bundle",
     ]),
   );
-  assert.equal(cloudNames.size, 20);
-  assert.equal(endpointNames.size, 26);
+  assert.equal(cloudNames.size, 21);
+  assert.equal(endpointNames.size, 27);
 
   for (const withheld of [
     "record_evidence_decision",
@@ -1607,6 +1672,7 @@ test("tool registration uses the caller-owned teardown signal", async () => {
   assert.deepEqual(result.readiness.missingCriticalToolNames, []);
   assert.deepEqual(result.readiness.criticalToolNames, [
     "get_case_context",
+    "list_investigation_skills",
     "prepare_investigation_query",
     "run_investigation_query",
     "attach_discovery_stage",
@@ -1691,6 +1757,7 @@ test("tool registration reports missing critical capabilities deterministically"
   assert.equal(result.readiness.ready, false);
   assert.deepEqual(result.readiness.criticalToolNames, [
     "get_case_context",
+    "list_investigation_skills",
     "prepare_investigation_query",
     "run_investigation_query",
     "calculate_reachability",
@@ -2169,7 +2236,7 @@ test("read operations preserve revision and writes reject stale or extra input",
       true,
     );
     assert.equal(data.collaborationHandoff.currentRevision, 1);
-    assert.equal(data.collaborationHandoff.nextOwner, "copilot");
+    assert.equal(data.collaborationHandoff.nextOwner, "agent");
     assert.equal(
       data.collaborationHandoff.exactNextTool,
       "prepare_investigation_query",

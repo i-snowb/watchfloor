@@ -35,6 +35,7 @@ const maxRegistrationAttempts = 2;
 
 const criticalToolNames = new Set<CaseToolName>([
   "get_case_context",
+  "list_investigation_skills",
   "prepare_investigation_query",
   "run_investigation_query",
   "attach_discovery_stage",
@@ -67,13 +68,6 @@ function getRegistrationReadiness(
     missingCriticalToolNames,
   };
 }
-
-const stringId = {
-  type: "string",
-  minLength: 8,
-  maxLength: 80,
-  description: "Unique invocation ID for tracing and idempotent retry.",
-};
 
 const revision = {
   type: "integer",
@@ -112,8 +106,8 @@ function definition(
     description,
     inputSchema: {
       type: "object",
-      properties: { requestId: stringId, ...properties },
-      required: ["requestId", ...required],
+      properties,
+      required,
       additionalProperties: false,
     },
     annotations: {
@@ -161,6 +155,7 @@ export function createCaseToolDefinitions(
     "inspect_entity",
     "inspect_relationship",
     "query_related_activity",
+    ...includeTools(availableQueries.length > 0, "list_investigation_skills"),
     ...includeTools(availableQueries.length > 0, "prepare_investigation_query"),
     ...includeTools(availableQueries.length > 0, "run_investigation_query"),
     ...includeTools(availablePlans.length > 0, "run_investigation_plan"),
@@ -315,15 +310,28 @@ export function createCaseToolDefinitions(
     ...(availableQueries.length > 0
       ? [
           definition(
+            "list_investigation_skills",
+            "List approved investigation skills",
+            "Return the case-scoped, versioned allowlist of approved investigation playbooks. Each skill maps to one immutable bounded query contract; this does not execute a query or authorize an action.",
+            {},
+            [],
+            true,
+            handler,
+          ),
+        ]
+      : []),
+    ...(availableQueries.length > 0
+      ? [
+          definition(
             "prepare_investigation_query",
-            "Prepare investigation query",
-            "Load one released, case-approved KQL query into the shared investigation console. This prepares the visible query only; it does not retrieve evidence or execute a response action.",
+            "Prepare approved investigation skill",
+            "Load the immutable KQL contract for one released, approved investigation skill into the shared console. List skills first when choosing a playbook. This prepares visible query text only; it does not retrieve evidence or execute a response action.",
             {
               expectedRevision: revision,
               queryId: {
                 ...visibleArtifactId,
                 description:
-                  "Case query ID. Read get_case_context before use; the current shared state determines availability.",
+                  "Approved skill ID / case query ID returned by list_investigation_skills or get_case_context. The current shared state determines availability.",
               },
             },
             ["expectedRevision", "queryId"],
@@ -336,8 +344,8 @@ export function createCaseToolDefinitions(
       ? [
           definition(
             "run_investigation_query",
-            "Run bounded investigation query",
-            "Run the exact KQL currently prepared in shared case state across available case sources, then attach the bounded result and source records. Call prepare_investigation_query first for the same queryId and use its returned queryText.",
+            "Run approved investigation skill",
+            "Run the exact KQL prepared from an approved investigation skill across available case sources, then attach the bounded result and source records. Call prepare_investigation_query first for the same queryId and use its returned queryText.",
             {
               expectedRevision: revision,
               queryId: {
@@ -363,7 +371,7 @@ export function createCaseToolDefinitions(
       ? [
           definition(
             "run_investigation_plan",
-            "Run copilot investigation plan",
+            "Run investigation plan",
             "Run the plan's next unresolved bounded query after prepare_investigation_query has placed that exact query in the shared console. Use a specific investigation query when the analyst asks to test one named question.",
             {
               expectedRevision: revision,

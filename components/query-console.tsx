@@ -52,19 +52,18 @@ export function QueryConsole({
   const animationKey = useRef<string | null>(null);
   const activityTargetsQuery =
     activity.status !== "idle" && activity.queryId === query.id;
-  const copilotPreparing =
+  const agentPreparing =
     activityTargetsQuery &&
     activity.status === "running" &&
     activity.actor === "agent" &&
     activity.toolName === "prepare_investigation_query";
-  const copilotPrepareKey = copilotPreparing
+  const agentPrepareKey = agentPreparing
     ? `${query.id}:${activity.baseRevision}`
     : null;
 
   useEffect(() => {
-    if (!copilotPrepareKey || animationKey.current === copilotPrepareKey)
-      return;
-    animationKey.current = copilotPrepareKey;
+    if (!agentPrepareKey || animationKey.current === agentPrepareKey) return;
+    animationKey.current = agentPrepareKey;
     setDraftInput("");
     let cursor = 0;
     const timer = window.setInterval(() => {
@@ -73,13 +72,13 @@ export function QueryConsole({
       if (cursor >= canonicalText.length) window.clearInterval(timer);
     }, 18);
     return () => window.clearInterval(timer);
-  }, [canonicalText, copilotPrepareKey]);
+  }, [agentPrepareKey, canonicalText]);
 
   const running =
     activityTargetsQuery &&
     activity.status === "running" &&
     activity.toolName === "run_investigation_query";
-  const forceOpen = running || copilotPreparing;
+  const forceOpen = running || agentPreparing;
   const draft = draftInput ?? (prepared || attached ? canonicalText : "");
   const showQueryText = !attached || showAttachedQuery;
   const rejected =
@@ -105,14 +104,14 @@ export function QueryConsole({
 
   return (
     <details
-      className="query-console"
+      className={`query-console ${!prepared && !attached && !agentPreparing ? "query-console-unprepared" : ""} ${attached ? "query-console-attached" : ""}`}
       onToggle={(event) => {
         if (!forceOpen) setOpen(event.currentTarget.open);
       }}
       open={open || forceOpen}
     >
       <summary>
-        <span>Investigation query</span>
+        <span>Investigation skill</span>
         <strong>
           {queryStatusLabel(
             activity,
@@ -128,10 +127,10 @@ export function QueryConsole({
       <div className="query-console-body">
         <header className="query-console-toolbar">
           <label>
-            <span>Query</span>
+            <span>Approved skill</span>
             <select
-              aria-label="Available investigations"
-              disabled={running || copilotPreparing}
+              aria-label="Available investigation skills"
+              disabled={running || agentPreparing}
               onChange={(event) => onChooseQuery(event.target.value)}
               value={query.id}
             >
@@ -163,12 +162,10 @@ export function QueryConsole({
           <div className="query-console-execution-summary">
             <div>
               <span>Query result attached</span>
-              <strong>
-                {query.matchedRecordCount} matched · {query.returnedRecordCount}{" "}
-                returned
-              </strong>
+              <strong>{query.title}</strong>
               <small>
-                {searched.toLocaleString("en-US")} records searched ·{" "}
+                {query.matchedRecordCount} matched · {query.returnedRecordCount}{" "}
+                returned · {searched.toLocaleString("en-US")} records searched ·{" "}
                 {query.sourceScopes
                   .map((source) => source.sourceLabel)
                   .join(" · ")}
@@ -186,28 +183,10 @@ export function QueryConsole({
 
         {!attached || showQueryText ? (
           <>
-            <div className="query-console-editor">
-              <div aria-hidden="true" className="query-console-gutter">
-                {draft.split("\n").map((_, index) => (
-                  <span key={index}>{index + 1}</span>
-                ))}
-              </div>
-              <textarea
-                aria-describedby="query-console-boundary"
-                aria-label="KQL investigation query"
-                disabled={attached || running || copilotPreparing || !prepared}
-                maxLength={1024}
-                onChange={(event) => setDraftInput(event.target.value)}
-                placeholder="Prepare this evidence query to load approved KQL."
-                spellCheck={false}
-                value={draft}
-              />
-            </div>
-
             <footer className="query-console-footer">
               <div>
                 <strong id="query-console-boundary">
-                  Case-approved sources only
+                  Approved sources and query contract
                 </strong>
                 <span>
                   {query.sourceScopes
@@ -232,7 +211,7 @@ export function QueryConsole({
                 {!prepared && !attached ? (
                   <button
                     className="query-console-prepare"
-                    disabled={busy || copilotPreparing}
+                    disabled={busy || agentPreparing}
                     onClick={() =>
                       void onPrepare({
                         expectedRevision: state.revision,
@@ -241,15 +220,13 @@ export function QueryConsole({
                     }
                     type="button"
                   >
-                    {copilotPreparing
-                      ? "Copilot preparing"
-                      : "Load approved query"}
+                    {agentPreparing ? "Agent preparing" : "Load approved query"}
                   </button>
                 ) : (
                   <button
                     className="query-console-run"
                     disabled={
-                      busy || attached || running || copilotPreparing || !valid
+                      busy || attached || running || agentPreparing || !valid
                     }
                     onClick={() =>
                       void onExecute({
@@ -264,20 +241,38 @@ export function QueryConsole({
                       ? "Result attached"
                       : running
                         ? "Searching records"
-                        : "Run query"}
+                        : "Run approved query"}
                   </button>
                 )}
               </div>
             </footer>
 
-            {prepared && !valid && !copilotPreparing ? (
+            <div className="query-console-editor">
+              <div aria-hidden="true" className="query-console-gutter">
+                {draft.split("\n").map((_, index) => (
+                  <span key={index}>{index + 1}</span>
+                ))}
+              </div>
+              <textarea
+                aria-describedby="query-console-boundary"
+                aria-label="KQL investigation query"
+                disabled={attached || running || agentPreparing || !prepared}
+                maxLength={1024}
+                onChange={(event) => setDraftInput(event.target.value)}
+                placeholder="Load this approved skill to review its exact KQL."
+                spellCheck={false}
+                value={draft}
+              />
+            </div>
+
+            {prepared && !valid && !agentPreparing ? (
               <p className="query-console-error" role="status">
-                This text does not match the selected case query. Restore the
-                approved query before execution.
+                This text does not match the selected investigation skill.
+                Restore the approved KQL before execution.
               </p>
             ) : null}
 
-            {(running || copilotPreparing) && activity.status === "running" ? (
+            {(running || agentPreparing) && activity.status === "running" ? (
               <div className="query-console-progress" role="status">
                 <span
                   style={{ width: `${Math.round(activity.progress * 100)}%` }}
@@ -393,22 +388,22 @@ function queryStatusLabel(
       return "Reload required";
     }
     return preparedQuery.actor === "agent"
-      ? "Prepared by copilot"
+      ? "Prepared by agent"
       : "Prepared by analyst";
   }
   if (activity.status === "idle" || activity.queryId !== queryId)
     return "Ready";
   if (activity.toolName === "prepare_investigation_query") {
-    if (activity.status === "running") return "Copilot composing";
+    if (activity.status === "running") return "Agent preparing";
     if (activity.status === "completed") {
       return activity.actor === "agent"
-        ? "Prepared by copilot"
+        ? "Prepared by agent"
         : "Prepared by analyst";
     }
   }
   if (activity.toolName === "run_investigation_query") {
     if (activity.status === "running") {
-      return activity.actor === "agent" ? "Copilot searching" : "Searching";
+      return activity.actor === "agent" ? "Agent searching" : "Searching";
     }
     if (activity.status === "rejected") return "Query rejected";
   }
@@ -442,11 +437,15 @@ function queryTimeRange(query: InvestigationQueryDefinition): string {
   );
   const start = new Date(Math.min(...starts));
   const end = new Date(Math.max(...ends));
-  const sameDay =
-    start.toISOString().slice(0, 10) === end.toISOString().slice(0, 10);
+  const startIso = start.toISOString();
+  const endIso = end.toISOString();
+  const sameDay = startIso.slice(0, 10) === endIso.slice(0, 10);
+  const sameYear = startIso.slice(0, 4) === endIso.slice(0, 4);
   return sameDay
-    ? `${start.toISOString().slice(0, 10)} ${start.toISOString().slice(11, 16)}–${end.toISOString().slice(11, 16)}Z`
-    : `${formatQueryBoundary(start)}–${formatQueryBoundary(end)}`;
+    ? `${startIso.slice(0, 10)} ${startIso.slice(11, 16)}–${endIso.slice(11, 16)}Z`
+    : sameYear
+      ? `${startIso.slice(0, 10)} ${startIso.slice(11, 16)}–${endIso.slice(5, 10)} ${endIso.slice(11, 16)}Z`
+      : `${formatQueryBoundary(start)}–${formatQueryBoundary(end)}`;
 }
 
 function formatQueryBoundary(value: Date): string {

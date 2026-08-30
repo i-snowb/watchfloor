@@ -189,7 +189,7 @@ export function ReferenceCaseWorkbench({
         setActivity({
           status: "running",
           actor,
-          headline: "Running copilot evidence plan",
+          headline: "Running agent evidence plan",
           detail: `${formatCount(dossier.queries.reduce((sum, query) => sum + recordsInScope(query), 0))} records`,
         });
         for (const query of dossier.queries) {
@@ -313,9 +313,7 @@ export function ReferenceCaseWorkbench({
               className={`reference-agent-now reference-agent-${activity.status}`}
             >
               <span>
-                {activity.actor === "agent"
-                  ? "Copilot now"
-                  : "Analyst directed"}
+                {activity.actor === "agent" ? "Agent now" : "Analyst directed"}
               </span>
               <strong>{activity.headline}</strong>
               <small>{activity.detail}</small>
@@ -567,7 +565,7 @@ function ReferenceGraph({
             <span>{entityKindLabel(entity.kind)}</span>
             <strong>{entity.label}</strong>
             <small>{entity.summary}</small>
-            {flagged ? <em>Copilot result</em> : null}
+            {flagged ? <em>Agent result</em> : null}
           </button>
         );
       })}
@@ -643,7 +641,7 @@ function ReferenceInspector({
       ) : null}
       {query ? (
         <section className="reference-inspector-action">
-          <span>Copilot capability</span>
+          <span>Agent capability</span>
           <code>{query.capability}</code>
           <strong>{attached ? query.dominantMetric : query.question}</strong>
           <ReferenceQuerySource query={query} />
@@ -745,7 +743,7 @@ function ReferenceCapabilityDrawer({
         <header className="drawer-header">
           <div>
             <p className="eyebrow">Evidence brief tools</p>
-            <h2>Copilot capabilities</h2>
+            <h2>Agent capabilities</h2>
           </div>
           <button
             aria-label="Close capabilities"
@@ -768,9 +766,9 @@ function ReferenceCapabilityDrawer({
             <small>Canonical KQL and returned source records</small>
           </article>
           <article>
-            <span>Can lead</span>
-            <strong>Guided investigation</strong>
-            <small>Ordered findings in this brief</small>
+            <span>Can sequence</span>
+            <strong>Evidence-driven pivots</strong>
+            <small>Ordered findings from released case evidence</small>
           </article>
           <article className="capability-matrix-analyst">
             <span>Analyst only</span>
@@ -860,7 +858,6 @@ function createReferenceToolDefinitions(
     signal?: AbortSignal,
   ) => Promise<unknown>,
 ): WebMcpToolDefinition[] {
-  const requestId = { type: "string", minLength: 8, maxLength: 80 };
   const create = (
     name: ReferenceToolName,
     title: string,
@@ -874,8 +871,8 @@ function createReferenceToolDefinitions(
     description,
     inputSchema: {
       type: "object",
-      properties: { requestId, ...properties },
-      required: ["requestId", ...required],
+      properties,
+      required,
       additionalProperties: false,
     },
     annotations: { readOnlyHint: readOnly, untrustedContentHint: false },

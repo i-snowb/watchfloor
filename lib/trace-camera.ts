@@ -18,7 +18,8 @@ export interface TraceBounds extends TracePoint, TraceSize {}
 
 export const TRACE_MIN_SCALE = 0.58;
 export const TRACE_MAX_SCALE = 1.7;
-export const TRACE_CAMERA_MARGIN = 48;
+export const TRACE_CAMERA_MARGIN = 32;
+export const TRACE_CASE_READABLE_SCALE = 0.8;
 
 export function clampTraceScale(scale: number): number {
   return Math.min(TRACE_MAX_SCALE, Math.max(TRACE_MIN_SCALE, scale));

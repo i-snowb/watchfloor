@@ -4,6 +4,7 @@ import {
   clampTraceCamera,
   fitTraceCamera,
   fitTraceCameraToBounds,
+  TRACE_CASE_READABLE_SCALE,
   zoomTraceCameraAt,
 } from "../lib/trace-camera";
 
@@ -14,7 +15,7 @@ test("trace camera gives a small world a bounded physical working range", () => 
       { width: 1000, height: 700 },
       { width: 600, height: 400 },
     ),
-    { x: 152, y: 198, scale: 1 },
+    { x: 168, y: 182, scale: 1 },
   );
 });
 
@@ -24,7 +25,7 @@ test("trace camera clamps a large world to a bounded working margin", () => {
     { width: 900, height: 600 },
     { width: 1200, height: 800 },
   );
-  assert.deepEqual(camera, { x: -348, y: 48, scale: 1 });
+  assert.deepEqual(camera, { x: -332, y: 32, scale: 1 });
 });
 
 test("pointer-centered zoom preserves the world point under the pointer", () => {
@@ -65,14 +66,14 @@ test("pointer-centered zoom respects a case readability floor", () => {
 test("fit camera returns a bounded deterministic view", () => {
   assert.deepEqual(
     fitTraceCamera({ width: 900, height: 600 }, { width: 1200, height: 800 }),
-    { x: 72, y: 48, scale: 0.63 },
+    { x: 48, y: 32, scale: 0.67 },
   );
 });
 
 test("fit camera keeps a short evidence field near the top working margin", () => {
   assert.deepEqual(
     fitTraceCamera({ width: 1000, height: 700 }, { width: 600, height: 400 }),
-    { x: 200, y: 102, scale: 1 },
+    { x: 200, y: 118, scale: 1 },
   );
 });
 
@@ -90,7 +91,7 @@ test("active evidence fit favors readable scale over unused world space", () => 
         .scale,
   );
   assert.equal(camera.x, -350);
-  assert.equal(camera.y, -132);
+  assert.equal(camera.y, -148);
 });
 
 test("active evidence fit uses natural scale when the evidence fits", () => {
@@ -100,8 +101,46 @@ test("active evidence fit uses natural scale when the evidence fits", () => {
       { width: 1600, height: 980 },
       { x: 320, y: 220, width: 840, height: 520 },
     ),
-    { x: -140, y: -172, scale: 1 },
+    { x: -140, y: -188, scale: 1 },
   );
+});
+
+test("case fit keeps room for graph expansion at the 1280 recording viewport", () => {
+  const bounds = { x: 60, y: 10, width: 1240, height: 392 };
+  const camera = fitTraceCameraToBounds(
+    { width: 1020, height: 333 },
+    { width: 1320, height: 720 },
+    bounds,
+    undefined,
+    TRACE_CASE_READABLE_SCALE,
+  );
+
+  assert.equal(camera.scale, TRACE_CASE_READABLE_SCALE);
+  assert.equal(camera.x, -34);
+  assert.equal(camera.y, 24);
+  assert.ok(camera.x + bounds.x * camera.scale > 0);
+  assert.ok(camera.x + (bounds.x + bounds.width) * camera.scale < 1020);
+  assert.ok(camera.y + bounds.y * camera.scale >= 32);
+  assert.ok(camera.y + (bounds.y + bounds.height) * camera.scale <= 346);
+});
+
+test("case fit holds a readable scale with bounded panning at 1024", () => {
+  const bounds = { x: 60, y: 10, width: 1240, height: 392 };
+  const camera = fitTraceCameraToBounds(
+    { width: 764, height: 381 },
+    { width: 1320, height: 720 },
+    bounds,
+    undefined,
+    TRACE_CASE_READABLE_SCALE,
+  );
+
+  assert.equal(camera.x, -162);
+  assert.equal(camera.y, 24);
+  assert.equal(camera.scale, TRACE_CASE_READABLE_SCALE);
+  assert.ok(camera.x + bounds.x * camera.scale < 0);
+  assert.ok(camera.x + (bounds.x + bounds.width) * camera.scale > 764);
+  assert.ok(camera.y + bounds.y * camera.scale >= 32);
+  assert.ok(camera.y + (bounds.y + bounds.height) * camera.scale < 346);
 });
 
 test("active evidence fit falls back for invalid bounds", () => {

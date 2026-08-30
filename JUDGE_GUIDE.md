@@ -1,18 +1,20 @@
-# TRACE//LAB Judge Guide
+# TRACE//LAB Optional Recording Guide
+
+This guide is for optional competition recording and hands-on evaluation. It is not part of the default TRACE//LAB product workflow or workspace framing.
 
 ## Fast hands-on path
 
 This path takes about 90 seconds and demonstrates the WebMCP difference without completing the full response lifecycle.
 
 1. Open the incident ledger and select **Execution with early lateral movement**.
-2. Read the compact Tier 1 handoff. Confirm that no response action has been taken.
-3. Ask the copilot to call `get_case_context`.
+2. Open the compact escalation brief. Confirm that Tier 1 correlated evidence but withheld response.
+3. Ask the connected agent to call `get_case_context` and `list_investigation_skills`.
 4. Ask it to prepare `QRY-ENDPOINT-FILE-01`. The shared query workspace must show the canonical KQL before execution.
 5. Ask it to run the exact returned `queryText`.
 6. Open the returned records. Confirm the user-writable file creation, unsigned process start, process-bound TLS connections, and exact SHA-256.
 7. Ask it to prepare and run `QRY-ENDPOINT-HASH-10`.
 8. Confirm the archived intelligence verdict, high confidence, zero enterprise prevalence, and the explicit statement that no external provider was contacted.
-9. Select the result on the graph and confirm the activity timeline records the copilot operation and revision.
+9. Select the result on the graph and confirm the activity timeline records the agent operation and revision.
 
 Expected result: the agent operates the same visible workbench as the analyst. It does not use hidden browser automation, and it cannot cross an analyst approval gate.
 
@@ -22,36 +24,36 @@ Build the recording around these three hero moments. Keep the intervening
 receipts short and visible; they establish depth but should not compete with
 the proof of shared human-agent work.
 
-1. **Shared evidence, not click automation:** the copilot prepares visible KQL,
+1. **Shared evidence, not click automation:** the connected agent prepares visible KQL,
    runs the exact prepared query, and attaches inspectable records to the same
    graph and timeline the analyst sees.
-2. **Human authority with bounded agent progress:** the copilot adds only a
+2. **Human authority with bounded agent progress:** the connected agent adds only a
    provenance-backed discovery after its required evidence exists, then stops
    for the analyst's malicious disposition.
-3. **A defensible counterfactual:** the copilot models the possible route and
+3. **A defensible counterfactual:** the connected agent models the possible route and
    simulates an allowlisted control; the analyst alone authorizes the recorded
-   demo response, visibly severing the modeled path without external execution.
+   recorded response, visibly severing the modeled path without external execution.
 
 The full response and recovery lifecycle remains available for hands-on review.
 For the video, use the report final frame to show that the evidence, limits,
 response provenance, and analyst closure remain connected.
 
-| Time      | Screen action                                                                                     | Point to establish                                                                                                              |
-| --------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| 0:00–0:08 | Show the five-case incident ledger and open the critical endpoint case.                           | Tier 1 escalated a cross-domain chain; this is not a raw alert feed.                                                            |
-| 0:08–0:18 | Show the Tier 1 handoff and select `invoice-sync-helper.exe`.                                     | Tier 1 supplied observations and evidence gaps but withheld response.                                                           |
-| 0:18–0:38 | Copilot calls `get_case_context`, prepares `QRY-ENDPOINT-FILE-01`, and runs the visible KQL.      | WebMCP exposes a semantic investigation operation, not a click macro.                                                           |
-| 0:38–0:48 | Open raw records and focus one record on the graph.                                               | The result is auditable source data, not only an AI summary.                                                                    |
-| 0:48–1:05 | Copilot prepares and runs `QRY-ENDPOINT-HASH-10`.                                                 | The exact hash receives an archived intelligence verdict without an external request.                                           |
-| 1:05–1:20 | Cut a rapid receipt montage of the host, identity, and destination checks attaching to the graph. | Control readiness and scope evidence complete the analyst decision packet.                                                      |
-| 1:20–1:33 | Copilot attaches the ready `STREAM-LAT-01` discovery, then runs `QRY-ENDPOINT-APP-05`.            | WebMCP adds cited entities and observations; APP-SRV-021 blocked remote service start before payload execution.                 |
-| 1:33–1:41 | Analyst records **Confirm malicious · contain**.                                                  | The disposition remains a human decision.                                                                                       |
-| 1:41–1:51 | Copilot calculates exposure and simulates the allowlisted control.                                | Observed activity and modeled reach remain visibly different.                                                                   |
-| 1:51–2:08 | Copilot prepares the containment package. Analyst reviews and approves it.                        | Forensic triage, endpoint isolation, exact-IP blocking, and identity disablement are human-gated; no external control executes. |
-| 2:08–2:22 | Copilot attaches the ready recovery discovery, then attaches credential and workload results.     | The agent extends the shared case after containment without inventing a deployment.                                             |
-| 2:22–2:36 | Copilot prepares recovery. Analyst approves rotation and known-good redeploy records.             | Recovery is dependency-ordered and auditable.                                                                                   |
-| 2:36–2:52 | Copilot generates the evidence report.                                                            | Show findings, response provenance, evidence references, limitations, and residual risk.                                        |
-| 2:52–3:00 | Analyst writes a closure note, signs off, and returns to the ledger.                              | The note is persisted with the report; the copilot cannot approve its own work.                                                 |
+| Time      | Screen action                                                                                            | Point to establish                                                                                                              |
+| --------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 0:00–0:08 | Show the five-case incident ledger and open the critical endpoint case.                                  | Tier 1 escalated a cross-domain chain; this is not a raw alert feed.                                                            |
+| 0:08–0:18 | Open the escalation brief, close it, and select `invoice-sync-helper.exe`.                               | Tier 1 supplied observations and evidence gaps but withheld response.                                                           |
+| 0:18–0:38 | Agent calls `get_case_context`, lists skills, prepares `QRY-ENDPOINT-FILE-01`, and runs the visible KQL. | WebMCP exposes a semantic investigation operation, not a click macro.                                                           |
+| 0:38–0:48 | Open raw records and focus one record on the graph.                                                      | The result is auditable source data, not only an AI summary.                                                                    |
+| 0:48–1:05 | Agent prepares and runs `QRY-ENDPOINT-HASH-10`.                                                          | The exact hash receives an archived intelligence verdict without an external request.                                           |
+| 1:05–1:20 | Cut a rapid receipt montage of the host, identity, and destination checks attaching to the graph.        | Control readiness and scope evidence complete the analyst decision packet.                                                      |
+| 1:20–1:33 | Agent attaches the ready `STREAM-LAT-01` discovery, then runs `QRY-ENDPOINT-APP-05`.                     | WebMCP adds cited entities and observations; APP-SRV-021 blocked remote service start before payload execution.                 |
+| 1:33–1:41 | Analyst records **Confirm malicious · contain**.                                                         | The disposition remains a human decision.                                                                                       |
+| 1:41–1:51 | Agent calculates exposure and simulates the allowlisted control.                                         | Observed activity and modeled reach remain visibly different.                                                                   |
+| 1:51–2:08 | Agent prepares the containment package. Analyst reviews and approves it.                                 | Forensic triage, endpoint isolation, exact-IP blocking, and identity disablement are human-gated; no external control executes. |
+| 2:08–2:22 | Agent attaches the ready recovery discovery, then attaches credential and workload results.              | The agent extends the shared case after containment without inventing a deployment.                                             |
+| 2:22–2:36 | Agent prepares recovery. Analyst approves rotation and known-good redeploy records.                      | Recovery is dependency-ordered and auditable.                                                                                   |
+| 2:36–2:52 | Agent generates the evidence report.                                                                     | Show findings, response provenance, evidence references, limitations, and residual risk.                                        |
+| 2:52–3:00 | Analyst writes a closure note, signs off, and returns to the ledger.                                     | The note is persisted with the report; the agent cannot approve its own work.                                                   |
 
 Use this prompt at the start of the endpoint case:
 
@@ -85,11 +87,11 @@ Do not record or submit the build if any condition occurs:
 - Raw returned records are unavailable.
 - The exact SHA-256 differs between the entity, query, result, and report evidence.
 - A later discovery appears before its fixture-defined query and evidence prerequisites.
-- A copilot-added discovery is not backed by its fixture-defined query records.
+- An agent-added discovery is not backed by its fixture-defined query records.
 - APP-SRV-021 is described as compromised or executing a payload.
 - The workload is described as malicious or deployed through the exposed credential.
 - A simulated control appears approved before the analyst action.
-- The copilot can record a disposition, call the analyst-only replay release, authorize response, or approve the report.
+- The connected agent can record a disposition, call the analyst-only replay release, authorize response, or approve the report.
 - Any receipt implies that an external endpoint, firewall, directory, secret store, deployment system, sandbox, or intelligence provider was contacted.
 - The hosted case cannot complete twice from revision 1 without stale state, clipped controls, duplicate receipts, or lost tools.
 

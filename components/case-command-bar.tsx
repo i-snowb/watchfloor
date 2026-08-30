@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getDerivedNextStep,
   getInvestigationPlans,
@@ -97,17 +97,25 @@ export function CaseCommandBar({
   );
   const investigationOpen =
     state.decision.status === "pending" && !decisionReady;
-  const nextTier1Step = fixture.tier1Escalation.recommendedSteps.find(
-    (step) =>
-      step.completionArtifactId === null ||
-      !state.attachedEnrichmentIds.includes(step.completionArtifactId),
-  );
-  const nextTier1Entity = nextTier1Step
-    ? getAllEntities(fixture).find(
-        (entity) => entity.id === nextTier1Step.entityId,
-      )
-    : null;
   const [preferredQueryId, setPreferredQueryId] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState(false);
+  const previousRevision = useRef(state.revision);
+  const previousSelection = useRef(`${selection.kind}:${selection.id}`);
+
+  useEffect(() => {
+    const selectionKey = `${selection.kind}:${selection.id}`;
+    if (previousSelection.current !== selectionKey) {
+      setDismissed(true);
+      previousSelection.current = selectionKey;
+    }
+  }, [selection.id, selection.kind]);
+
+  useEffect(() => {
+    if (previousRevision.current !== state.revision) {
+      setDismissed(false);
+      previousRevision.current = state.revision;
+    }
+  }, [state.revision]);
   const activityQuery =
     investigationActivity.status !== "idle"
       ? (selectedQueries.find(
@@ -169,31 +177,28 @@ export function CaseCommandBar({
 
   if (investigationOpen) {
     return (
-      <button
-        className="query-console-cue"
-        disabled={!nextTier1Step}
-        onClick={() => {
-          if (nextTier1Step) {
-            onSelect({ kind: "entity", id: nextTier1Step.entityId });
-          }
-        }}
-        title={fixture.tier1Escalation.escalationReason}
-        type="button"
-      >
-        <span>Tier 1 handoff</span>
-        <strong>
-          {nextTier1Step
-            ? `${nextTier1Step.label}${nextTier1Entity ? ` · ${nextTier1Entity.label}` : ""}`
-            : "Review escalation evidence"}
-        </strong>
-        <small>
-          {fixture.tier1Escalation.observations
-            .slice(0, 2)
-            .map((observation) => observation.title)
-            .join(" · ")}
-        </small>
-        <em>Response locked</em>
-      </button>
+      <details className="escalation-brief">
+        <summary>
+          <span>Escalation brief</span>
+          <strong>{fixture.tier1Escalation.escalationReason}</strong>
+          <small>
+            {fixture.tier1Escalation.observations.length} observations ·
+            response withheld
+          </small>
+        </summary>
+        <div>
+          <p>
+            {fixture.tier1Escalation.evidenceIds.length} evidence records
+            correlated at {fixture.tier1Escalation.confidence} confidence.
+          </p>
+          <ul>
+            {fixture.tier1Escalation.observations.map((observation) => (
+              <li key={observation.id}>{observation.title}</li>
+            ))}
+          </ul>
+          <small>Select an entity to inspect its evidence and actions.</small>
+        </div>
+      </details>
     );
   }
 
@@ -206,11 +211,13 @@ export function CaseCommandBar({
         type="button"
       >
         <span>Report ready</span>
-        <strong>Review the Copilot draft</strong>
+        <strong>Review the evidence report</strong>
         <em>Open report</em>
       </button>
     );
   }
+
+  if (dismissed) return null;
 
   return (
     <section
@@ -261,6 +268,15 @@ export function CaseCommandBar({
             targetEntityId={nextStep.targetEntityId}
           />
         </div>
+        <button
+          aria-label="Dismiss current operation"
+          className="case-command-dismiss"
+          onClick={() => setDismissed(true)}
+          title="Dismiss"
+          type="button"
+        >
+          ×
+        </button>
       </div>
 
       <details className="case-command-context">
@@ -518,11 +534,9 @@ function CommandControls({
     ) {
       return (
         <div className="case-command-agent-handoff">
-          <span>Verified discovery</span>
-          <strong>Copilot can add {nextStage.title.toLowerCase()}</strong>
-          <small>
-            It attaches only after the required evidence is available.
-          </small>
+          <span>Evidence ready</span>
+          <strong>Discovery available: {nextStage.title}</strong>
+          <small>Supporting evidence is attached to this case.</small>
         </div>
       );
     }
@@ -614,7 +628,7 @@ function CommandControls({
           >
             Draft evidence report
           </button>
-          <code>Copilot · generate_case_report</code>
+          <code>Automation · generate_case_report</code>
         </div>
       );
     }
@@ -747,7 +761,7 @@ function commandTitle(
   const nextStage =
     fixture.stream.stages[state.releasedStreamStageIds.length] ?? null;
   if (!recommendedTool && nextStage) {
-    return `Copilot can add ${nextStage.title.toLowerCase()} after its required evidence is attached.`;
+    return `Discovery available: ${nextStage.title}.`;
   }
   if (recommendedTool === "calculate_reachability") {
     const source = getAllEntities(fixture).find(
@@ -764,12 +778,12 @@ function commandTitle(
   if (recommendedTool === "attach_discovery_stage") {
     return nextStage
       ? `Add verified discovery: ${nextStage.title}`
-      : "Add the verified discovery to the shared case.";
+      : "Add the verified discovery to the case.";
   }
   if (recommendedTool === "request_next_observation") {
     return nextStage
-      ? `Copilot can add ${nextStage.title.toLowerCase()} after its required evidence is attached.`
-      : "Copilot can add verified discoveries after the required evidence is attached.";
+      ? `Discovery available: ${nextStage.title}.`
+      : "Verified discoveries are available when supporting evidence is attached.";
   }
   if (recommendedTool === "prepare_response_bundle") {
     return derivedObjective;
@@ -822,10 +836,10 @@ function commandDetail(
     return `${requiredContextCount}/${fixture.decision.requiresEnrichmentIds.length} required context records attached.`;
   }
   if (commandOwner === "evidence" && nextStage && !activeAction) {
-    return "Copilot adds discoveries only when the supporting evidence is attached to the case.";
+    return "Supporting evidence is attached and the discovery is ready to add to the case.";
   }
   if (agentStatus.state === "available") {
-    return "Copilot ready. It can run the next case operation through WebMCP.";
+    return "Investigation automation is available for the current case scope.";
   }
   return "The same operation is available in the evidence inspector.";
 }
@@ -900,7 +914,7 @@ function commandOwnerLabel(owner: CommandOwner): string {
   if (owner === "analyst") return "Analyst approval required";
   if (owner === "evidence") return "Telemetry update";
   if (owner === "complete") return "Case complete";
-  return "Copilot operation";
+  return "Investigation automation";
 }
 
 function commandSequenceLabel(fixture: CaseFixture, state: CaseState): string {
@@ -938,7 +952,7 @@ function responsePlanStatus(
 ): string {
   if (status === "authorized_in_demo") return "Approved · recorded only";
   if (status === "simulated") return "Needs approval";
-  if (status === "proposed") return "Copilot proposed";
+  if (status === "proposed") return "Prepared for review";
   if (status === "available") {
     if (!responseModelReady && contextReady && dependenciesReady) {
       return "Queued after model";

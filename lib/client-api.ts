@@ -22,15 +22,22 @@ export async function executeTool(
   requestId = `ui-${crypto.randomUUID()}`,
   signal?: AbortSignal,
 ): Promise<ToolApiResponse> {
-  return requestJson<ToolApiResponse>(
-    `/api/cases/${encodeURIComponent(caseId)}/operations`,
-    {
-      method: "POST",
-      body: JSON.stringify({ requestId, toolName, reportedSurface, input }),
-      headers: { "content-type": "application/json" },
-      ...(signal ? { signal } : {}),
-    },
-  );
+  const url = `/api/cases/${encodeURIComponent(caseId)}/operations`;
+  const init: RequestInit = {
+    method: "POST",
+    body: JSON.stringify({ requestId, toolName, reportedSurface, input }),
+    headers: { "content-type": "application/json" },
+    ...(signal ? { signal } : {}),
+  };
+
+  try {
+    return await requestJson<ToolApiResponse>(url, init);
+  } catch (error) {
+    if (signal?.aborted || isAbortError(error) || error instanceof HttpError) {
+      throw error;
+    }
+    return requestJson<ToolApiResponse>(url, init);
+  }
 }
 
 export async function resetCase(caseId: string): Promise<CaseApiResponse> {
@@ -50,9 +57,15 @@ async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
   if (!response.ok) {
     const message =
       readErrorMessage(data) ?? `Request failed with ${response.status}.`;
-    throw new Error(message);
+    throw new HttpError(message);
   }
   return data as T;
+}
+
+class HttpError extends Error {}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }
 
 function readErrorMessage(value: unknown): string | null {

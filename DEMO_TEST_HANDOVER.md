@@ -1,18 +1,18 @@
-# TRACE//LAB Demo Test Handover
+# TRACE//LAB Endpoint Test Handover
 
 ## Purpose
 
-This is the execution contract for the primary competition demonstration and its final hardened test. The target is `case-endpoint-0448` on the hosted ChatGPT Site. The canonical path starts at revision 1, uses native WebMCP for every copilot operation, stops at analyst-only gates, and closes at revision 28 when no optional forensic queries are added.
+This is the execution contract for the primary endpoint investigation and its hardened test. The target is `case-endpoint-0448` on the hosted ChatGPT Site. The canonical path starts at revision 1, uses native WebMCP for every connected-agent operation, stops at analyst-only gates, and closes at revision 28 when no optional forensic queries are added.
 
-Use [JUDGE_GUIDE.md](./JUDGE_GUIDE.md) for the short filming schedule. Use this document to rehearse, diagnose failures, and prove the video path is reproducible.
+Use this document to rehearse, diagnose failures, and prove the endpoint path is reproducible. Optional recording guidance is in [JUDGE_GUIDE.md](./JUDGE_GUIDE.md).
 
-## What the demonstration must prove
+## What the investigation must prove
 
 1. The page exposes security semantics through WebMCP, not browser click targets.
-2. The copilot works in the analyst's visible query editor, graph, inspector, and timeline.
-3. Copilot query results add auditable records, findings, entities, relationships, and incident stages to the shared case.
+2. The connected agent works in the analyst's visible query editor, graph, inspector, and timeline.
+3. Connected-agent query results add auditable records, findings, entities, relationships, and incident stages to the shared case.
 4. Observed activity, prevented activity, modeled exposure, simulated controls, and analyst-approved records remain distinct.
-5. The copilot can move quickly, but it cannot make the malicious disposition, execute the analyst replay control, authorize response, or approve its own report.
+5. The connected agent can move quickly, but it cannot make the malicious disposition, execute the analyst replay control, authorize response, or approve its own report.
 6. Every state change has a receipt and a revision. No external security system is contacted.
 
 ## Stable target
@@ -20,18 +20,19 @@ Use [JUDGE_GUIDE.md](./JUDGE_GUIDE.md) for the short filming schedule. Use this 
 - Runtime baseline: commit `5061911`, ChatGPT Sites version 16.
 - Hosted route: `/cases/case-endpoint-0448`.
 - Initial state: revision 1, no attached query results, no discovery stage, pending decision, no impact model, no response approval, and no report.
-- Native route surface: 26 registered endpoint tools.
+- Operation layer: 35 bounded case operations.
+- Native route surface: 27 registered endpoint tools.
 - Current deployment access: owner-only through ChatGPT sign-in. Judge access is a separate submission gate.
 
 Do not test against an old open tab without resetting it. The application uses browser-session state, so a successful API smoke run does not reset the presentation browser.
 
-## Copilot operating rules
+## Connected-agent operating rules
 
-- Start with `get_case_context` and read `revision`, available queries, discoveries, response packages, and `collaborationHandoff`.
+- Start with `get_case_context` and `list_investigation_skills`. Read `revision`, available skills, discoveries, response packages, and `collaborationHandoff`.
 - Send one revision-changing tool call at a time.
 - Use the current `expectedRevision`. After success, use the returned revision for the next write.
 - Do not add a `requestId` to WebMCP input. The page creates the operation envelope and receipt.
-- Every query uses `prepare_investigation_query` followed by `run_investigation_query` with the exact returned `queryText`.
+- Every approved skill uses `prepare_investigation_query` followed by `run_investigation_query` with the exact returned `queryText`. A skill ID is the case query ID and maps to one immutable bounded query contract.
 - Wait until the canonical KQL is visible before running it.
 - Use `attach_discovery_stage` only when `get_case_context` marks the next stage ready.
 - Stop when `collaborationHandoff.nextOwner` is `analyst`.
@@ -46,7 +47,7 @@ Complete this before each full rehearsal:
 3. Confirm five Tier 1 escalations and open **Execution with early lateral movement**.
 4. Reset the case. Reload once.
 5. Confirm revision 1, zero operation receipts, pending disposition, and no prepared query.
-6. Confirm **26/26** endpoint tools register. Do not continue if the browser reports that WebMCP is unavailable.
+6. Confirm **27/27** endpoint tools register. Do not continue if the browser reports that WebMCP is unavailable.
 7. Confirm **Observed activity** is the default view and **Potential impact** states that reachability is required.
 8. Confirm no entity, finding, action, or report from a previous run remains.
 
@@ -60,25 +61,25 @@ This path omits optional static-analysis and sandbox queries. Read-only calls do
 
 | Result revision | Actor   | Operation                                                            |
 | --------------- | ------- | -------------------------------------------------------------------- |
-| r1              | Copilot | `get_case_context`                                                   |
-| r2 / r3         | Copilot | prepare / run `QRY-ENDPOINT-FILE-01`                                 |
-| r4 / r5         | Copilot | prepare / run `QRY-ENDPOINT-HASH-10`                                 |
-| r6 / r7         | Copilot | prepare / run `QRY-ENDPOINT-HOST-02`                                 |
-| r8 / r9         | Copilot | prepare / run `QRY-ENDPOINT-IDENTITY-03`                             |
-| r10 / r11       | Copilot | prepare / run `QRY-ENDPOINT-EGRESS-04`                               |
-| r12             | Copilot | attach `STREAM-LAT-01` through `attach_discovery_stage`              |
-| r13 / r14       | Copilot | prepare / run `QRY-ENDPOINT-APP-05`                                  |
+| r1              | Agent   | `get_case_context` and `list_investigation_skills`                   |
+| r2 / r3         | Agent   | prepare / run `QRY-ENDPOINT-FILE-01`                                 |
+| r4 / r5         | Agent   | prepare / run `QRY-ENDPOINT-HASH-10`                                 |
+| r6 / r7         | Agent   | prepare / run `QRY-ENDPOINT-HOST-02`                                 |
+| r8 / r9         | Agent   | prepare / run `QRY-ENDPOINT-IDENTITY-03`                             |
+| r10 / r11       | Agent   | prepare / run `QRY-ENDPOINT-EGRESS-04`                               |
+| r12             | Agent   | attach `STREAM-LAT-01` through `attach_discovery_stage`              |
+| r13 / r14       | Agent   | prepare / run `QRY-ENDPOINT-APP-05`                                  |
 | r15             | Analyst | record `confirmed_malicious`                                         |
-| r16             | Copilot | `calculate_reachability`                                             |
-| r17             | Copilot | `simulate_control`                                                   |
-| r18             | Copilot | prepare `containment` package                                        |
+| r16             | Agent   | `calculate_reachability`                                             |
+| r17             | Agent   | `simulate_control`                                                   |
+| r18             | Agent   | prepare `containment` package                                        |
 | r19             | Analyst | authorize `containment` package                                      |
-| r20             | Copilot | attach `STREAM-LAT-02` through `attach_discovery_stage`              |
-| r21 / r22       | Copilot | prepare / run `QRY-ENDPOINT-SECRET-06`                               |
-| r23 / r24       | Copilot | prepare / run `QRY-ENDPOINT-WORKLOAD-07`                             |
-| r25             | Copilot | prepare `recovery` package                                           |
+| r20             | Agent   | attach `STREAM-LAT-02` through `attach_discovery_stage`              |
+| r21 / r22       | Agent   | prepare / run `QRY-ENDPOINT-SECRET-06`                               |
+| r23 / r24       | Agent   | prepare / run `QRY-ENDPOINT-WORKLOAD-07`                             |
+| r25             | Agent   | prepare `recovery` package                                           |
 | r26             | Analyst | authorize `recovery` package                                         |
-| r27             | Copilot | `generate_case_report`                                               |
+| r27             | Agent   | `generate_case_report`                                               |
 | r28             | Analyst | approve `REPORT-ENDPOINT-0448` with a persisted analyst closure note |
 
 Optional `QRY-ENDPOINT-STATIC-08` and `QRY-ENDPOINT-SANDBOX-09` add two revisions each. If an optional query or the manual replay path is used, verify the same state transitions instead of requiring the exact final revision.
@@ -87,7 +88,7 @@ Optional `QRY-ENDPOINT-STATIC-08` and `QRY-ENDPOINT-SANDBOX-09` add two revision
 
 ### 1. Establish shared context
 
-Copilot:
+Connected agent:
 
 ```json
 {}
@@ -97,13 +98,13 @@ Tool: `get_case_context`
 
 Visible proof:
 
-- The Tier 1 handoff identifies unsigned execution, repeated destination activity, service-identity use, and withheld response actions.
+- The optional escalation brief identifies unsigned execution, repeated destination activity, service-identity use, and withheld response actions.
 - The graph distinguishes file, endpoint, network indicator, identity, application host, secret, and workload entities.
 - No response is approved and no downstream workload is described as compromised.
 
 ### 2. Run the first visible investigation query
 
-Copilot prepares:
+Connected agent prepares:
 
 ```json
 {
@@ -112,7 +113,7 @@ Copilot prepares:
 }
 ```
 
-The page must show the canonical KQL before execution. The copilot then runs:
+The page must show the canonical KQL before execution. The connected agent then runs:
 
 ```json
 {
@@ -127,7 +128,7 @@ Visible proof:
 - Running state lasts long enough to read as a real bounded query.
 - Raw records show the file event, unsigned process execution, process-bound TLS activity, and exact SHA-256.
 - The result attaches to the file on the graph.
-- The investigation timeline adds a Copilot receipt with operation, outcome, and revision.
+- The investigation timeline adds an agent receipt with operation, outcome, and revision.
 - Preparation alone does not attach findings or reveal result counts.
 
 Use the same prepare/run protocol for every later query. Never copy KQL from documentation.
@@ -149,11 +150,11 @@ Required proof:
 - Network: the exact destination is absent from approved egress and prior peer history.
 - Every result exposes returned records and adds a graph packet and timeline receipt.
 
-### 4. Let the copilot expand the incident
+### 4. Let the connected agent expand the incident
 
 After the identity query is attached, `get_case_context` must report `STREAM-LAT-01` as ready.
 
-Copilot:
+Connected agent:
 
 ```json
 {
@@ -177,7 +178,7 @@ Then prepare and run `QRY-ENDPOINT-APP-05`. Its returned records must confirm he
 
 ### 5. Stop for the analyst disposition
 
-The copilot stops. The analyst selects **Confirm malicious · contain** and records a rationale of 8–240 characters.
+The connected agent stops. The analyst selects **Confirm malicious · contain** and records a rationale of 8–240 characters.
 
 Expected internal operation:
 
@@ -199,7 +200,7 @@ Visible proof:
 
 ### 6. Model the highest-consequence route
 
-Copilot:
+Connected agent:
 
 ```json
 {
@@ -233,7 +234,7 @@ Visible proof:
 
 ### 7. Prepare and authorize containment
 
-Copilot:
+Connected agent:
 
 ```json
 {
@@ -261,9 +262,9 @@ Visible proof:
 - Applicable modeled route segments become green and severed.
 - Every action states that no external action executed.
 
-### 8. Let the copilot add recovery scope
+### 8. Let the connected agent add recovery scope
 
-Copilot attaches the next ready discovery:
+Connected agent attaches the next ready discovery:
 
 ```json
 {
@@ -288,7 +289,7 @@ Visible proof:
 
 ### 9. Prepare and authorize recovery
 
-Copilot prepares:
+Connected agent prepares:
 
 ```json
 {
@@ -307,7 +308,7 @@ Visible proof:
 
 ### 10. Generate and approve the evidence report
 
-Copilot:
+Connected agent:
 
 ```json
 {
@@ -332,7 +333,7 @@ Required report proof:
 
 ## Analyst replay boundary test
 
-The analyst UI can release the next fixed signal through `release_next_synthetic_signal`. WebMCP cannot call that operation. This is an alternate replay path, not the canonical filmed path.
+The analyst UI can release the next fixed signal through `release_next_synthetic_signal`. WebMCP cannot call that operation. This is an alternate replay path, not the canonical endpoint path. Optional recording may use the same path.
 
 Test it once from a reset case:
 
@@ -380,8 +381,8 @@ Test at the recording viewport and at one narrower desktop viewport:
 
 The build is ready to record only after two consecutive signed-in hosted passes satisfy all of these conditions:
 
-1. The page registers 26/26 endpoint tools after reset and navigation.
-2. `get_case_context`, query preparation, query execution, discovery attachment, reachability, response preparation, and report generation all produce native Copilot callback receipts.
+1. The page registers 27/27 endpoint tools after reset and navigation.
+2. `get_case_context`, skill listing, query preparation, query execution, discovery attachment, reachability, response preparation, and report generation all produce native connected-agent callback receipts.
 3. The page visibly changes for every revision-changing WebMCP operation.
 4. The canonical endpoint path reaches closure without a stale revision, duplicate receipt, missing tool, clipped control, or hidden raw result.
 5. A reset returns to revision 1 with zero receipts and no prior findings.
@@ -415,6 +416,6 @@ Use these terms:
 - **blocked before payload execution**
 - **modeled reachable; not observed compromised**
 - **analyst-approved recorded response; no external execution**
-- **copilot-added verified discovery from cited query records**
+- **agent-added verified discovery from cited query records**
 
 Do not say that TRACE//LAB queried a live SIEM, detonated a sample, contacted OSINT, infected `APP-SRV-021`, observed a malicious `billing-api` deployment, or executed an endpoint, firewall, directory, secret-store, or deployment-system action.

@@ -1773,8 +1773,8 @@ export const endpointLateralScenario = {
         graphNodes: [
           {
             entityId: "endpoint:fin-reports-srv-010",
-            x: 820,
-            y: 470,
+            x: 1080,
+            y: 90,
             lane: "lateral",
           },
         ],

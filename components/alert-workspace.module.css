@@ -12,8 +12,7 @@
 }
 
 .featuredHeader,
-.featuredBody,
-.promptHeader {
+.featuredBody {
   align-items: start;
   display: flex;
   gap: 18px;
@@ -22,7 +21,6 @@
 
 .eyebrow,
 .toolCount,
-.promptHeader,
 .workflowBadge {
   font-family: var(--font-mono);
   letter-spacing: 0.08em;
@@ -61,16 +59,14 @@
   max-width: 570px;
 }
 
-.featuredSummary > p,
-.promptPanel > p {
+.featuredSummary > p {
   color: #b9bdb4;
   font-size: 13px;
   line-height: 1.55;
   margin: 0;
 }
 
-.openCase,
-.copyPrompt {
+.openCase {
   align-items: center;
   display: inline-flex;
   font-family: var(--font-mono);
@@ -100,33 +96,6 @@
   background: #ffffff;
 }
 
-.promptPanel {
-  background: rgba(7, 10, 8, 0.44);
-  border: 1px solid rgba(177, 185, 174, 0.22);
-  max-width: 550px;
-  padding: 12px;
-}
-
-.promptHeader {
-  align-items: center;
-  color: #a9afa5;
-  font-size: 12px;
-  margin-bottom: 9px;
-}
-
-.copyPrompt {
-  background: transparent;
-  border: 1px solid #70776d;
-  color: #e4e3db;
-  cursor: pointer;
-  padding: 0 8px;
-}
-
-.copyPrompt:hover {
-  border-color: #dce3d7;
-}
-
-.copyPrompt:focus-visible,
 .openCase:focus-visible {
   outline: 2px solid #ffffff;
   outline-offset: 3px;
@@ -157,8 +126,7 @@
     flex-direction: column;
   }
 
-  .featuredBody,
-  .promptPanel {
+  .featuredBody {
     width: 100%;
   }
 

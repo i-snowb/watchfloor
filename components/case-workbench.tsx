@@ -210,17 +210,8 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       webInput: Record<string, unknown>,
       signal: AbortSignal,
     ) => {
-      const { requestId, ...input } = webInput;
-      if (typeof requestId !== "string") {
-        return {
-          ok: false,
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "requestId is required.",
-            retryable: false,
-          },
-        };
-      }
+      const input = webInput;
+      const requestId = `webmcp-${crypto.randomUUID()}`;
       const requestedExecution = resolveInvestigationExecution(
         fixture,
         snapshotRef.current.state,
@@ -291,7 +282,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         const summary =
           receipt?.resultSummary ??
           (response.result.ok
-            ? "Copilot finding attached to the case."
+            ? "Automated finding attached to the case."
             : response.result.error.message);
         const receiptView = createInvestigationReceiptView({
           actor: "agent",
@@ -360,7 +351,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         const message =
           toolError instanceof Error
             ? toolError.message
-            : "Copilot operation failed.";
+            : "Investigation automation failed.";
         if (agentRunSequence.current === runSequence) {
           setError(message);
           setInvestigationActivity({
@@ -619,11 +610,11 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       (agentStatus.missingCriticalToolNames?.length ?? 0) > 0 ? (
         <aside className="webmcp-readiness-block" role="alert">
           <div>
-            <span>WebMCP demo path paused</span>
-            <strong>Critical page tools did not register</strong>
+            <span>Investigation automation unavailable</span>
+            <strong>Critical investigation tools did not register</strong>
           </div>
           <code>{agentStatus.missingCriticalToolNames?.join(" · ")}</code>
-          <p>Reload this page before a live demonstration.</p>
+          <p>Reload the workspace before continuing the investigation.</p>
         </aside>
       ) : null}
       <div className="case-view">

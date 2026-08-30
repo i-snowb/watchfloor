@@ -87,6 +87,7 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     "find_first_occurrence",
     "compare_timepoints",
     "query_related_activity",
+    "list_investigation_skills",
     "prepare_investigation_query",
     "run_investigation_query",
     "run_investigation_plan",
@@ -116,9 +117,9 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
   ]);
   assert.deepEqual(cloudExposed, expectedCloud);
   assert.deepEqual(endpointExposed, expectedEndpoint);
-  assert.equal(cloudExposed.size, 20);
-  assert.equal(endpointExposed.size, 26);
-  assert.equal(exposed.size, 27);
+  assert.equal(cloudExposed.size, 21);
+  assert.equal(endpointExposed.size, 27);
+  assert.equal(exposed.size, 28);
   const successful = new Set<string>();
   const web = (
     fixture: CaseFixture,
@@ -182,6 +183,7 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
 
   let cloud = createInitialCaseState(cloudIdentityScenario);
   cloud = web(cloudIdentityScenario, cloud, "get_case_context", {});
+  cloud = web(cloudIdentityScenario, cloud, "list_investigation_skills", {});
   cloud = web(cloudIdentityScenario, cloud, "get_case_delta", {
     sinceCursor: 0,
   });
@@ -542,6 +544,25 @@ test("WebMCP keeps one stable case-scoped registration across revisions", async 
   assert.equal(registration.registered, initialDefinitions.length);
   assert.equal(registerCalls, initialDefinitions.length);
   assert.equal(registeredNames.size, initialDefinitions.length);
+});
+
+test("WebMCP schemas expose only investigation-relevant inputs", () => {
+  const definitions = createCaseToolDefinitions(
+    endpointLateralScenario,
+    async () => ({}),
+  );
+  for (const definition of definitions) {
+    const schema = definition.inputSchema as {
+      properties?: Record<string, unknown>;
+      required?: readonly string[];
+    };
+    assert.equal(
+      Object.hasOwn(schema.properties ?? {}, "requestId"),
+      false,
+      `${definition.name} must not require the agent to create receipt IDs`,
+    );
+    assert.equal(schema.required?.includes("requestId") ?? false, false);
+  }
 });
 
 test("investigation receipt summarizes executed query context", () => {

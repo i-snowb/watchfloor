@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode, Ref } from "react";
+import { AgentHandoff } from "./agent-handoff";
 
 export type AgentStatus =
   | { state: "checking"; count: 0 }
@@ -54,12 +55,6 @@ export function PlatformShell({
                 `${queueCount ?? fixture.alerts.length} active cases`)
               : formatCaseId(fixture.id)}
           </span>
-          {activeView === "case" ? (
-            <>
-              <span className="context-separator">·</span>
-              <span>{fixture.alerts.length} linked detections</span>
-            </>
-          ) : null}
         </div>
         <div className="header-actions">
           <Link className="mobile-alert-link" href="/alerts">
@@ -76,9 +71,10 @@ export function PlatformShell({
           >
             <span className="status-dot" />
             <span className="agent-chip-label">
-              {agentStatusLabel(agentStatus)}
+              {agentStatusShortLabel(agentStatus)}
             </span>
           </button>
+          {activeView === "case" ? <AgentHandoff caseId={fixture.id} /> : null}
           {onReset ? (
             <details className="header-overflow">
               <summary aria-label="Open case menu">•••</summary>
@@ -114,15 +110,24 @@ function formatCaseId(caseId: string): string {
 }
 
 function agentStatusLabel(status: AgentStatus): string {
-  if (status.state === "checking") return "Connecting copilot";
+  if (status.state === "checking") return "Connecting agent";
   if (status.state === "unavailable") {
-    return "Copilot unavailable in this browser";
+    return "Agent unavailable in this browser";
   }
   if (status.state === "available") {
-    return `Copilot connected · ${status.count} tools ready`;
+    return `Agent connected · ${status.count} tools ready`;
   }
   const criticalMissing = status.missingCriticalToolNames?.length ?? 0;
   return criticalMissing > 0
-    ? `Copilot blocked · ${criticalMissing} critical ${criticalMissing === 1 ? "tool" : "tools"} missing`
-    : `Copilot limited · ${status.count}/${status.total ?? status.count} tools`;
+    ? `Agent blocked · ${criticalMissing} critical ${criticalMissing === 1 ? "tool" : "tools"} missing`
+    : `Agent limited · ${status.count}/${status.total ?? status.count} tools`;
+}
+
+function agentStatusShortLabel(status: AgentStatus): string {
+  if (status.state === "checking") return "Connecting agent";
+  if (status.state === "unavailable") return "Agent unavailable";
+  if (status.state === "available") return "Agent connected";
+  return status.missingCriticalToolNames?.length
+    ? "Agent blocked"
+    : "Agent limited";
 }

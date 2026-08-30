@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   metadataBase,
   title: "TRACE//LAB · Shared security investigation",
   description:
-    "A deterministic WebMCP security investigation workbench for analysts and agents.",
+    "A human-led, agent-scaled security investigation workspace for high-impact operations.",
   openGraph: {
     title: "TRACE//LAB",
     description: "Human-led. Agent-speed incident response.",

@@ -76,7 +76,7 @@ const initialTraceCamera: TraceCamera = { x: 0, y: 0, scale: 1 };
 
 export function useTraceCamera(
   selection: TraceSelection,
-  worldRevision: number,
+  worldRevision: string | number,
   viewportBottomInset = 0,
   minimumReadableScale = 1,
 ) {
@@ -98,6 +98,7 @@ export function useTraceCamera(
   } | null>(null);
   const initializedRef = useRef(false);
   const worldRevisionRef = useRef(worldRevision);
+  const selectionWorldRevisionRef = useRef(worldRevision);
   const reducedMotionRef = useRef(false);
   const lastSelectionRef = useRef(`${selection.kind}:${selection.id}`);
   const [camera, setCamera] = useState(initialTraceCamera);
@@ -505,6 +506,11 @@ export function useTraceCamera(
 
   useEffect(() => {
     const selectionKey = `${selection.kind}:${selection.id}`;
+    if (selectionWorldRevisionRef.current !== worldRevision) {
+      selectionWorldRevisionRef.current = worldRevision;
+      lastSelectionRef.current = selectionKey;
+      return;
+    }
     if (selectionKey === lastSelectionRef.current) return;
     lastSelectionRef.current = selectionKey;
     cancelInertia();
@@ -540,7 +546,7 @@ export function useTraceCamera(
       );
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [cancelInertia, commitCamera, constrainCamera, selection]);
+  }, [cancelInertia, commitCamera, constrainCamera, selection, worldRevision]);
 
   useEffect(
     () => () => {

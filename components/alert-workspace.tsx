@@ -17,9 +17,6 @@ import { useModalDialog } from "./use-modal-dialog";
 type QueueFilter = "all" | "critical" | "high";
 type QueueSyncState = "checking" | "ready" | "stale";
 
-const endpointStarterPrompt =
-  "Investigate this synthetic escalation through the registered page tools. Start with get_case_context, then prepare and run QRY-ENDPOINT-FILE-01. Keep observed evidence, modeled reach, simulated controls, and analyst approvals distinct. Stop before every analyst-only decision or approval. Never imply external execution.";
-
 export function AlertWorkspace({
   fixtures,
 }: {
@@ -42,7 +39,6 @@ export function AlertWorkspace({
   const [filter, setFilter] = useState<QueueFilter>("all");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [starterPromptCopied, setStarterPromptCopied] = useState(false);
   const [queueSyncState, setQueueSyncState] =
     useState<QueueSyncState>("checking");
   const [agentStatus, setAgentStatus] = useState<AgentStatus>({
@@ -71,17 +67,6 @@ export function AlertWorkspace({
     (caseId: string) => router.push(`/cases/${caseId}`),
     [router],
   );
-  const copyEndpointStarterPrompt = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(endpointStarterPrompt);
-      setStarterPromptCopied(true);
-      window.setTimeout(() => setStarterPromptCopied(false), 2_000);
-    } catch {
-      setError(
-        "The starter prompt could not be copied. Select and copy it from the card.",
-      );
-    }
-  }, []);
   useEffect(() => {
     let active = true;
     async function syncQueue() {
@@ -210,12 +195,12 @@ export function AlertWorkspace({
     }
   }, []);
 
-  const startEndpointDemo = useCallback(async () => {
+  const openFreshEndpointInvestigation = useCallback(async () => {
     const endpointFixture = fixtures.find(
       (caseFixture) => caseFixture.id === "case-endpoint-0448",
     );
     if (!endpointFixture) {
-      setError("The featured endpoint case is unavailable.");
+      setError("The priority endpoint case is unavailable.");
       return;
     }
     setBusy(true);
@@ -231,7 +216,7 @@ export function AlertWorkspace({
       setError(
         startError instanceof Error
           ? startError.message
-          : "The featured endpoint demo could not be reset.",
+          : "The priority endpoint case could not be reset.",
       );
     } finally {
       setBusy(false);
@@ -285,46 +270,33 @@ export function AlertWorkspace({
 
         <section
           className={styles.featuredPath}
-          aria-labelledby="demo-path-title"
+          aria-labelledby="priority-investigation-title"
         >
           <div className={styles.featuredHeader}>
             <div>
-              <p className={styles.eyebrow}>Judge first-run path</p>
-              <h2 id="demo-path-title">Three-minute endpoint investigation</h2>
+              <p className={styles.eyebrow}>Priority investigation</p>
+              <h2 id="priority-investigation-title">
+                Execution with early lateral movement
+              </h2>
             </div>
-            <span className={styles.toolCount}>26 registered page tools</span>
+            <span className={styles.toolCount}>Critical · Tier 2/3</span>
           </div>
           <div className={styles.featuredBody}>
             <div className={styles.featuredSummary}>
               <p>
-                A connected copilot investigates the same visible query
-                workspace, evidence map, and timeline as the analyst. The
-                copilot can add bounded evidence and model controls; the analyst
-                owns disposition, response authorization, and report approval.
+                Correlate unsigned execution, host posture, service-identity
+                use, repeated egress, lateral movement, and production
+                credential exposure before authorizing response.
               </p>
               <button
                 className={styles.openCase}
                 disabled={busy}
-                onClick={() => void startEndpointDemo()}
+                onClick={() => void openFreshEndpointInvestigation()}
                 type="button"
               >
-                {busy ? "Preparing fresh case" : "Reset and start demo"}
+                {busy ? "Preparing investigation" : "Open fresh investigation"}
                 <span aria-hidden="true">→</span>
               </button>
-            </div>
-            <div className={styles.promptPanel}>
-              <div className={styles.promptHeader}>
-                <span>Starter prompt</span>
-                <button
-                  aria-label="Copy endpoint investigation starter prompt"
-                  className={styles.copyPrompt}
-                  onClick={() => void copyEndpointStarterPrompt()}
-                  type="button"
-                >
-                  {starterPromptCopied ? "Copied" : "Copy prompt"}
-                </button>
-              </div>
-              <p>{endpointStarterPrompt}</p>
             </div>
           </div>
         </section>
@@ -716,7 +688,7 @@ function CaseLedgerDetail({
             {fixture && snapshot ? (
               <div className="case-sheet-stream">
                 <div>
-                  <span>Copilot contribution</span>
+                  <span>Automated investigation</span>
                   <strong>
                     Adds verified entities and relationships from attached
                     evidence.
@@ -746,7 +718,7 @@ function CaseLedgerDetail({
           </div>
         ) : (
           <div className="case-sheet-receipt case-sheet-receipt-idle">
-            <span>Copilot access</span>
+            <span>Agent access</span>
             <code>list_case_queue</code>
             <code>open_case</code>
             <strong>
@@ -927,7 +899,6 @@ function createAlertToolDefinitions(
   fixtures: readonly CaseFixture[],
   openCase: (caseId: string) => void,
 ): WebMcpToolDefinition[] {
-  const requestId = { type: "string", minLength: 8, maxLength: 80 };
   const routableCaseIds = getCaseQueueItems(
     fixtures.map((fixture) => ({
       fixture,
@@ -942,8 +913,8 @@ function createAlertToolDefinitions(
         "Return the current case queue and Tier 1 investigation states.",
       inputSchema: {
         type: "object",
-        properties: { requestId },
-        required: ["requestId"],
+        properties: {},
+        required: [],
         additionalProperties: false,
       },
       annotations: { readOnlyHint: true, untrustedContentHint: false },
@@ -967,10 +938,9 @@ function createAlertToolDefinitions(
       inputSchema: {
         type: "object",
         properties: {
-          requestId,
           caseId: { type: "string", enum: routableCaseIds },
         },
-        required: ["requestId", "caseId"],
+        required: ["caseId"],
         additionalProperties: false,
       },
       annotations: { readOnlyHint: false, untrustedContentHint: false },

@@ -29,6 +29,7 @@ import type {
 } from "@/domain/types";
 import { formatUtcTime, humanizeEntityKind } from "@/lib/format";
 import { layoutTraceResultPackets } from "@/lib/trace-result-layout";
+import { TRACE_CASE_READABLE_SCALE } from "@/lib/trace-camera";
 import {
   selectionContainsEntity,
   useTraceCamera,
@@ -39,8 +40,6 @@ import type {
   InvestigationActivity,
   InvestigationResultView,
 } from "./investigation-activity";
-import { AgentNowRail } from "./agent-now-rail";
-import { DemoPathStrip } from "./demo-path-strip";
 import { InvestigationDrawer } from "./investigation-drawer";
 import {
   buildCausalPhasePlanes,
@@ -100,7 +99,6 @@ export function EvidenceMap({
   onApproveReport,
   actionDock,
   investigationActivity,
-  investigationResult = null,
   agentFocusEntityId = null,
   latestReceipt = null,
   latestAuthorizationReceipt = null,
@@ -550,6 +548,17 @@ export function EvidenceMap({
                 ? "Report ready to draft"
                 : "Open findings",
           };
+  const impactStatus =
+    authorizedActionCount > 0
+      ? `${severedPathIds.size} path${severedPathIds.size === 1 ? "" : "s"} controlled`
+      : state.reachabilityAttached
+        ? `${fixture.impact.atRiskEntityIds.length} at risk`
+        : "Not modeled";
+  const responseStatus = allRequiredActionsAuthorized
+    ? "Approved"
+    : authorizedActionCount > 0
+      ? `${authorizedActionCount} approved`
+      : "Not authorized";
   const nextGapEntityId =
     nextStep.phase === "inspect" ? nextStep.targetEntityId : null;
   const findingsSectionId = `${fixture.id}-attached-findings`;
@@ -644,7 +653,12 @@ export function EvidenceMap({
     planeRef,
     viewportRef,
     zoomBy,
-  } = useTraceCamera(selection, view === "impact" ? 1 : 0, 132, 0.82);
+  } = useTraceCamera(
+    selection,
+    `${fixture.id}:${view}:${replayCursor}:${mapEntities.length}:${edges.length}`,
+    132,
+    TRACE_CASE_READABLE_SCALE,
+  );
   const focusFromDrawer = useCallback(
     (nextSelection: TraceSelection) => {
       selectEvidence(nextSelection);
@@ -765,30 +779,35 @@ export function EvidenceMap({
             <span className={`severity severity-${fixture.severity}`}>
               {fixture.severity}
             </span>
-            <span>Escalated by Tier 1</span>
             <span>{formatLifecycle(state.lifecycle)}</span>
           </p>
           <h1 id="evidence-map-heading">{fixture.title}</h1>
         </div>
-        <AgentNowRail
-          activity={investigationActivity}
-          fixture={fixture}
-          latestReceipt={latestReceipt}
-          result={investigationResult}
-          selectedQuery={activeWorkQuery}
-          state={state}
-        />
-        <button
-          aria-controls={findingsSectionId}
-          aria-expanded={drawerOpen}
-          className="case-findings-trigger"
-          onClick={openFindings}
-          type="button"
-        >
-          <span>{reportTrigger.label}</span>
-          <strong aria-live="polite">{reportTrigger.value}</strong>
-          <small>{reportTrigger.detail}</small>
-        </button>
+        <div className="case-status-facts" aria-label="Case status">
+          <button
+            aria-controls={findingsSectionId}
+            aria-expanded={drawerOpen}
+            className="case-status-fact case-status-fact-action"
+            onClick={openFindings}
+            title={reportTrigger.detail}
+            type="button"
+          >
+            <span>{reportTrigger.label}</span>
+            <strong aria-live="polite">
+              {state.report.status === "unavailable"
+                ? `${reportTrigger.value} attached`
+                : reportTrigger.value}
+            </strong>
+          </button>
+          <div className="case-status-fact">
+            <span>Impact</span>
+            <strong>{impactStatus}</strong>
+          </div>
+          <div className="case-status-fact">
+            <span>Response</span>
+            <strong>{responseStatus}</strong>
+          </div>
+        </div>
         <div className="evidence-view-switch" aria-label="Evidence view">
           <button
             aria-pressed={view === "trace"}
@@ -840,8 +859,6 @@ export function EvidenceMap({
           </button>
         </div>
       </header>
-
-      <DemoPathStrip fixture={fixture} state={state} />
 
       <div className="evidence-stage-frame">
         {actionDock ? (
@@ -908,7 +925,7 @@ export function EvidenceMap({
                 <strong>{impactHeadline}</strong>
                 {state.reachabilityAttached && modelRevealHop < maxImpactHop ? (
                   <small className="model-reveal-status">
-                    Copilot mapping hop {Math.max(1, modelRevealHop + 1)} of{" "}
+                    Impact modeling hop {Math.max(1, modelRevealHop + 1)} of{" "}
                     {maxImpactHop}
                   </small>
                 ) : null}
@@ -1377,11 +1394,11 @@ export function EvidenceMap({
                   {investigationRunning ? (
                     <b>
                       {investigationActivity.actor === "agent"
-                        ? `Copilot ${investigationPhaseVerb(investigationActivity.phase)}`
+                        ? `Automation ${investigationPhaseVerb(investigationActivity.phase)}`
                         : `Analyst ${investigationPhaseVerb(investigationActivity.phase)}`}
                     </b>
                   ) : agentFocusEntityId === entity.id ? (
-                    <b>Copilot focus</b>
+                    <b>Investigation focus</b>
                   ) : nextGap && investigationActivity.status === "idle" ? (
                     <b>Suggested inquiry</b>
                   ) : null}
@@ -1455,7 +1472,7 @@ export function EvidenceMap({
                       <span>
                         {artifact?.status ?? "Evidence"} ·{" "}
                         {receipt?.reportedSurface === "webmcp_callback"
-                          ? "Copilot"
+                          ? "Automation"
                           : "Analyst"}
                       </span>
                       <strong>{artifact?.title ?? query.title}</strong>
@@ -1481,7 +1498,7 @@ export function EvidenceMap({
               >
                 <span>
                   {investigationActivity.actor === "agent"
-                    ? "Copilot"
+                    ? "Automation"
                     : "Analyst"}
                 </span>
                 <strong>
@@ -1528,7 +1545,7 @@ export function EvidenceMap({
             >
               <span>
                 {latestReceipt.reportedSurface === "webmcp_callback"
-                  ? "Copilot"
+                  ? "Automation"
                   : "Analyst"}
               </span>
               <code>{activityCategory(latestReceipt.toolName)}</code>
@@ -1895,7 +1912,7 @@ function TraceSequenceRail({
             return (
               <li key={receipt.id}>
                 <button
-                  aria-label={`${receipt.reportedSurface === "webmcp_callback" ? "Copilot" : "Analyst"} investigation: ${receipt.title}. Completed ${formatUtcTime(receipt.occurredAt)}.`}
+                  aria-label={`${receipt.reportedSurface === "webmcp_callback" ? "Agent" : "Analyst"} investigation: ${receipt.title}. Completed ${formatUtcTime(receipt.occurredAt)}.`}
                   onClick={() => {
                     if (targetEntityId) {
                       onSelect({ kind: "entity", id: targetEntityId });
@@ -1906,7 +1923,7 @@ function TraceSequenceRail({
                 >
                   <span>
                     {receipt.reportedSurface === "webmcp_callback"
-                      ? "Copilot"
+                      ? "Agent"
                       : "Analyst"}
                   </span>
                   <strong>{receipt.title}</strong>
@@ -1921,7 +1938,7 @@ function TraceSequenceRail({
           {activeQuery ? (
             <li className="timeline-query-ready">
               <button
-                aria-label={`${activity.status === "running" && activity.queryId === activeQuery.id ? (activity.actor === "agent" ? "Copilot is running" : "Analyst requested") : "Ready to run"} investigation: ${activeQuery.title}.`}
+                aria-label={`${activity.status === "running" && activity.queryId === activeQuery.id ? (activity.actor === "agent" ? "Agent is running" : "Analyst requested") : "Ready to run"} investigation: ${activeQuery.title}.`}
                 onClick={() =>
                   onSelect({ kind: "entity", id: activeQuery.targetEntityId })
                 }
@@ -1931,7 +1948,7 @@ function TraceSequenceRail({
                   {activity.status === "running" &&
                   activity.queryId === activeQuery.id
                     ? activity.actor === "agent"
-                      ? "Copilot scanning"
+                      ? "Agent scanning"
                       : "Analyst request"
                     : "Ready"}
                 </span>
@@ -2048,13 +2065,13 @@ function ThreatPriorityRail({
   const collaborationLabel =
     activity.status === "running"
       ? activity.actor === "agent"
-        ? `Copilot ${investigationPhaseVerb(activity.phase)} shared evidence`
+        ? `Automation ${investigationPhaseVerb(activity.phase)} case evidence`
         : `Analyst ${investigationPhaseVerb(activity.phase)} shared evidence`
       : latestReceipt?.reportedSurface === "webmcp_callback"
-        ? "Copilot updated the shared case"
+        ? "Automation updated the case"
         : latestReceipt?.reportedSurface === "analyst_control"
           ? "Analyst decision recorded"
-          : "Copilot ready on the shared case";
+          : "Investigation automation ready";
 
   return (
     <details className="threat-priority-rail">
@@ -2121,9 +2138,7 @@ function ThreatPriorityRail({
       ) : null}
       <footer aria-live="polite">
         <span>{collaborationLabel}</span>
-        <small>
-          Shared revision r{revision} · analyst approval for controls
-        </small>
+        <small>Case revision r{revision} · analyst approval for controls</small>
       </footer>
     </details>
   );

@@ -488,6 +488,23 @@ export interface InvestigationQueryDefinition {
   caveat: string;
 }
 
+/**
+ * A versioned, case-scoped, approved investigation playbook. A skill maps to
+ * exactly one immutable query contract; it is not free-form agent code.
+ */
+export interface ApprovedInvestigationSkill {
+  id: string;
+  version: "1.0";
+  title: string;
+  objective: string;
+  question: string;
+  queryId: string;
+  targetEntityId: string;
+  sourceLabels: readonly string[];
+  availability: "available" | "blocked";
+  constraint: string | null;
+}
+
 export interface InvestigationQueryReturnedRecord {
   id: string;
   sourceLabel: string;

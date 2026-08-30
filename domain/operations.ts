@@ -24,6 +24,7 @@ import {
   getQueryConsoleContract,
   matchesQueryConsoleContract,
 } from "./query-console";
+import { getApprovedInvestigationSkills } from "./investigation-skills";
 
 export const caseToolNames = [
   "list_alerts",
@@ -37,6 +38,7 @@ export const caseToolNames = [
   "find_first_occurrence",
   "compare_timepoints",
   "query_related_activity",
+  "list_investigation_skills",
   "prepare_investigation_query",
   "run_investigation_query",
   "run_investigation_plan",
@@ -105,6 +107,7 @@ const proposalTools = new Set<CaseToolName>([
   "inspect_event",
   "inspect_relationship",
   "query_related_activity",
+  "list_investigation_skills",
   "prepare_investigation_query",
   "run_investigation_query",
   "run_investigation_plan",
@@ -422,7 +425,7 @@ export interface DerivedNextStep {
 
 export interface CollaborationHandoff {
   currentRevision: number;
-  nextOwner: "copilot" | "analyst" | "complete";
+  nextOwner: "agent" | "analyst" | "complete";
   pendingGate:
     | "evidence_disposition"
     | "discovery_attachment"
@@ -461,11 +464,11 @@ export function getCollaborationHandoff(
               : null;
   const whyNow =
     next.recommendedTool === "prepare_investigation_query"
-      ? "Tier 1 identified an evidence gap; the copilot must prepare the case-approved query in the shared console."
+      ? "Tier 1 identified an evidence gap; the agent must prepare the case-approved skill in the visible query console."
       : next.recommendedTool === "run_investigation_query"
         ? "The case-approved query is visible and ready to run against bounded case data."
         : next.recommendedTool === "attach_discovery_stage"
-          ? "The required query evidence is attached; the copilot can add the verified discovery to the shared case."
+          ? "The required query evidence is attached; the agent can add the verified discovery to the case."
           : next.recommendedTool === "calculate_reachability"
             ? "The analyst disposition is recorded; modeled reach is still unknown."
             : next.recommendedTool === "simulate_control"
@@ -473,7 +476,7 @@ export function getCollaborationHandoff(
               : pendingGate === "evidence_disposition"
                 ? `${requiredAttached}/${fixture.decision.requiresEnrichmentIds.length} required context records are attached.`
                 : pendingGate === "discovery_attachment"
-                  ? "The next provenance-backed discovery is ready for the copilot to attach."
+                  ? "The next provenance-backed discovery is ready for the agent to attach."
                   : pendingGate === "response_authorization"
                     ? "The response package is modeled; external execution remains disabled."
                     : pendingGate === "report_approval"
@@ -496,7 +499,7 @@ export function getCollaborationHandoff(
         ? "complete"
         : next.recommendedTool === null
           ? "analyst"
-          : "copilot",
+          : "agent",
     pendingGate,
     objective: next.objective,
     exactNextTool: next.recommendedTool,
@@ -841,6 +844,7 @@ function executeRead(
     const attachedEnrichments = visibleEnrichments.filter((artifact) =>
       state.attachedEnrichmentIds.includes(artifact.id),
     );
+    const approvedSkills = getApprovedInvestigationSkills(fixture, state);
     const releasedResponseActions = state.responseActions.filter(
       (actionState) => {
         const definition = fixture.responseActions.find(
@@ -969,6 +973,15 @@ function executeRead(
               !state.releasedStreamStageIds.includes(query.requiresStageId),
           ).length,
         },
+        investigationSkillCatalog: {
+          tool: "list_investigation_skills",
+          availableCount: approvedSkills.filter(
+            (skill) => skill.availability === "available",
+          ).length,
+          blockedCount: approvedSkills.filter(
+            (skill) => skill.availability === "blocked",
+          ).length,
+        },
         investigationPlans: getInvestigationPlans(fixture).map((plan) => ({
           ...plan,
           progress: plan.queryIds.every((queryId) => {
@@ -984,7 +997,7 @@ function executeRead(
         responsePackages: getResponseBundles(fixture).map((bundle) => ({
           ...bundle,
           progress: state.authorizedResponseBundleIds.includes(bundle.id)
-            ? "authorized_in_demo"
+            ? "authorized"
             : state.responseBundle?.bundleId === bundle.id
               ? "prepared"
               : bundle.actionIds.some(
@@ -1003,6 +1016,29 @@ function executeRead(
         title: "Read case context",
         target: fixture.id,
         resultSummary: `Context read at revision ${state.revision}`,
+      },
+    );
+  }
+
+  if (toolName === "list_investigation_skills") {
+    const invalid = validateInput(input, [], []);
+    if (invalid) return fail(state, toolName, invalid);
+    const skills = getApprovedInvestigationSkills(fixture, state);
+    const available = skills.filter(
+      (skill) => skill.availability === "available",
+    );
+    return success(
+      state,
+      {
+        skills: available,
+        blockedSkillCount: skills.length - available.length,
+        executionContract:
+          "Choose one returned skill ID, then call prepare_investigation_query with the same queryId. Preparation returns the immutable query text required by run_investigation_query.",
+      },
+      {
+        title: "Listed approved investigation skills",
+        target: fixture.id,
+        resultSummary: `${available.length} allowlisted skills available`,
       },
     );
   }

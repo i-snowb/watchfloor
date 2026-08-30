@@ -1,152 +1,10 @@
-.case-view .demo-path-strip {
-  align-items: stretch;
-  background: #081113;
-  border-bottom: 1px solid rgba(150, 178, 184, 0.24);
-  color: #e9eeee;
-  display: grid;
-  grid-template-columns: 190px minmax(0, 1fr) auto;
-  min-height: 70px;
-}
-
-.case-view .demo-path-intro {
-  align-content: center;
-  border-right: 1px solid rgba(150, 178, 184, 0.24);
-  display: grid;
-  gap: 4px;
-  padding: 10px 16px;
-}
-
-.case-view .demo-path-intro span,
-.case-view .demo-path-strip > p {
-  color: #79d5a5;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.case-view .demo-path-intro strong {
-  font-size: 14px;
-  line-height: 1.25;
-}
-
-.case-view .demo-path-strip ol {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  list-style: none;
-  margin: 0;
-  min-width: 0;
-  padding: 0;
-}
-
-.case-view .demo-path-strip li {
-  align-items: center;
-  border-right: 1px solid rgba(150, 178, 184, 0.18);
-  display: grid;
-  gap: 4px 10px;
-  grid-template-columns: auto minmax(0, 1fr);
-  min-width: 0;
-  padding: 9px 12px;
-  position: relative;
-}
-
-.case-view .demo-path-strip li > span {
-  color: #6f858a;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  grid-row: 1 / 3;
-}
-
-.case-view .demo-path-strip li div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.case-view .demo-path-strip li strong {
-  font-size: 14px;
-  line-height: 1.2;
-}
-
-.case-view .demo-path-strip li small,
-.case-view .demo-path-strip li em {
-  font-size: 12px;
-  font-style: normal;
-  line-height: 1.25;
-}
-
-.case-view .demo-path-strip li small {
-  color: #9aaeb1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.case-view .demo-path-strip li em {
-  color: #6f858a;
-  grid-column: 2;
-  font-family: var(--font-mono);
-}
-
-.case-view .demo-path-strip .demo-path-current {
-  background: linear-gradient(90deg, rgba(88, 194, 202, 0.12), transparent);
-  box-shadow: inset 0 -2px #62c5cf;
-}
-
-.case-view .demo-path-strip .demo-path-current > span,
-.case-view .demo-path-strip .demo-path-current em {
-  color: #75d8df;
-}
-
-.case-view .demo-path-strip .demo-path-complete > span,
-.case-view .demo-path-strip .demo-path-complete em {
-  color: #79d5a5;
-}
-
-.case-view .demo-path-strip .demo-path-upcoming {
-  opacity: 0.66;
-}
-
-.case-view .demo-path-strip > p {
-  align-items: center;
-  color: #8fa1a5;
-  display: flex;
-  font-size: 12px;
-  margin: 0;
-  max-width: 178px;
-  padding: 10px 14px;
-}
-
-@media (max-width: 1180px) {
-  .case-view .demo-path-strip {
-    grid-template-columns: 1fr;
-  }
-
-  .case-view .demo-path-intro,
-  .case-view .demo-path-strip > p {
-    display: none;
-  }
-}
-
-@media (max-width: 720px) {
-  .case-view .demo-path-strip {
-    overflow-x: auto;
-  }
-
-  .case-view .demo-path-strip ol {
-    min-width: 720px;
-  }
-}
-
-/* Keep the shared-work proof readable before the compact mobile header takes over. */
+/* Keep case activity readable before the compact mobile header takes over. */
 @media (min-width: 901px) and (max-width: 1100px) {
   .case-view .evidence-map-header {
     grid-template-columns: minmax(0, 1fr) 112px auto;
   }
 
-  .case-view
-    .evidence-map-header
-    > section[aria-label="WebMCP shared-work proof"] {
+  .case-view .evidence-map-header > section[aria-label="Case activity"] {
     border-left: 0;
     border-top: 1px solid rgba(150, 178, 184, 0.24);
     grid-column: 1 / -1;
@@ -256,7 +114,7 @@
   }
 
   .case-view
-    .evidence-stage-frame:has(.query-console[open])
+    .evidence-stage-frame:has(> .threat-priority-rail):has(.query-console[open])
     > .map-command-dock {
     border-right: 0;
     bottom: auto;
@@ -273,14 +131,14 @@
   }
 
   .case-view
-    .evidence-stage-frame:has(.query-console[open])
+    .evidence-stage-frame:has(> .threat-priority-rail):has(.query-console[open])
     > .threat-priority-rail {
     grid-column: 1;
     grid-row: 2;
   }
 
   .case-view
-    .evidence-stage-frame:has(.query-console[open])
+    .evidence-stage-frame:has(> .threat-priority-rail):has(.query-console[open])
     > .evidence-map-viewport {
     grid-column: 2;
     grid-row: 2;
@@ -308,6 +166,31 @@
   grid-template-columns: minmax(0, 1fr);
   min-height: 0;
   padding: 10px;
+}
+
+.case-view .map-command-dock .case-command-dismiss {
+  align-items: center;
+  background: transparent;
+  border: 1px solid rgba(137, 165, 167, 0.42);
+  color: #b9c8c7;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--font-sans);
+  font-size: 20px;
+  height: 30px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 30px;
+}
+
+.case-view .map-command-dock .case-command-dismiss:hover {
+  background: rgba(137, 165, 167, 0.12);
+  border-color: #d9e6e4;
+  color: #fff;
 }
 
 .case-view .map-command-dock .case-command-label small {
@@ -374,6 +257,15 @@
   min-height: 460px !important;
 }
 
+.case-view .query-console-unprepared .query-console-editor,
+.case-view .query-console-unprepared .query-console-editor textarea {
+  min-height: 96px;
+}
+
+.case-view .query-console-attached .query-console-toolbar {
+  display: none;
+}
+
 /* Recording-scale type: remove microcopy from the hero surfaces. */
 .case-view .case-map-identity p span,
 .case-view .case-findings-trigger > span,
@@ -425,6 +317,241 @@
   .case-view .evidence-map-viewport {
     height: clamp(430px, calc(100dvh - 255px), 520px) !important;
     min-height: 430px !important;
+  }
+}
+
+/* Analyst-first case hierarchy. */
+
+.case-view .evidence-map-header {
+  grid-template-columns: minmax(320px, 1fr) auto auto auto;
+  min-height: 56px;
+  padding: 0 10px 0 18px;
+}
+
+.case-view .case-map-identity p {
+  margin-bottom: 3px;
+}
+
+.case-view .case-map-identity h1 {
+  font-size: 17px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-view .case-status-facts {
+  align-self: stretch;
+  border-left: 1px solid var(--field-rule);
+  display: grid;
+  grid-auto-flow: column;
+}
+
+.case-view .case-status-fact {
+  align-content: center;
+  background: transparent;
+  border-left: 1px solid var(--field-rule);
+  color: var(--field-ink);
+  display: grid;
+  gap: 2px;
+  min-width: 112px;
+  padding: 0 12px;
+  text-align: left;
+}
+
+.case-view .case-status-fact:first-child {
+  border-left: 0;
+}
+
+.case-view .case-status-fact > span {
+  color: var(--field-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.case-view .case-status-fact > strong {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.case-view .case-status-fact-action {
+  appearance: none;
+  cursor: pointer;
+}
+
+.case-view .case-status-fact-action:hover,
+.case-view .case-status-fact-action:focus-visible {
+  background: rgba(121, 197, 207, 0.07);
+}
+
+.case-view .evidence-view-switch button,
+.case-view .trace-camera-tools button,
+.case-view .trace-camera-tools > span {
+  min-height: 56px;
+}
+
+@media (min-width: 981px) {
+  .case-view .map-command-dock:has(> .escalation-brief) {
+    bottom: auto;
+    left: 18px;
+    max-width: 540px;
+    right: auto;
+    top: 18px;
+    width: min(540px, calc(100% - 36px));
+  }
+}
+
+.case-view .escalation-brief {
+  background: rgba(6, 14, 16, 0.96);
+  border: 1px solid rgba(101, 204, 211, 0.42);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+  color: var(--field-soft);
+}
+
+.case-view .escalation-brief > summary {
+  align-items: center;
+  cursor: pointer;
+  display: grid;
+  gap: 4px 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  list-style: none;
+  min-height: 44px;
+  padding: 7px 12px;
+}
+
+.case-view .escalation-brief > summary::-webkit-details-marker {
+  display: none;
+}
+
+.case-view .escalation-brief > summary::after {
+  color: var(--field-cyan);
+  content: "+";
+  font-family: var(--font-mono);
+  grid-column: 4;
+  grid-row: 1;
+}
+
+.case-view .escalation-brief[open] > summary::after {
+  content: "−";
+}
+
+.case-view .escalation-brief > summary > span,
+.case-view .escalation-brief > summary > small,
+.case-view .escalation-brief > div > small {
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.case-view .escalation-brief > summary > span {
+  color: var(--field-cyan);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.case-view .escalation-brief > summary > strong {
+  color: var(--field-ink);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-view .escalation-brief > summary > small {
+  color: var(--field-green);
+  white-space: nowrap;
+}
+
+.case-view .escalation-brief > div {
+  border-top: 1px solid rgba(150, 178, 184, 0.24);
+  display: grid;
+  gap: 9px;
+  padding: 11px 12px 12px;
+}
+
+.case-view .escalation-brief > div > p {
+  color: var(--field-soft);
+  font-size: 12px;
+}
+
+.case-view .escalation-brief ul {
+  display: grid;
+  gap: 5px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.case-view .escalation-brief li {
+  color: var(--field-ink);
+  font-size: 12px;
+  padding-left: 14px;
+  position: relative;
+}
+
+.case-view .escalation-brief li::before {
+  color: var(--field-cyan);
+  content: "—";
+  left: 0;
+  position: absolute;
+}
+
+.case-view .escalation-brief > div > small {
+  color: var(--field-muted);
+}
+
+@media (max-width: 1180px) {
+  .case-view .evidence-map-header {
+    grid-template-columns: minmax(260px, 1fr) auto auto auto;
+  }
+
+  .case-view .case-status-fact:nth-child(2) {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .case-view .evidence-map-header {
+    grid-template-columns: minmax(230px, 1fr) auto auto;
+  }
+
+  .case-view .case-status-facts {
+    display: none;
+  }
+
+  .case-view .map-command-dock:has(> .escalation-brief) {
+    margin: 8px 12px;
+  }
+}
+
+@media (max-width: 680px) {
+  .case-view .evidence-map-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-height: 54px;
+    padding-left: 12px;
+  }
+
+  .case-view .evidence-view-switch button {
+    min-width: 78px;
+  }
+
+  .case-view .trace-camera-tools {
+    display: none;
+  }
+
+  .case-view .escalation-brief > summary {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .case-view .escalation-brief > summary > small {
+    display: none;
+  }
+
+  .case-view .escalation-brief > summary::after {
+    grid-column: 3;
   }
 }
 
