@@ -4,6 +4,8 @@ TRACE//LAB is a deterministic WebMCP incident-response workbench. A Tier 1 AI es
 
 The competition build runs on ChatGPT Sites. It does not connect to live security products, execute malware, submit hashes to external services, or change external controls.
 
+Incoming implementation and test agents should read [HANDOFF.md](./HANDOFF.md) for the current deployed state and [DEMO_TEST_HANDOVER.md](./DEMO_TEST_HANDOVER.md) for the complete video-readiness rehearsal.
+
 ## What judges can inspect
 
 - Five Tier 1 escalations in the incident ledger.
@@ -68,7 +70,7 @@ The endpoint case uses this sequence:
 2. Prepare a bounded query through the analyst control or WebMCP. This creates a shared case-state transition and loads its exact text and sources.
 3. Run that exact prepared query. Direct execution and plan execution both reject missing, mismatched, or stale preparation; modified or unknown query text also fails closed.
 4. Inspect returned source records. The result attaches to the map and activity timeline.
-5. Release a fixed later observation only through the analyst control.
+5. After its cited query evidence is attached, let the copilot call `attach_discovery_stage` to add only the next provenance-backed entities and observations. The analyst replay control remains an alternate path and is not exposed through WebMCP.
 6. Record the analyst disposition.
 7. Let the copilot calculate exposure and simulate the allowlisted control.
 8. Let the copilot prepare response packages. The analyst approves them.
@@ -88,7 +90,7 @@ The stack is intentionally narrow: React, Vinext, Vite, Cloudflare Workers, and 
 - [`webmcp/tools.ts`](./webmcp/tools.ts) defines and registers the semantic WebMCP surface.
 - [`components/evidence-map.tsx`](./components/evidence-map.tsx) renders the shared incident path and exposure map.
 
-The public build uses an anonymous session cookie for resettable state. That cookie is not an identity, tenant, or authorization boundary. The HTTP API records a client-reported surface and is workflow mediation, not authenticated authorization. No production integration should rely on this demo boundary.
+The current Sites deployment is owner-only behind ChatGPT sign-in. Inside the application, an anonymous session cookie isolates resettable state. That cookie is not an identity, tenant, or production authorization boundary. The HTTP API records a client-reported surface and is workflow mediation, not authenticated authorization. No production integration should rely on this boundary.
 
 All inputs are allowlisted and bounded. Writes require the current revision and an idempotent request ID. The operation surface does not accept SQL, URLs, shell commands, credentials, secret values, source code, or arbitrary external targets. Every response approval records `externalExecution: false`.
 
