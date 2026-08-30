@@ -3,10 +3,10 @@
 ## Snapshot
 
 - Runtime repository: `demo/`
-- Stable runtime commit: `5061911` (`Add evidence-bound threat hierarchy`)
-- Deployed artifact: ChatGPT Sites version 16 at [tracelab-webmcp.keegansnowbarger.chatgpt.site](https://tracelab-webmcp.keegansnowbarger.chatgpt.site)
+- Stable runtime branch: `main` contains the verified competition demo path.
+- Deployed artifact: [tracelab-webmcp.keegansnowbarger.chatgpt.site](https://tracelab-webmcp.keegansnowbarger.chatgpt.site)
 - Deployment access: owner-only through ChatGPT sign-in. Judge access is not configured.
-- Working tree was clean after the runtime commit. Documentation-only handoff changes can follow it without changing the deployed artifact.
+- Keep the working tree clean before saving a Sites version so its source commit and packaged build remain identical.
 
 ## Product and competition thesis
 
@@ -86,11 +86,11 @@ Use [DEMO_TEST_HANDOVER.md](./DEMO_TEST_HANDOVER.md) for the complete reset-to-c
 
 ## Verification evidence
 
-- `npm run check` passed formatting, ESLint, strict TypeScript, 63 tests, the WebMCP tool matrix, and the production build.
+- `npm run check` passed formatting, ESLint, strict TypeScript, 67 tests, the WebMCP tool matrix, and the production build.
 - `npm run smoke` passed both deterministic HTTP lifecycles, idempotency, stale-state rejection, forged-envelope rejection, WebMCP/analyst boundaries, exact report closure, and reset.
-- Local native WebMCP registration exposed 26 endpoint tools. A complete browser rehearsal advanced the endpoint case from revision 1 to revision 26 through queries, discovery, reachability, containment, recovery, and approval gates.
-- Sites version 16 deployed successfully from commit `5061911`.
-- The production ChatGPT sign-in boundary was verified. A complete signed-in hosted native-callback rehearsal remains open.
+- Local native WebMCP registration exposed 26 endpoint tools. A complete browser rehearsal advanced the endpoint case from revision 1 to revision 28 through visible KQL, raw records, discovery, analyst gates, reachability, modeled path severance, recovery, report generation, and analyst sign-off.
+- The latest verified source and packaged build deployed successfully to the existing Sites URL.
+- The production ChatGPT sign-in boundary was verified. Judge access and a complete hosted native-callback rehearsal remain open.
 
 ## Next agent: hardened testing brief
 
