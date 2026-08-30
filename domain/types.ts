@@ -670,9 +670,40 @@ export interface ImpactDefinition {
   observedEntityIds: readonly string[];
   atRiskEntityIds: readonly string[];
   blockedJoinIds: readonly string[];
+  threatOverlay?: ThreatOverlayDefinition;
   initialHeadline: string;
   modeledHeadline: string;
   containedHeadline: string;
+}
+
+export type ThreatIssueSeverity = "critical" | "high" | "guarded" | "modeled";
+
+export type ThreatIssueCertainty = "observed" | "prevented" | "modeled";
+
+export interface ThreatIssueDefinition {
+  id: string;
+  rank: number;
+  entityId: string;
+  severity: ThreatIssueSeverity;
+  certainty: ThreatIssueCertainty;
+  title: string;
+  detail: string;
+  requiresStageId: string | null;
+  requiresReachability: boolean;
+}
+
+export interface ThreatRouteDefinition {
+  id: string;
+  title: string;
+  detail: string;
+  entityIds: readonly string[];
+  pathIds: readonly string[];
+  joinIds: readonly string[];
+}
+
+export interface ThreatOverlayDefinition {
+  issues: readonly ThreatIssueDefinition[];
+  priorityRoute: ThreatRouteDefinition;
 }
 
 export interface CaseConclusionDefinition {

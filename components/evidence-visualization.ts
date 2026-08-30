@@ -42,6 +42,33 @@ export interface DirectionalImpactEnvelope {
   path: string;
 }
 
+export interface ThreatHierarchyIssue {
+  id: string;
+  rank: number;
+  entityId: string;
+  severity: "critical" | "high" | "guarded" | "modeled";
+  certainty: "observed" | "prevented" | "modeled";
+  title: string;
+  detail: string;
+  controlState: "active" | "controlled";
+}
+
+export interface ThreatRouteOverlay {
+  id: string;
+  title: string;
+  detail: string;
+  entityIds: readonly string[];
+  pathIds: readonly string[];
+  joinIds: readonly string[];
+  state: "active" | "partially_controlled" | "controlled";
+  severedPathIds: readonly string[];
+}
+
+export interface ThreatHierarchy {
+  issues: readonly ThreatHierarchyIssue[];
+  priorityRoute: ThreatRouteOverlay;
+}
+
 const traceLanes = [
   "entry",
   "execution",
@@ -82,6 +109,61 @@ export function getCausalVisualState({
   if (disputed) return "disputed";
   if (modeled) return "modeled";
   return "observed";
+}
+
+export function buildThreatHierarchy(
+  fixture: CaseFixture,
+  {
+    controlledEntityIds = new Set<string>(),
+    reachabilityAttached = false,
+    releasedStageIds = new Set<string>(),
+    severedPathIds = new Set<string>(),
+  }: {
+    controlledEntityIds?: ReadonlySet<string>;
+    reachabilityAttached?: boolean;
+    releasedStageIds?: ReadonlySet<string>;
+    severedPathIds?: ReadonlySet<string>;
+  } = {},
+): ThreatHierarchy | null {
+  const overlay = fixture.impact.threatOverlay;
+  if (!overlay) return null;
+
+  const issues = overlay.issues
+    .filter(
+      (issue) =>
+        (!issue.requiresReachability || reachabilityAttached) &&
+        (issue.requiresStageId === null ||
+          releasedStageIds.has(issue.requiresStageId)),
+    )
+    .sort(
+      (left, right) =>
+        left.rank - right.rank || left.id.localeCompare(right.id),
+    )
+    .map((issue) => ({
+      ...issue,
+      controlState: controlledEntityIds.has(issue.entityId)
+        ? ("controlled" as const)
+        : ("active" as const),
+    }));
+
+  const routeSeveredPathIds = overlay.priorityRoute.pathIds.filter((pathId) =>
+    severedPathIds.has(pathId),
+  );
+  const routeState =
+    routeSeveredPathIds.length === 0
+      ? "active"
+      : routeSeveredPathIds.length === overlay.priorityRoute.pathIds.length
+        ? "controlled"
+        : "partially_controlled";
+
+  return {
+    issues,
+    priorityRoute: {
+      ...overlay.priorityRoute,
+      state: routeState,
+      severedPathIds: routeSeveredPathIds,
+    },
+  };
 }
 
 export function buildEvidenceReplayPlan(

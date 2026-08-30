@@ -481,12 +481,79 @@ export function validateCaseFixture(fixture: CaseFixture): void {
   const graphEntityIds = new Set(
     fixture.presentation.nodes.map((node) => node.entityId),
   );
+  const threatOverlay = fixture.impact.threatOverlay;
+  const threatIssueIds = new Set(
+    threatOverlay?.issues.map((issue) => issue.id) ?? [],
+  );
+  const threatIssueRanks = new Set(
+    threatOverlay?.issues.map((issue) => issue.rank) ?? [],
+  );
+  const priorityRoutePairs =
+    threatOverlay?.priorityRoute.entityIds
+      .slice(0, -1)
+      .map((fromId, index) => ({
+        fromId,
+        toId: threatOverlay.priorityRoute.entityIds[index + 1]!,
+      })) ?? [];
+  const priorityRoutePathIds = new Set(
+    threatOverlay?.priorityRoute.pathIds ?? [],
+  );
+  const priorityRouteJoinIds = new Set(
+    threatOverlay?.priorityRoute.joinIds ?? [],
+  );
+  const priorityRouteValid =
+    !threatOverlay ||
+    (threatOverlay.priorityRoute.entityIds.length >= 2 &&
+      new Set(threatOverlay.priorityRoute.entityIds).size ===
+        threatOverlay.priorityRoute.entityIds.length &&
+      threatOverlay.priorityRoute.pathIds.length ===
+        priorityRoutePairs.length &&
+      priorityRoutePathIds.size ===
+        threatOverlay.priorityRoute.pathIds.length &&
+      threatOverlay.priorityRoute.pathIds.every((pathId, index) => {
+        const path = fixture.reachability.paths.find(
+          (candidate) => candidate.id === pathId,
+        );
+        const pair = priorityRoutePairs[index];
+        return (
+          path?.entityIds.length === 2 &&
+          path.entityIds[0] === pair?.fromId &&
+          path.entityIds[1] === pair?.toId
+        );
+      }) &&
+      threatOverlay.priorityRoute.joinIds.length ===
+        priorityRoutePairs.length &&
+      priorityRouteJoinIds.size ===
+        threatOverlay.priorityRoute.joinIds.length &&
+      threatOverlay.priorityRoute.joinIds.every((joinId, index) => {
+        const join = allJoins.find((candidate) => candidate.id === joinId);
+        const pair = priorityRoutePairs[index];
+        return (
+          join?.fromEntityId === pair?.fromId && join?.toEntityId === pair?.toId
+        );
+      }));
+  const threatOverlayValid =
+    !threatOverlay ||
+    (threatIssueIds.size === threatOverlay.issues.length &&
+      threatIssueRanks.size === threatOverlay.issues.length &&
+      priorityRouteValid &&
+      threatOverlay.issues.every(
+        (issue) =>
+          issue.rank > 0 &&
+          entityIds.has(issue.entityId) &&
+          (issue.requiresStageId === null ||
+            stageIds.has(issue.requiresStageId)),
+      ) &&
+      threatOverlay.priorityRoute.entityIds.every((id) => entityIds.has(id)) &&
+      threatOverlay.priorityRoute.pathIds.every((id) => pathIds.has(id)) &&
+      threatOverlay.priorityRoute.joinIds.every((id) => artifactIds.has(id)));
   if (
     graphEntityIds.size !== fixture.presentation.nodes.length ||
     !fixture.presentation.nodes.every((node) => entityIds.has(node.entityId)) ||
     !fixture.impact.observedEntityIds.every((id) => entityIds.has(id)) ||
     !fixture.impact.atRiskEntityIds.every((id) => entityIds.has(id)) ||
-    !fixture.impact.blockedJoinIds.every((id) => artifactIds.has(id))
+    !fixture.impact.blockedJoinIds.every((id) => artifactIds.has(id)) ||
+    !threatOverlayValid
   ) {
     throw new Error(`${fixture.id} has an invalid impact presentation.`);
   }

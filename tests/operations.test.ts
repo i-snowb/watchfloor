@@ -249,6 +249,28 @@ test("both fixtures satisfy the shared deterministic scenario contract", () => {
   assert.equal(endpointLateralScenario.responseActions.length, 6);
 });
 
+test("fixture validation rejects a noncontiguous priority route", () => {
+  const overlay = endpointLateralScenario.impact.threatOverlay!;
+  const invalid: CaseFixture = {
+    ...endpointLateralScenario,
+    impact: {
+      ...endpointLateralScenario.impact,
+      threatOverlay: {
+        ...overlay,
+        priorityRoute: {
+          ...overlay.priorityRoute,
+          pathIds: ["PATH-LAT-03", "PATH-LAT-01", "PATH-LAT-04"],
+        },
+      },
+    },
+  };
+
+  assert.throws(
+    () => validateCaseFixture(invalid),
+    /invalid impact presentation/,
+  );
+});
+
 test("endpoint result packets do not cover another investigation entity", () => {
   const nodeWidth = 220;
   const nodeHeight = 152;

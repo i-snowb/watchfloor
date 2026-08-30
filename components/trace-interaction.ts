@@ -49,6 +49,10 @@ export function selectionContainsEntity(
     ].find((candidate) => candidate.id === selection.id);
     return join?.fromEntityId === entityId || join?.toEntityId === entityId;
   }
+  const priorityRoute = fixture.impact.threatOverlay?.priorityRoute;
+  if (priorityRoute?.id === selection.id) {
+    return priorityRoute.entityIds.includes(entityId);
+  }
   return (
     fixture.reachability.paths
       .find((path) => path.id === selection.id)

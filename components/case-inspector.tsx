@@ -276,7 +276,7 @@ export function CaseInspector({
   );
 }
 
-function getSelectionContent(
+export function getSelectionContent(
   fixture: CaseFixture,
   state: CaseState,
   selection: TraceSelection,
@@ -304,6 +304,58 @@ function getSelectionContent(
         ],
         relatedEntities: [],
         limitation: fixture.reachability.caveat,
+      } as const;
+    }
+
+    const priorityRoute = fixture.impact.threatOverlay?.priorityRoute;
+    if (priorityRoute?.id === selection.id) {
+      const relatedEntities = priorityRoute.entityIds.flatMap((entityId) => {
+        const related = allEntities.find((item) => item.id === entityId);
+        return related ? [related] : [];
+      });
+      const controlledPathIds = new Set(
+        state.responseActions.flatMap((actionState) => {
+          if (actionState.status !== "authorized_in_demo") return [];
+          return (
+            fixture.responseActions.find(
+              (action) => action.id === actionState.actionId,
+            )?.seversPathIds ?? []
+          );
+        }),
+      );
+      const controlledSegmentCount = priorityRoute.pathIds.filter((pathId) =>
+        controlledPathIds.has(pathId),
+      ).length;
+      const controlState =
+        controlledSegmentCount === 0
+          ? "Active"
+          : controlledSegmentCount === priorityRoute.pathIds.length
+            ? "Controlled in response model"
+            : `${controlledSegmentCount}/${priorityRoute.pathIds.length} segments controlled`;
+
+      return {
+        eyebrow: `${priorityRoute.id} · Priority risk route`,
+        title: priorityRoute.title,
+        summary: priorityRoute.detail,
+        status: "modeled",
+        entity: null,
+        fields: [
+          {
+            label: "Route",
+            value: relatedEntities.map((item) => item.label).join(" → "),
+          },
+          {
+            label: "Risk segments",
+            value: priorityRoute.pathIds.join(" · "),
+          },
+          {
+            label: "Observed joins",
+            value: priorityRoute.joinIds.join(" · "),
+          },
+          { label: "Control state", value: controlState },
+        ],
+        relatedEntities,
+        limitation: `${fixture.reachability.caveat} ${fixture.counterfactual.caveat}`,
       } as const;
     }
 

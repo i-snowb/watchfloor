@@ -5,6 +5,7 @@ import {
   buildDirectionalImpactEnvelope,
   buildEvidenceReplayPlan,
   buildImpactLayout,
+  buildThreatHierarchy,
   findReplayStepForEntity,
   getCausalVisualState,
   getReplayEntityIds,
@@ -143,4 +144,77 @@ test("causal visual state prioritizes verified control over modeled uncertainty"
     }),
     "disputed",
   );
+});
+
+test("threat hierarchy keeps observed, prevented, and modeled states distinct", () => {
+  const initial = buildThreatHierarchy(endpointLateralScenario);
+  assert.ok(initial);
+  assert.deepEqual(
+    initial.issues.map((issue) => issue.rank),
+    [1, 2, 3],
+  );
+  assert.equal(initial.issues[0]?.entityId, "endpoint:fin-ws-044");
+  assert.equal(initial.issues[0]?.certainty, "observed");
+  assert.ok(
+    initial.issues.every((issue) => issue.entityId !== "workload:billing-api"),
+  );
+
+  const expanded = buildThreatHierarchy(endpointLateralScenario, {
+    reachabilityAttached: true,
+    releasedStageIds: new Set(["STREAM-LAT-01"]),
+  });
+  assert.ok(expanded);
+  assert.deepEqual(
+    expanded.issues.map((issue) => issue.rank),
+    [1, 2, 3, 4, 5],
+  );
+  assert.equal(
+    expanded.issues.find((issue) => issue.entityId === "endpoint:app-srv-021")
+      ?.certainty,
+    "prevented",
+  );
+  assert.equal(
+    expanded.issues.find((issue) => issue.entityId === "workload:billing-api")
+      ?.certainty,
+    "modeled",
+  );
+  assert.ok(
+    (expanded.issues.find((issue) => issue.entityId === "workload:billing-api")
+      ?.rank ?? 0) > (expanded.issues[0]?.rank ?? 0),
+  );
+});
+
+test("priority route state follows exact analyst-approved path severance", () => {
+  const active = buildThreatHierarchy(endpointLateralScenario, {
+    reachabilityAttached: true,
+  });
+  assert.ok(active);
+  assert.equal(active.priorityRoute.state, "active");
+  assert.deepEqual(active.priorityRoute.entityIds, [
+    "endpoint:fin-ws-044",
+    "identity:svc-fin-reports",
+    "secret:ci-deploy-token",
+    "workload:billing-api",
+  ]);
+  assert.deepEqual(active.priorityRoute.pathIds, [
+    "PATH-LAT-01",
+    "PATH-LAT-03",
+    "PATH-LAT-04",
+  ]);
+
+  const partial = buildThreatHierarchy(endpointLateralScenario, {
+    controlledEntityIds: new Set(["endpoint:fin-ws-044"]),
+    reachabilityAttached: true,
+    severedPathIds: new Set(["PATH-LAT-01"]),
+  });
+  assert.ok(partial);
+  assert.equal(partial.priorityRoute.state, "partially_controlled");
+  assert.equal(partial.issues[0]?.controlState, "controlled");
+
+  const controlled = buildThreatHierarchy(endpointLateralScenario, {
+    reachabilityAttached: true,
+    severedPathIds: new Set(["PATH-LAT-01", "PATH-LAT-03", "PATH-LAT-04"]),
+  });
+  assert.ok(controlled);
+  assert.equal(controlled.priorityRoute.state, "controlled");
 });

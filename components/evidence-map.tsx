@@ -46,11 +46,13 @@ import {
   buildDirectionalImpactEnvelope,
   buildEvidenceReplayPlan,
   buildImpactLayout,
+  buildThreatHierarchy,
   findReplayStepForEntity,
   getCausalVisualState,
   getReplayEntityIds,
   type CausalPhasePlane,
   type DirectionalImpactEnvelope,
+  type ThreatHierarchyIssue,
 } from "./evidence-visualization";
 
 interface EvidenceMapProps {
@@ -370,6 +372,12 @@ export function EvidenceMap({
   const predictedPathIds = new Set(
     state.counterfactualAttached ? fixture.counterfactual.severedPathIds : [],
   );
+  const priorityPathIds = new Set(
+    fixture.impact.threatOverlay?.priorityRoute.pathIds ?? [],
+  );
+  const priorityJoinIds = new Set(
+    fixture.impact.threatOverlay?.priorityRoute.joinIds ?? [],
+  );
   const replayedJoins = replayPlan.joins.slice(0, replayCursor);
   const edges = buildEdges(
     fixture,
@@ -438,6 +446,21 @@ export function EvidenceMap({
     );
     return definition ? [definition] : [];
   });
+  const controlledThreatEntityIds = new Set(
+    authorizedActions
+      .filter((action) => action.seversPathIds.length > 0)
+      .map((action) => action.targetEntityId),
+  );
+  const threatHierarchy = buildThreatHierarchy(fixture, {
+    controlledEntityIds: controlledThreatEntityIds,
+    reachabilityAttached: state.reachabilityAttached,
+    releasedStageIds: new Set(state.releasedStreamStageIds),
+    severedPathIds,
+  });
+  const threatIssueByEntityId = new Map(
+    threatHierarchy?.issues.map((issue) => [issue.entityId, issue]) ?? [],
+  );
+  const priorityRouteId = threatHierarchy?.priorityRoute.id ?? null;
   const authorizedActionByTarget = new Map(
     authorizedActions.map((action) => [action.targetEntityId, action]),
   );
@@ -633,6 +656,22 @@ export function EvidenceMap({
     },
     [focusTarget, selectEvidence, viewportRef],
   );
+  const focusThreatIssue = useCallback(
+    (issue: ThreatHierarchyIssue) => {
+      const nextSelection: TraceSelection = {
+        kind: issue.certainty === "modeled" ? "model" : "entity",
+        id: issue.entityId,
+      };
+      selectEvidence(nextSelection);
+      window.requestAnimationFrame(() => focusTarget(nextSelection));
+    },
+    [focusTarget, selectEvidence],
+  );
+  const focusPriorityRoute = () => {
+    if (!priorityRouteId) return;
+    selectEvidence({ kind: "model", id: priorityRouteId });
+    window.requestAnimationFrame(fit);
+  };
   const fittedView = useRef(view);
   const fittedRevision = useRef(state.revision);
   useEffect(() => {
@@ -803,6 +842,27 @@ export function EvidenceMap({
         {actionDock ? (
           <div className="map-command-dock">{actionDock}</div>
         ) : null}
+        {threatHierarchy ? (
+          <ThreatPriorityRail
+            activity={investigationActivity}
+            decisionStatus={state.decision.status}
+            hierarchy={threatHierarchy}
+            latestReceipt={latestReceipt}
+            onFocusIssue={focusThreatIssue}
+            onFocusRoute={focusPriorityRoute}
+            reachabilityAttached={state.reachabilityAttached}
+            revision={state.revision}
+            routeSelected={
+              selection.kind === "model" &&
+              selection.id === threatHierarchy.priorityRoute.id
+            }
+            selectedEntityId={
+              selection.kind === "entity" || selection.kind === "model"
+                ? selection.id
+                : null
+            }
+          />
+        ) : null}
         <button className="map-skip-link" onClick={openFindings} type="button">
           Open results and notes
         </button>
@@ -964,10 +1024,25 @@ export function EvidenceMap({
                   markerHeight="7"
                   markerWidth="9"
                   orient="auto"
-                  refX="8"
+                  refX="7"
                   refY="3.5"
                 >
-                  <path d="M0 0L9 3.5L0 7Z" />
+                  <path
+                    d="M1 0V7M5 0V7"
+                    fill="none"
+                    stroke="context-stroke"
+                    strokeWidth="2"
+                  />
+                </marker>
+                <marker
+                  id="map-arrow-critical"
+                  markerHeight="9"
+                  markerWidth="11"
+                  orient="auto"
+                  refX="10"
+                  refY="4.5"
+                >
+                  <path d="M0 0L11 4.5L0 9Z" />
                 </marker>
               </defs>
               {edges.map((edge) => {
@@ -1003,6 +1078,13 @@ export function EvidenceMap({
                   view === "impact" &&
                   edge.truth === "modeled" &&
                   impactHop > modelRevealHop;
+                const threatPriority =
+                  view === "impact" &&
+                  state.reachabilityAttached &&
+                  (priorityJoinIds.has(edge.id) ||
+                    edge.pathIds.some((pathId) => priorityPathIds.has(pathId)));
+                const threatActive =
+                  threatPriority && !severed && !edge.blocked;
                 const geometry = edgeGeometry(
                   from.x,
                   from.y,
@@ -1014,14 +1096,17 @@ export function EvidenceMap({
                   ? "url(#map-arrow-blocked)"
                   : severed
                     ? "url(#map-arrow-severed)"
-                    : edge.truth === "modeled"
-                      ? "url(#map-arrow-modeled)"
-                      : "url(#map-arrow-correlated)";
+                    : threatActive
+                      ? "url(#map-arrow-critical)"
+                      : edge.truth === "modeled"
+                        ? "url(#map-arrow-modeled)"
+                        : "url(#map-arrow-correlated)";
                 return (
                   <path
                     aria-label={`${edge.label}: ${edge.fromEntityId} to ${edge.toEntityId}`}
-                    className={`evidence-line evidence-line-${edge.truth} ${edge.blocked ? "evidence-line-blocked" : ""} ${predicted ? "evidence-line-predicted" : ""} ${severed ? "evidence-line-severed" : ""} ${severing ? "evidence-line-severing" : ""} ${expanding ? "evidence-line-expanding" : ""} ${replaying ? "evidence-line-replaying" : ""} ${selected ? "evidence-line-selected" : ""} ${related ? "evidence-line-related" : ""} ${dimmed ? "evidence-line-dimmed" : ""} ${modelPending ? "evidence-line-model-pending" : ""}`}
+                    className={`evidence-line evidence-line-${edge.truth} ${edge.blocked ? "evidence-line-blocked" : ""} ${predicted ? "evidence-line-predicted" : ""} ${severed ? "evidence-line-severed" : ""} ${severing ? "evidence-line-severing" : ""} ${expanding ? "evidence-line-expanding" : ""} ${replaying ? "evidence-line-replaying" : ""} ${selected ? "evidence-line-selected" : ""} ${related ? "evidence-line-related" : ""} ${dimmed ? "evidence-line-dimmed" : ""} ${modelPending ? "evidence-line-model-pending" : ""} ${threatPriority ? "evidence-line-threat-priority" : ""} ${threatActive ? "evidence-line-threat-active" : ""}`}
                     d={geometry.path}
+                    data-threat-priority={threatPriority || undefined}
                     data-trace-join-id={edge.join?.id}
                     key={edge.id}
                     markerEnd={marker}
@@ -1073,6 +1158,11 @@ export function EvidenceMap({
                 impactLayout.positions.get(edge.toEntityId)?.hop ?? 0;
               const modelPending =
                 showImpactLabel && impactHop > modelRevealHop;
+              const threatPriority =
+                view === "impact" &&
+                state.reachabilityAttached &&
+                (priorityJoinIds.has(edge.id) ||
+                  edge.pathIds.some((pathId) => priorityPathIds.has(pathId)));
               const geometry = edgeGeometry(
                 from.x,
                 from.y,
@@ -1086,12 +1176,14 @@ export function EvidenceMap({
                   ? "Modeled control effect · analyst approval required"
                   : edge.blocked
                     ? "Attempt prevented"
-                    : showImpactLabel
-                      ? edge.truth === "modeled"
-                        ? "Modeled reach"
-                        : "Observed evidence"
-                      : (edge.join?.id.replace(/^JOIN-[A-Z]+-/, "J") ??
-                        "Observed link");
+                    : threatPriority
+                      ? "Priority threat route"
+                      : showImpactLabel
+                        ? edge.truth === "modeled"
+                          ? "Modeled reach"
+                          : "Observed evidence"
+                        : (edge.join?.id.replace(/^JOIN-[A-Z]+-/, "J") ??
+                          "Observed link");
               return (
                 <button
                   aria-pressed={
@@ -1100,7 +1192,7 @@ export function EvidenceMap({
                       : selection.kind === "join" &&
                         selection.id === edge.join?.id
                   }
-                  className={`evidence-edge-label ${edge.blocked ? "evidence-edge-label-blocked" : ""} ${showImpactLabel ? "evidence-edge-label-impact" : ""} ${predicted ? "evidence-edge-label-predicted" : ""} ${severed ? "evidence-edge-label-severed" : ""} ${related ? "evidence-edge-label-related" : ""} ${dimmed ? "evidence-edge-label-dimmed" : ""} ${modelPending ? "evidence-edge-label-model-pending" : ""}`}
+                  className={`evidence-edge-label ${edge.blocked ? "evidence-edge-label-blocked" : ""} ${showImpactLabel ? "evidence-edge-label-impact" : ""} ${predicted ? "evidence-edge-label-predicted" : ""} ${severed ? "evidence-edge-label-severed" : ""} ${related ? "evidence-edge-label-related" : ""} ${dimmed ? "evidence-edge-label-dimmed" : ""} ${modelPending ? "evidence-edge-label-model-pending" : ""} ${threatPriority ? "evidence-edge-label-threat-priority" : ""} ${threatPriority && severed ? "evidence-edge-label-threat-controlled" : ""}`}
                   data-trace-join-id={
                     showTraceLabel ? edge.join?.id : undefined
                   }
@@ -1147,6 +1239,7 @@ export function EvidenceMap({
             {mapEntities.map((entity) => {
               const position = positions.get(entity.id);
               if (!position) return null;
+              const threatIssue = threatIssueByEntityId.get(entity.id);
               const entityEvents = visibleEvents.filter((event) =>
                 event.entityIds.includes(entity.id),
               );
@@ -1199,13 +1292,35 @@ export function EvidenceMap({
                 view === "impact" &&
                 modeledOnly &&
                 (impactPosition?.hop ?? 0) > modelRevealHop;
+              const threatStateLabel = threatIssue
+                ? threatIssueStateLabel(threatIssue, state.decision.status)
+                : null;
+              const entityStateLabel =
+                containedLabel && threatStateLabel
+                  ? `${threatStateLabel} · ${containedLabel}`
+                  : (containedLabel ??
+                    threatStateLabel ??
+                    (modeledOnly ? "Modeled · not observed" : evidenceState));
               return (
                 <button
-                  aria-label={`${containedLabel ?? (modeledOnly ? "Modeled, not observed" : "Observed")} ${humanizeEntityKind(entity.kind)} ${entity.label}${impactPosition?.hop === null || view !== "impact" ? "" : `, modeled hop ${impactPosition?.hop}`}`}
+                  aria-label={`${entityStateLabel} ${humanizeEntityKind(entity.kind)} ${entity.label}${impactPosition?.hop === null || view !== "impact" ? "" : `, modeled hop ${impactPosition?.hop}`}`}
                   aria-pressed={selected}
-                  className={`evidence-entity evidence-entity-${position.lane} evidence-kind-${entity.kind} causal-state-${causalState} ${observed ? "evidence-entity-observed" : ""} ${atRisk ? "evidence-entity-at-risk" : ""} ${contained ? "evidence-entity-contained" : ""} ${containmentEntering ? "evidence-entity-containment-enter" : ""} ${modeledOnly ? "evidence-entity-modeled-only" : ""} ${modelPending ? "evidence-entity-model-pending" : ""} ${expanding ? "evidence-entity-expanding" : ""} ${agentFocusEntityId === entity.id ? "evidence-entity-agent" : ""} ${investigationRunning ? `evidence-entity-query-running evidence-entity-query-${investigationActivity.actor}` : ""} ${nextGap ? "evidence-entity-next-gap" : ""} ${selected ? "evidence-entity-active-pivot" : ""} ${related ? "evidence-entity-related" : ""} ${dimmed ? "evidence-entity-dimmed" : ""}`}
+                  className={`evidence-entity evidence-entity-${position.lane} evidence-kind-${entity.kind} causal-state-${causalState} ${observed ? "evidence-entity-observed" : ""} ${atRisk ? "evidence-entity-at-risk" : ""} ${contained ? "evidence-entity-contained" : ""} ${containmentEntering ? "evidence-entity-containment-enter" : ""} ${modeledOnly ? "evidence-entity-modeled-only" : ""} ${modelPending ? "evidence-entity-model-pending" : ""} ${expanding ? "evidence-entity-expanding" : ""} ${agentFocusEntityId === entity.id ? "evidence-entity-agent" : ""} ${investigationRunning ? `evidence-entity-query-running evidence-entity-query-${investigationActivity.actor}` : ""} ${nextGap ? "evidence-entity-next-gap" : ""} ${selected ? "evidence-entity-active-pivot" : ""} ${related ? "evidence-entity-related" : ""} ${dimmed ? "evidence-entity-dimmed" : ""} ${threatIssue ? `evidence-entity-threat evidence-entity-threat-${threatIssue.certainty}` : ""} ${threatIssue?.rank === 1 && state.decision.status === "confirmed_malicious" ? "evidence-entity-compromise-confirmed" : ""}`}
                   data-control-state={containedAction?.id}
                   data-entity-kind={entity.kind}
+                  data-issue-rank={threatIssue?.rank}
+                  data-threat-certainty={threatIssue?.certainty}
+                  data-visual-treatment={
+                    threatIssue
+                      ? threatIssue.certainty === "prevented"
+                        ? "prevented-attempt"
+                        : threatIssue.certainty === "modeled"
+                          ? "modeled-exposure"
+                          : threatIssue.severity === "critical"
+                            ? "critical-red"
+                            : "high-priority"
+                      : undefined
+                  }
                   data-impact-hop={
                     view === "impact" ? impactPosition?.hop : undefined
                   }
@@ -1246,12 +1361,13 @@ export function EvidenceMap({
                     <span>{entity.summary}</span>
                   </span>
                   <span className="evidence-entity-state">
-                    {containedLabel
-                      ? containedLabel
-                      : modeledOnly
-                        ? "Modeled · not observed"
-                        : evidenceState}
+                    {entityStateLabel}
                   </span>
+                  {threatIssue ? (
+                    <span aria-hidden="true" className="evidence-threat-rank">
+                      P{threatIssue.rank}
+                    </span>
+                  ) : null}
                   {expanding ? <i>New evidence</i> : null}
                   {investigationRunning ? (
                     <b>
@@ -1897,6 +2013,117 @@ function ImpactEnvelope({
   );
 }
 
+function ThreatPriorityRail({
+  activity,
+  decisionStatus,
+  hierarchy,
+  latestReceipt,
+  onFocusIssue,
+  onFocusRoute,
+  reachabilityAttached,
+  revision,
+  routeSelected,
+  selectedEntityId,
+}: {
+  activity: InvestigationActivity;
+  decisionStatus: CaseState["decision"]["status"];
+  hierarchy: NonNullable<ReturnType<typeof buildThreatHierarchy>>;
+  latestReceipt: OperationReceipt | null;
+  onFocusIssue: (issue: ThreatHierarchyIssue) => void;
+  onFocusRoute: () => void;
+  reachabilityAttached: boolean;
+  revision: number;
+  routeSelected: boolean;
+  selectedEntityId: string | null;
+}) {
+  const urgentCount = hierarchy.issues.filter(
+    (issue) =>
+      issue.controlState === "active" && issue.certainty === "observed",
+  ).length;
+  const collaborationLabel =
+    activity.status === "running"
+      ? activity.actor === "agent"
+        ? `Copilot ${investigationPhaseVerb(activity.phase)} shared evidence`
+        : `Analyst ${investigationPhaseVerb(activity.phase)} shared evidence`
+      : latestReceipt?.reportedSurface === "webmcp_callback"
+        ? "Copilot updated the shared case"
+        : latestReceipt?.reportedSurface === "analyst_control"
+          ? "Analyst decision recorded"
+          : "Copilot ready on the shared case";
+
+  return (
+    <details className="threat-priority-rail" open>
+      <summary>
+        <span>Issue priority</span>
+        <strong>{urgentCount} urgent</strong>
+      </summary>
+      <ol>
+        {hierarchy.issues.map((issue) => (
+          <li
+            data-control-state={issue.controlState}
+            data-threat-certainty={issue.certainty}
+            key={issue.id}
+          >
+            <button
+              aria-label={`Priority ${issue.rank}: ${threatIssueStateLabel(issue, decisionStatus)}. ${issue.detail}${issue.controlState === "controlled" ? ". Exposure control approved in response model." : ""}`}
+              aria-pressed={selectedEntityId === issue.entityId}
+              data-issue-rank={issue.rank}
+              data-visual-treatment={
+                issue.certainty === "prevented"
+                  ? "prevented-attempt"
+                  : issue.certainty === "modeled"
+                    ? "modeled-exposure"
+                    : issue.severity === "critical"
+                      ? "critical-red"
+                      : "high-priority"
+              }
+              onClick={() => onFocusIssue(issue)}
+              type="button"
+            >
+              <b>{String(issue.rank).padStart(2, "0")}</b>
+              <span>
+                <em>
+                  {issue.controlState === "controlled"
+                    ? `${issue.certainty} · controlled`
+                    : issue.certainty === "observed"
+                      ? issue.severity
+                      : issue.certainty}
+                </em>
+                <strong>{threatIssueStateLabel(issue, decisionStatus)}</strong>
+                <small>
+                  {issue.detail}
+                  {issue.controlState === "controlled"
+                    ? " · Exposure control approved"
+                    : ""}
+                </small>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
+      {reachabilityAttached ? (
+        <button
+          aria-pressed={routeSelected}
+          className="threat-priority-route"
+          data-route-state={hierarchy.priorityRoute.state}
+          onClick={onFocusRoute}
+          type="button"
+        >
+          <span>Priority route</span>
+          <strong>{hierarchy.priorityRoute.title}</strong>
+          <small>{hierarchy.priorityRoute.detail}</small>
+        </button>
+      ) : null}
+      <footer aria-live="polite">
+        <span>{collaborationLabel}</span>
+        <small>
+          Shared revision r{revision} · analyst approval for controls
+        </small>
+      </footer>
+    </details>
+  );
+}
+
 function buildSelectionFocus(
   selection: TraceSelection,
   edges: readonly MapEdge[],
@@ -1932,18 +2159,31 @@ function buildSelectionFocus(
       includeEntityNeighborhood(entityId);
     }
   } else {
-    const entity = getAllEntities(fixture).find(
-      (candidate) => candidate.id === selection.id,
-    );
-    if (entity) {
-      includeEntityNeighborhood(entity.id);
+    const priorityRoute = fixture.impact.threatOverlay?.priorityRoute;
+    if (priorityRoute?.id === selection.id) {
+      for (const entityId of priorityRoute.entityIds) entityIds.add(entityId);
+      for (const edge of edges) {
+        if (
+          priorityRoute.joinIds.includes(edge.id) ||
+          edge.pathIds.some((pathId) => priorityRoute.pathIds.includes(pathId))
+        ) {
+          edgeIds.add(edge.id);
+        }
+      }
     } else {
-      const path = fixture.reachability.paths.find(
+      const entity = getAllEntities(fixture).find(
         (candidate) => candidate.id === selection.id,
       );
-      for (const entityId of path?.entityIds ?? []) entityIds.add(entityId);
-      for (const edge of edges) {
-        if (edge.pathIds.includes(selection.id)) edgeIds.add(edge.id);
+      if (entity) {
+        includeEntityNeighborhood(entity.id);
+      } else {
+        const path = fixture.reachability.paths.find(
+          (candidate) => candidate.id === selection.id,
+        );
+        for (const entityId of path?.entityIds ?? []) entityIds.add(entityId);
+        for (const edge of edges) {
+          if (edge.pathIds.includes(selection.id)) edgeIds.add(edge.id);
+        }
       }
     }
   }
@@ -1993,6 +2233,19 @@ function authorizedEntityStateLabel(actionId: string): string {
   if (actionId === "rotate_deployment_credential") return "Rotation approved";
   if (actionId === "rollback_workload_image") return "Redeploy approved";
   return "Control approved";
+}
+
+function threatIssueStateLabel(
+  issue: ThreatHierarchyIssue,
+  decisionStatus: CaseState["decision"]["status"],
+): string {
+  if (issue.certainty === "prevented") return "Lateral execution prevented";
+  if (issue.certainty === "modeled") return "Modeled at risk · not observed";
+  if (issue.rank === 1 && decisionStatus === "confirmed_malicious") {
+    return "Confirmed compromised host";
+  }
+  if (issue.rank === 1) return "Observed execution source";
+  return issue.title;
 }
 
 function investigationPhaseLabel(
