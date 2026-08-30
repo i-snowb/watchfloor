@@ -23,6 +23,12 @@ import {
 } from "../domain/query-console";
 import { createCaseToolDefinitions, registerCaseTools } from "../webmcp/tools";
 import { layoutTraceResultPackets } from "../lib/trace-result-layout";
+import {
+  TRACE_NODE_HEIGHT,
+  TRACE_NODE_WIDTH,
+  TRACE_RESULT_PACKET_HEIGHT,
+  TRACE_RESULT_PACKET_WIDTH,
+} from "../lib/trace-geometry";
 
 function execute(
   fixture: CaseFixture,
@@ -272,10 +278,6 @@ test("fixture validation rejects a noncontiguous priority route", () => {
 });
 
 test("result packets do not cover another investigation entity", () => {
-  const nodeWidth = 220;
-  const nodeHeight = 152;
-  const packetWidth = 196;
-  const packetHeight = 96;
   for (const fixture of [cloudIdentityScenario, endpointLateralScenario]) {
     const nodes = fixture.presentation.nodes;
     const nodeById = new Map(nodes.map((node) => [node.entityId, node]));
@@ -299,21 +301,51 @@ test("result packets do not cover another investigation entity", () => {
       const packet = {
         left: placement.x,
         top: placement.y,
-        right: placement.x + packetWidth,
-        bottom: placement.y + packetHeight,
+        right: placement.x + TRACE_RESULT_PACKET_WIDTH,
+        bottom: placement.y + TRACE_RESULT_PACKET_HEIGHT,
       };
 
       for (const [entityId, node] of nodeById) {
         if (entityId === targetEntityId) continue;
         const overlaps =
-          packet.left < node.x + nodeWidth &&
+          packet.left < node.x + TRACE_NODE_WIDTH &&
           packet.right > node.x &&
-          packet.top < node.y + nodeHeight &&
+          packet.top < node.y + TRACE_NODE_HEIGHT &&
           packet.bottom > node.y;
         assert.equal(
           overlaps,
           false,
           `${fixture.scenarioId}: ${targetEntityId} result packet overlaps ${entityId}`,
+        );
+      }
+    }
+  }
+});
+
+test("presentation cards do not overlap at release geometry", () => {
+  for (const fixture of [
+    cloudIdentityScenario,
+    endpointLateralScenario,
+  ] as readonly CaseFixture[]) {
+    const nodes = [
+      ...fixture.presentation.nodes,
+      ...fixture.stream.stages.flatMap((stage) => stage.graphNodes),
+    ];
+    for (let index = 0; index < nodes.length; index += 1) {
+      const node = nodes[index]!;
+      assert.ok(node.x >= 0 && node.y >= 0);
+      assert.ok(node.x + TRACE_NODE_WIDTH <= fixture.presentation.graphWidth);
+      assert.ok(node.y + TRACE_NODE_HEIGHT <= fixture.presentation.graphHeight);
+      for (const candidate of nodes.slice(index + 1)) {
+        const overlaps =
+          node.x < candidate.x + TRACE_NODE_WIDTH &&
+          node.x + TRACE_NODE_WIDTH > candidate.x &&
+          node.y < candidate.y + TRACE_NODE_HEIGHT &&
+          node.y + TRACE_NODE_HEIGHT > candidate.y;
+        assert.equal(
+          overlaps,
+          false,
+          `${fixture.scenarioId}: ${node.entityId} overlaps ${candidate.entityId}`,
         );
       }
     }

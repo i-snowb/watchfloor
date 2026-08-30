@@ -12,6 +12,7 @@ import {
 } from "../components/evidence-visualization";
 import { cloudIdentityScenario } from "../domain/scenarios/cloud-identity";
 import { endpointLateralScenario } from "../domain/scenarios/endpoint-lateral";
+import { TRACE_NODE_HEIGHT, TRACE_NODE_WIDTH } from "../lib/trace-geometry";
 
 test("evidence replay follows deterministic join order", () => {
   const fixture = endpointLateralScenario;
@@ -87,8 +88,8 @@ test("impact layout retains released discovery graph lanes", () => {
   const layout = buildImpactLayout(
     fixture,
     [...fixture.entities, ...discovery.entities],
-    202,
-    104,
+    TRACE_NODE_WIDTH,
+    TRACE_NODE_HEIGHT,
     [...fixture.presentation.nodes, ...discovery.graphNodes],
   );
 

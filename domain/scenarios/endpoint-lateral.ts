@@ -1773,8 +1773,8 @@ export const endpointLateralScenario = {
         graphNodes: [
           {
             entityId: "endpoint:fin-reports-srv-010",
-            x: 1080,
-            y: 90,
+            x: 1200,
+            y: 120,
             lane: "lateral",
           },
         ],
@@ -2200,16 +2200,16 @@ export const endpointLateralScenario = {
   ],
   presentation: {
     defaultEvidenceView: "trace",
-    graphWidth: 1320,
-    graphHeight: 780,
+    graphWidth: 1450,
+    graphHeight: 800,
     nodes: [
-      { entityId: "file:invoice-sync-helper", x: 60, y: 130, lane: "entry" },
-      { entityId: "endpoint:fin-ws-044", x: 325, y: 130, lane: "execution" },
-      { entityId: "indicator:203.0.113.91", x: 600, y: 30, lane: "impact" },
-      { entityId: "identity:svc-fin-reports", x: 600, y: 310, lane: "access" },
-      { entityId: "endpoint:app-srv-021", x: 900, y: 100, lane: "lateral" },
-      { entityId: "secret:ci-deploy-token", x: 900, y: 370, lane: "access" },
-      { entityId: "workload:billing-api", x: 1080, y: 370, lane: "impact" },
+      { entityId: "file:invoice-sync-helper", x: 60, y: 150, lane: "entry" },
+      { entityId: "endpoint:fin-ws-044", x: 335, y: 150, lane: "execution" },
+      { entityId: "indicator:203.0.113.91", x: 640, y: 35, lane: "impact" },
+      { entityId: "identity:svc-fin-reports", x: 640, y: 360, lane: "access" },
+      { entityId: "endpoint:app-srv-021", x: 930, y: 110, lane: "lateral" },
+      { entityId: "secret:ci-deploy-token", x: 930, y: 410, lane: "access" },
+      { entityId: "workload:billing-api", x: 1190, y: 410, lane: "impact" },
     ],
     stageQuestions: [
       "Which observed execution, login, and command evidence proves the active chain before containment?",

@@ -4,6 +4,7 @@ import type {
   Entity,
   EvidenceJoin,
 } from "@/domain/types";
+import { TRACE_NODE_HEIGHT, TRACE_NODE_WIDTH } from "@/lib/trace-geometry";
 
 export interface EvidenceReplayPlan {
   joins: readonly EvidenceJoin[];
@@ -217,8 +218,8 @@ export function findReplayStepForEntity(
 export function buildImpactLayout(
   fixture: CaseFixture,
   entities: readonly Entity[],
-  nodeWidth = 202,
-  nodeHeight = 104,
+  nodeWidth = TRACE_NODE_WIDTH,
+  nodeHeight = TRACE_NODE_HEIGHT,
   graphNodes: readonly CaseGraphNode[] = fixture.presentation.nodes,
 ): ImpactLayout {
   const { graphWidth, graphHeight } = fixture.presentation;
@@ -312,8 +313,8 @@ export function buildImpactLayout(
       hop: null,
       lane: trace?.lane ?? "entry",
       role: "context",
-      x: 34 + (index % 2) * 34,
-      y: 168 + index * Math.min(128, nodeHeight + 22),
+      x: 24,
+      y: 32 + index * (nodeHeight + 18),
     });
   });
 

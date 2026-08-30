@@ -11,11 +11,11 @@
   column-gap: 12px;
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) 30px;
-  height: 152px;
+  grid-template-rows: minmax(0, 1fr) 34px;
+  height: 178px;
   padding: 14px 14px 0;
   row-gap: 0;
-  width: 220px;
+  width: 240px;
 }
 
 .case-view .evidence-entity-glyph {
@@ -30,20 +30,20 @@
   grid-column: 2;
   grid-row: 1;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .case-view .evidence-entity-copy small {
   align-items: center;
   color: #83a0a6;
   display: flex;
-  font-size: 12.5px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
   gap: 6px;
   line-height: 1.2;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  white-space: normal;
 }
 
 .case-view .evidence-entity-copy small em {
@@ -69,7 +69,7 @@
   line-height: 1.22;
   margin-top: 6px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   overflow-wrap: normal;
   word-break: normal;
   white-space: normal;
@@ -80,13 +80,13 @@
 .case-view .evidence-entity-copy > span {
   color: #91a4a8;
   display: -webkit-box;
-  font-size: 13.5px;
-  line-height: 1.28;
+  font-size: 13px;
+  line-height: 1.34;
   margin-top: 5px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
 }
 
 .case-view .evidence-entity-state {
@@ -112,8 +112,7 @@
 
 .case-view .evidence-entity-state > span {
   color: currentColor;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
 }
 
 .case-view .evidence-entity-state > small {
@@ -231,23 +230,27 @@
 /* Packet geometry must match lib/trace-result-layout.ts. */
 .case-view .query-result-stack .query-result-packet {
   box-sizing: border-box;
-  height: 96px;
-  max-height: 96px;
-  min-height: 96px;
+  height: 108px;
+  max-height: 108px;
+  min-height: 108px;
   overflow: hidden;
+}
+
+.case-view .query-result-stack {
+  width: 220px;
 }
 
 .case-view .query-result-stack .query-result-packet strong {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
 }
 
 .case-view .query-result-stack .query-result-packet small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 /* Timelines participate in document flow in every case. */
@@ -268,10 +271,10 @@
 
 .case-view .evidence-stage-frame {
   align-items: stretch;
-  block-size: clamp(520px, calc(100dvh - 189px), 690px) !important;
+  block-size: auto !important;
   display: grid !important;
   grid-template-columns: 250px minmax(0, 1fr) !important;
-  grid-template-rows: minmax(0, 1fr) 116px !important;
+  grid-template-rows: clamp(540px, calc(100dvh - 190px), 720px) auto 116px !important;
   max-height: none !important;
   min-height: 0 !important;
   overflow: hidden;
@@ -349,10 +352,26 @@
 
 .case-view .evidence-stage-frame > .case-timeline-dock {
   grid-column: 1 / -1;
-  grid-row: 2;
+  grid-row: 3;
   height: 116px;
   min-height: 116px;
   overflow: hidden;
+}
+
+.case-view .evidence-stage-summary {
+  background: #071012;
+  border-left: 1px solid rgba(121, 197, 207, 0.26);
+  border-right: 1px solid rgba(121, 197, 207, 0.26);
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr));
+  padding: 8px 10px;
+}
+
+.case-view .evidence-stage-summary:has(.map-impact-readout:only-child) {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .case-view .evidence-stage-frame-without-context {
@@ -449,25 +468,60 @@
 }
 
 .case-view .escalation-brief > summary > strong {
-  display: -webkit-box;
+  display: block;
   font-size: 13px;
   grid-column: 1 / -1;
   grid-row: 2;
   line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
   white-space: normal;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 
 .case-view .escalation-brief > summary > small {
   grid-column: 1 / -1;
   grid-row: 3;
   line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.case-view .map-impact-readout {
+  backdrop-filter: none;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(300px, auto);
+  inset: auto;
+  max-width: none;
+  min-height: 86px;
+  position: static;
+  width: 100%;
+  z-index: auto;
+}
+
+.case-view .map-impact-readout > div strong {
+  overflow-wrap: anywhere;
+}
+
+.case-view .evidence-map-impact .evidence-entity,
+.case-view .evidence-map-impact .evidence-entity-observed,
+.case-view .evidence-map-impact .evidence-entity-at-risk,
+.case-view .evidence-map-impact .evidence-entity-modeled-only,
+.case-view .evidence-map-impact .evidence-line-modeled,
+.case-view .evidence-map-impact .evidence-line-priority {
+  filter: none;
+}
+
+.case-view .evidence-map-plane,
+.case-view .evidence-entity,
+.case-view .query-result-packet {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.case-view .evidence-entity-glyph svg,
+.case-view .evidence-map-lines {
+  shape-rendering: geometricPrecision;
 }
 
 .case-view .escalation-brief > div {
@@ -486,7 +540,7 @@
   .case-view .evidence-stage-frame {
     block-size: auto !important;
     grid-template-columns: minmax(0, 1fr) !important;
-    grid-template-rows: auto clamp(520px, 68dvh, 720px) 116px !important;
+    grid-template-rows: auto clamp(520px, 68dvh, 720px) auto 116px !important;
     max-height: none !important;
     min-height: 0 !important;
     overflow: visible;
@@ -513,6 +567,15 @@
     padding: 8px 12px;
   }
 
+  .case-view .case-context-rail:has(.query-console[open]) {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .case-view .case-context-rail:has(.query-console[open]) > .map-command-dock {
+    max-height: none;
+  }
+
   .case-view .evidence-stage-frame > .evidence-map-viewport {
     grid-column: 1;
     grid-row: 2;
@@ -520,31 +583,50 @@
 
   .case-view .evidence-stage-frame > .case-timeline-dock {
     grid-column: 1;
+    grid-row: 4;
+  }
+
+  .case-view .evidence-stage-frame > .evidence-stage-summary {
+    grid-column: 1;
     grid-row: 3;
+  }
+
+  .case-view .map-impact-readout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .case-view .map-impact-readout dl {
+    min-height: 68px;
   }
 
   .case-view
     .evidence-stage-frame:has(.query-console[open])
     .case-context-rail
     > .map-command-dock {
-    bottom: 12px !important;
-    left: 12px !important;
+    bottom: auto !important;
+    left: auto !important;
     max-width: none !important;
-    position: fixed !important;
-    right: 12px !important;
-    top: 72px !important;
+    position: static !important;
+    right: auto !important;
+    top: auto !important;
     width: auto !important;
-    z-index: 100;
+    z-index: auto;
+  }
+
+  .case-view .evidence-stage-frame .query-console[open] {
+    height: auto;
+    max-height: min(68dvh, 720px);
   }
 
   .case-view .case-investigation-drawer[open] > .investigation-drawer-body {
-    bottom: 12px;
-    left: 12px;
-    max-height: none !important;
-    position: fixed !important;
-    right: 12px;
-    top: 72px !important;
-    z-index: 100;
+    bottom: auto;
+    left: auto;
+    margin: 0 12px 12px;
+    max-height: min(72dvh, 720px) !important;
+    position: relative !important;
+    right: auto;
+    top: auto !important;
+    z-index: auto;
   }
 
   .case-view .evidence-entity-copy small,

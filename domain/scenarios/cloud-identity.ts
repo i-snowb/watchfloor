@@ -1035,8 +1035,8 @@ export const cloudIdentityScenario = {
         graphNodes: [
           {
             entityId: "role:data-export-operator",
-            x: 550,
-            y: 430,
+            x: 650,
+            y: 470,
             lane: "access",
           },
         ],
@@ -1093,8 +1093,8 @@ export const cloudIdentityScenario = {
   responseActions: [],
   presentation: {
     defaultEvidenceView: "trace",
-    graphWidth: 1160,
-    graphHeight: 650,
+    graphWidth: 1220,
+    graphHeight: 720,
     nodes: [
       { entityId: "identity:jdoe", x: 60, y: 190, lane: "entry" },
       { entityId: "session:okta-921", x: 330, y: 190, lane: "entry" },

@@ -30,6 +30,8 @@ import type {
 import { formatUtcTime, humanizeEntityKind } from "@/lib/format";
 import { layoutTraceResultPackets } from "@/lib/trace-result-layout";
 import { TRACE_CASE_READABLE_SCALE } from "@/lib/trace-camera";
+import { TRACE_NODE_HEIGHT, TRACE_NODE_WIDTH } from "@/lib/trace-geometry";
+import { EscalationBrief } from "./escalation-brief";
 import {
   selectionContainsEntity,
   useTraceCamera,
@@ -86,8 +88,8 @@ interface MapEdge {
   blocked: boolean;
 }
 
-const nodeWidth = 220;
-const nodeHeight = 152;
+const nodeWidth = TRACE_NODE_WIDTH;
+const nodeHeight = TRACE_NODE_HEIGHT;
 
 export function EvidenceMap({
   busy,
@@ -402,14 +404,28 @@ export function EvidenceMap({
   const impactLayout = buildImpactLayout(
     fixture,
     [...renderedVisibleEntities, ...modeledOnlyEntities],
-    202,
-    104,
+    nodeWidth,
+    nodeHeight,
     visibleGraphNodes,
   );
   const positions =
     view === "impact" && state.reachabilityAttached
       ? impactLayout.positions
       : tracePositions;
+  const activeGraphHeight =
+    view === "impact"
+      ? fixture.presentation.graphHeight
+      : Math.max(
+          460,
+          Math.min(
+            fixture.presentation.graphHeight,
+            Math.max(
+              ...mapEntities.map((entity) => positions.get(entity.id)?.y ?? 0),
+            ) +
+              nodeHeight +
+              64,
+          ),
+        );
   const phasePlanes = useMemo(() => buildCausalPhasePlanes(fixture), [fixture]);
   const impactEnvelope = buildDirectionalImpactEnvelope(impactLayout);
   const maxImpactHop = impactEnvelope.at(-1)?.hop ?? 0;
@@ -537,12 +553,51 @@ export function EvidenceMap({
     if (targetQueries) targetQueries.push(query);
     else attachedQueriesByTarget.set(query.targetEntityId, [query]);
   }
+  const latestQueryReceipt = [...receipts]
+    .reverse()
+    .find(
+      (receipt) =>
+        receipt.status === "completed" && isQueryExecutionReceipt(receipt),
+    );
+  const latestResultQuery =
+    (investigationActivity.status === "completed" &&
+    investigationActivity.queryId
+      ? allAttachedQueries.find(
+          (query) => query.id === investigationActivity.queryId,
+        )
+      : null) ??
+    (latestQueryReceipt
+      ? allAttachedQueries.find(
+          (query) => query.title === latestQueryReceipt.title,
+        )
+      : null) ??
+    allAttachedQueries.at(-1) ??
+    null;
+  const selectedResultEntityId =
+    selection.kind === "entity" || selection.kind === "model"
+      ? selection.id
+      : null;
+  const visibleResultTargetIds = new Set(
+    [latestResultQuery?.targetEntityId, selectedResultEntityId].filter(
+      (entityId): entityId is string =>
+        typeof entityId === "string" && attachedQueriesByTarget.has(entityId),
+    ),
+  );
+  const visibleAttachedQueriesByTarget = new Map(
+    [...attachedQueriesByTarget].filter(([entityId]) =>
+      visibleResultTargetIds.has(entityId),
+    ),
+  );
   const queryResultPlacements = layoutTraceResultPackets(
-    [...attachedQueriesByTarget.keys()],
-    [...tracePositions.values()],
+    [...visibleAttachedQueriesByTarget.keys()],
+    [...positions.entries()].map(([entityId, position]) => ({
+      entityId,
+      x: position.x,
+      y: position.y,
+    })),
     mapEntityIds,
     fixture.presentation.graphWidth,
-    fixture.presentation.graphHeight,
+    activeGraphHeight,
   );
   const nextStep = getDerivedNextStep(fixture, state);
   const reportTrigger =
@@ -608,12 +663,12 @@ export function EvidenceMap({
           drawerBody.scrollTo({
             top: Math.max(0, report.offsetTop - 12),
             left: 0,
-            behavior: "smooth",
+            behavior: reducedMotion ? "auto" : "smooth",
           });
         }
       });
     });
-  }, [reportReviewId]);
+  }, [reducedMotion, reportReviewId]);
   useEffect(() => {
     const reportId = state.report.report?.id ?? null;
     if (state.report.status !== "drafted" || !reportId) {
@@ -661,6 +716,15 @@ export function EvidenceMap({
         : state.reachabilityAttached
           ? fixture.impact.modeledHeadline
           : fixture.impact.initialHeadline;
+  const graphLayoutRevision = [
+    fixture.id,
+    view,
+    fixture.presentation.graphWidth,
+    fixture.presentation.graphHeight,
+    state.reachabilityAttached ? "modeled" : "observed",
+    state.releasedStreamStageIds.join(","),
+    visibleGraphNodes.map((node) => node.entityId).join(","),
+  ].join(":");
   const {
     camera,
     dragging,
@@ -678,7 +742,7 @@ export function EvidenceMap({
     zoomBy,
   } = useTraceCamera(
     selection,
-    `${fixture.id}:${view}:${replayCursor}:${mapEntities.length}:${edges.length}`,
+    graphLayoutRevision,
     0,
     TRACE_CASE_READABLE_SCALE,
   );
@@ -708,17 +772,6 @@ export function EvidenceMap({
     selectEvidence({ kind: "model", id: priorityRouteId });
     window.requestAnimationFrame(fit);
   };
-  const fittedView = useRef(view);
-  const fittedRevision = useRef(state.revision);
-  useEffect(() => {
-    const reset = state.revision < fittedRevision.current;
-    const viewChanged = view !== fittedView.current;
-    fittedRevision.current = state.revision;
-    fittedView.current = view;
-    if (!reset && !viewChanged) return;
-    const frame = window.requestAnimationFrame(fit);
-    return () => window.cancelAnimationFrame(frame);
-  }, [fit, state.revision, view]);
   const agentTargetPosition =
     investigationActivity.status !== "idle" &&
     investigationActivity.targetEntityId
@@ -727,20 +780,6 @@ export function EvidenceMap({
   const latestAuthorizedTargetPosition = latestAuthorizedAction
     ? positions.get(latestAuthorizedAction.targetEntityId)
     : null;
-  const activeGraphHeight =
-    view === "impact"
-      ? fixture.presentation.graphHeight
-      : Math.max(
-          460,
-          Math.min(
-            fixture.presentation.graphHeight,
-            Math.max(
-              ...mapEntities.map((entity) => positions.get(entity.id)?.y ?? 0),
-            ) +
-              nodeHeight +
-              64,
-          ),
-        );
   const evidenceTimeline = (
     <TraceSequenceRail
       activeQuery={activeWorkQuery}
@@ -940,80 +979,6 @@ export function EvidenceMap({
             className="trace-field-grid evidence-map-grid"
             aria-hidden="true"
           />
-          {view === "impact" ? (
-            <section
-              className="impact-readout map-impact-readout"
-              aria-label="Blast radius summary"
-            >
-              <p aria-live="polite" className="visually-hidden">
-                {impactAnnouncement(
-                  fixture,
-                  state,
-                  authorizedActionCount,
-                  severedPathIds.size,
-                )}
-              </p>
-              <div>
-                <span>Exposure</span>
-                <strong>{impactHeadline}</strong>
-                {state.reachabilityAttached && modelRevealHop < maxImpactHop ? (
-                  <small className="model-reveal-status">
-                    Impact modeling hop {Math.max(1, modelRevealHop + 1)} of{" "}
-                    {maxImpactHop}
-                  </small>
-                ) : null}
-                {authorizedActionCount > 0 ? (
-                  <small className="containment-status">
-                    {severedPathIds.size} modeled path
-                    {severedPathIds.size === 1 ? "" : "s"} blocked · no external
-                    action executed
-                  </small>
-                ) : null}
-              </div>
-              <dl>
-                <div>
-                  <dt>Observed</dt>
-                  <dd>
-                    {
-                      fixture.impact.observedEntityIds.filter((id) =>
-                        visibleEntityIds.has(id),
-                      ).length
-                    }
-                  </dd>
-                </div>
-                <div>
-                  <dt>Modeled reach</dt>
-                  <dd
-                    className={
-                      state.reachabilityAttached ? undefined : "not-modeled"
-                    }
-                  >
-                    {state.reachabilityAttached
-                      ? fixture.impact.atRiskEntityIds.length
-                      : "Not modeled"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Risk paths</dt>
-                  <dd
-                    className={
-                      state.reachabilityAttached ? undefined : "not-modeled"
-                    }
-                  >
-                    {state.reachabilityAttached
-                      ? fixture.reachability.paths.length
-                      : "Not modeled"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Controls</dt>
-                  <dd>
-                    {authorizedActionCount}/{fixture.responseActions.length}
-                  </dd>
-                </div>
-              </dl>
-            </section>
-          ) : null}
           <div
             className="causal-plane evidence-map-plane"
             ref={planeRef}
@@ -1474,7 +1439,7 @@ export function EvidenceMap({
               </span>
             ) : null}
 
-            {[...attachedQueriesByTarget.entries()].map(
+            {[...visibleAttachedQueriesByTarget.entries()].map(
               ([targetEntityId, targetQueries]) => {
                 if (!positions.has(targetEntityId)) return null;
                 const resultPlacement =
@@ -1606,6 +1571,88 @@ export function EvidenceMap({
             </div>
           ) : null}
         </div>
+        {view === "impact" || state.decision.status === "pending" ? (
+          <div className="evidence-stage-summary">
+            {view === "impact" ? (
+              <section
+                className="impact-readout map-impact-readout"
+                aria-label="Blast radius summary"
+              >
+                <p aria-live="polite" className="visually-hidden">
+                  {impactAnnouncement(
+                    fixture,
+                    state,
+                    authorizedActionCount,
+                    severedPathIds.size,
+                  )}
+                </p>
+                <div>
+                  <span>Exposure</span>
+                  <strong>{impactHeadline}</strong>
+                  {state.reachabilityAttached &&
+                  modelRevealHop < maxImpactHop ? (
+                    <small className="model-reveal-status">
+                      Impact modeling hop {Math.max(1, modelRevealHop + 1)} of{" "}
+                      {maxImpactHop}
+                    </small>
+                  ) : null}
+                  {authorizedActionCount > 0 ? (
+                    <small className="containment-status">
+                      {severedPathIds.size} modeled path
+                      {severedPathIds.size === 1 ? "" : "s"} blocked · no
+                      external action executed
+                    </small>
+                  ) : null}
+                </div>
+                <dl>
+                  <div>
+                    <dt>Observed</dt>
+                    <dd>
+                      {
+                        fixture.impact.observedEntityIds.filter((id) =>
+                          visibleEntityIds.has(id),
+                        ).length
+                      }
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Modeled reach</dt>
+                    <dd
+                      className={
+                        state.reachabilityAttached ? undefined : "not-modeled"
+                      }
+                    >
+                      {state.reachabilityAttached
+                        ? fixture.impact.atRiskEntityIds.length
+                        : "Not modeled"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Risk paths</dt>
+                    <dd
+                      className={
+                        state.reachabilityAttached ? undefined : "not-modeled"
+                      }
+                    >
+                      {state.reachabilityAttached
+                        ? fixture.reachability.paths.length
+                        : "Not modeled"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Controls</dt>
+                    <dd>
+                      {authorizedActionCount}/{fixture.responseActions.length}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+            ) : null}
+            {state.decision.status === "pending" ? (
+              <EscalationBrief fixture={fixture} />
+            ) : null}
+          </div>
+        ) : null}
         <div className="case-timeline-dock">{evidenceTimeline}</div>
       </div>
 

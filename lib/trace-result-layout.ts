@@ -1,3 +1,11 @@
+import {
+  TRACE_NODE_HEIGHT,
+  TRACE_NODE_WIDTH,
+  TRACE_RESULT_PACKET_GAP,
+  TRACE_RESULT_PACKET_HEIGHT,
+  TRACE_RESULT_PACKET_WIDTH,
+} from "./trace-geometry";
+
 export interface TraceLayoutNode {
   entityId: string;
   x: number;
@@ -17,12 +25,6 @@ interface Rectangle {
   bottom: number;
 }
 
-const nodeWidth = 220;
-const nodeHeight = 152;
-const packetWidth = 196;
-const packetHeight = 96;
-const gap = 16;
-
 export function layoutTraceResultPackets(
   targetEntityIds: readonly string[],
   nodes: readonly TraceLayoutNode[],
@@ -41,10 +43,26 @@ export function layoutTraceResultPackets(
     const target = nodeById.get(entityId);
     if (!target) continue;
     const candidates: TraceResultPlacement[] = [
-      { x: target.x + 12, y: target.y + nodeHeight + gap, edge: "below" },
-      { x: target.x + 12, y: target.y - packetHeight - gap, edge: "above" },
-      { x: target.x + nodeWidth + gap, y: target.y + 12, edge: "right" },
-      { x: target.x - packetWidth - gap, y: target.y + 12, edge: "left" },
+      {
+        x: target.x + 12,
+        y: target.y + TRACE_NODE_HEIGHT + TRACE_RESULT_PACKET_GAP,
+        edge: "below",
+      },
+      {
+        x: target.x + 12,
+        y: target.y - TRACE_RESULT_PACKET_HEIGHT - TRACE_RESULT_PACKET_GAP,
+        edge: "above",
+      },
+      {
+        x: target.x + TRACE_NODE_WIDTH + TRACE_RESULT_PACKET_GAP,
+        y: target.y + 12,
+        edge: "right",
+      },
+      {
+        x: target.x - TRACE_RESULT_PACKET_WIDTH - TRACE_RESULT_PACKET_GAP,
+        y: target.y + 12,
+        edge: "left",
+      },
     ];
     const placement = candidates.find((candidate) => {
       const packet = packetRectangle(candidate);
@@ -59,8 +77,8 @@ export function layoutTraceResultPackets(
             rectanglesIntersect(packet, {
               left: node.x,
               top: node.y,
-              right: node.x + nodeWidth,
-              bottom: node.y + nodeHeight,
+              right: node.x + TRACE_NODE_WIDTH,
+              bottom: node.y + TRACE_NODE_HEIGHT,
             }),
         ) &&
         !occupiedPackets.some((occupied) =>
@@ -68,10 +86,16 @@ export function layoutTraceResultPackets(
         )
       );
     }) ?? {
-      x: Math.max(0, Math.min(graphWidth - packetWidth, target.x + 12)),
+      x: Math.max(
+        0,
+        Math.min(graphWidth - TRACE_RESULT_PACKET_WIDTH, target.x + 12),
+      ),
       y: Math.max(
         0,
-        Math.min(graphHeight - packetHeight, target.y + nodeHeight + gap),
+        Math.min(
+          graphHeight - TRACE_RESULT_PACKET_HEIGHT,
+          target.y + TRACE_NODE_HEIGHT + TRACE_RESULT_PACKET_GAP,
+        ),
       ),
       edge: "below" as const,
     };
@@ -86,8 +110,8 @@ function packetRectangle(placement: TraceResultPlacement): Rectangle {
   return {
     left: placement.x,
     top: placement.y,
-    right: placement.x + packetWidth,
-    bottom: placement.y + packetHeight,
+    right: placement.x + TRACE_RESULT_PACKET_WIDTH,
+    bottom: placement.y + TRACE_RESULT_PACKET_HEIGHT,
   };
 }
 

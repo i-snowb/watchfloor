@@ -1,0 +1,5 @@
+export const TRACE_NODE_WIDTH = 240;
+export const TRACE_NODE_HEIGHT = 178;
+export const TRACE_RESULT_PACKET_WIDTH = 220;
+export const TRACE_RESULT_PACKET_HEIGHT = 108;
+export const TRACE_RESULT_PACKET_GAP = 18;
