@@ -389,7 +389,7 @@ export function createCaseToolDefinitions(
       : []),
     definition(
       "propose_investigation_step",
-      "Lead next investigation step",
+      "Propose next investigation step",
       "Publish one revision-bound agent proposal into the shared case. The proposal guides work but does not execute an operation.",
       {
         expectedRevision: revision,
