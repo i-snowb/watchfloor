@@ -1,4 +1,4 @@
-# TRACE//LAB Endpoint Test Handover
+# WATCH//FLOOR Endpoint Test Handover
 
 ## Purpose
 
@@ -36,7 +36,7 @@ Do not test against an old open tab without resetting it. The application uses b
 - Wait until the canonical KQL is visible before running it.
 - Use `attach_discovery_stage` only when `get_case_context` marks the next stage ready.
 - Stop when `collaborationHandoff.nextOwner` is `analyst`.
-- Never claim a control executed outside TRACE//LAB.
+- Never claim a control executed outside WATCH//FLOOR.
 
 ## Preflight
 
@@ -418,4 +418,4 @@ Use these terms:
 - **analyst-approved recorded response; no external execution**
 - **agent-added verified discovery from cited query records**
 
-Do not say that TRACE//LAB queried a live SIEM, detonated a sample, contacted OSINT, infected `APP-SRV-021`, observed a malicious `billing-api` deployment, or executed an endpoint, firewall, directory, secret-store, or deployment-system action.
+Do not say that WATCH//FLOOR queried a live SIEM, detonated a sample, contacted OSINT, infected `APP-SRV-021`, observed a malicious `billing-api` deployment, or executed an endpoint, firewall, directory, secret-store, or deployment-system action.

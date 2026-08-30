@@ -189,7 +189,7 @@ export function ReferenceCaseWorkbench({
         setActivity({
           status: "running",
           actor,
-          headline: "Running agent evidence plan",
+          headline: "Running TRACE evidence plan",
           detail: `${formatCount(dossier.queries.reduce((sum, query) => sum + recordsInScope(query), 0))} records`,
         });
         for (const query of dossier.queries) {
@@ -313,7 +313,7 @@ export function ReferenceCaseWorkbench({
               className={`reference-agent-now reference-agent-${activity.status}`}
             >
               <span>
-                {activity.actor === "agent" ? "Agent now" : "Analyst directed"}
+                {activity.actor === "agent" ? "TRACE now" : "Analyst directed"}
               </span>
               <strong>{activity.headline}</strong>
               <small>{activity.detail}</small>
@@ -565,7 +565,7 @@ function ReferenceGraph({
             <span>{entityKindLabel(entity.kind)}</span>
             <strong>{entity.label}</strong>
             <small>{entity.summary}</small>
-            {flagged ? <em>Agent result</em> : null}
+            {flagged ? <em>TRACE result</em> : null}
           </button>
         );
       })}
@@ -641,7 +641,7 @@ function ReferenceInspector({
       ) : null}
       {query ? (
         <section className="reference-inspector-action">
-          <span>Agent capability</span>
+          <span>TRACE capability</span>
           <code>{query.capability}</code>
           <strong>{attached ? query.dominantMetric : query.question}</strong>
           <ReferenceQuerySource query={query} />
@@ -743,7 +743,7 @@ function ReferenceCapabilityDrawer({
         <header className="drawer-header">
           <div>
             <p className="eyebrow">Evidence brief tools</p>
-            <h2>Agent capabilities</h2>
+            <h2>TRACE tool surface</h2>
           </div>
           <button
             aria-label="Close capabilities"
@@ -956,7 +956,7 @@ function createReferenceToolDefinitions(
     create(
       "run_reference_investigation_plan",
       "Run reference investigation plan",
-      "Execute all currently defined dossier queries in stable order and attach the evidence insights as one agent-led phase.",
+      "Execute all currently defined dossier queries in stable order and attach the evidence insights as one TRACE-led phase.",
       {},
       [],
       false,

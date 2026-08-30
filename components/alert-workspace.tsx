@@ -491,7 +491,7 @@ export function AlertWorkspace({
                 <h2 id="alert-agent-title">Queue operations</h2>
               </div>
               <button
-                aria-label="Close agent capabilities"
+                aria-label="Close TRACE queue tools"
                 className="icon-button"
                 onClick={closeAgentPanel}
                 type="button"
@@ -718,7 +718,7 @@ function CaseLedgerDetail({
           </div>
         ) : (
           <div className="case-sheet-receipt case-sheet-receipt-idle">
-            <span>Agent access</span>
+            <span>TRACE access</span>
             <code>list_case_queue</code>
             <code>open_case</code>
             <strong>

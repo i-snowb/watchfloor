@@ -1,8 +1,8 @@
-# TRACE//LAB agent handoff
+# WATCH//FLOOR agent handoff
 
 ## Purpose
 
-Use this page as a structured incident workspace. Page tools can retrieve case context, prepare and run bounded queries, attach verified discoveries, calculate modeled reach, simulate response controls, and prepare a report. Each operation records a case revision.
+Use WATCH//FLOOR as a structured incident workspace. TRACE can retrieve case context, prepare and run bounded queries, attach verified discoveries, calculate modeled reach, simulate response controls, and prepare a report through registered page tools. Each operation records a case revision.
 
 ## Starting condition
 

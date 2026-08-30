@@ -1415,7 +1415,7 @@ export function EvidenceMap({
                   {investigationRunning ? (
                     <b>
                       {investigationActivity.actor === "agent"
-                        ? `Automation ${investigationPhaseVerb(investigationActivity.phase)}`
+                        ? `TRACE ${investigationPhaseVerb(investigationActivity.phase)}`
                         : `Analyst ${investigationPhaseVerb(investigationActivity.phase)}`}
                     </b>
                   ) : agentFocusEntityId === entity.id ? (
@@ -1493,7 +1493,7 @@ export function EvidenceMap({
                       <span>
                         {artifact?.status ?? "Evidence"} ·{" "}
                         {receipt?.reportedSurface === "webmcp_callback"
-                          ? "Automation"
+                          ? "TRACE"
                           : "Analyst"}
                       </span>
                       <strong>{artifact?.title ?? query.title}</strong>
@@ -1519,7 +1519,7 @@ export function EvidenceMap({
               >
                 <span>
                   {investigationActivity.actor === "agent"
-                    ? "Automation"
+                    ? "TRACE"
                     : "Analyst"}
                 </span>
                 <strong>
@@ -1566,7 +1566,7 @@ export function EvidenceMap({
             >
               <span>
                 {latestReceipt.reportedSurface === "webmcp_callback"
-                  ? "Automation"
+                  ? "TRACE"
                   : "Analyst"}
               </span>
               <code>{activityCategory(latestReceipt.toolName)}</code>
@@ -2015,7 +2015,7 @@ function TraceSequenceRail({
             return (
               <li key={receipt.id}>
                 <button
-                  aria-label={`${receipt.reportedSurface === "webmcp_callback" ? "Agent" : "Analyst"} investigation: ${receipt.title}. Completed ${formatUtcTime(receipt.occurredAt)}.`}
+                  aria-label={`${receipt.reportedSurface === "webmcp_callback" ? "TRACE" : "Analyst"} investigation: ${receipt.title}. Completed ${formatUtcTime(receipt.occurredAt)}.`}
                   onClick={() => {
                     if (targetEntityId) {
                       onSelect({ kind: "entity", id: targetEntityId });
@@ -2026,7 +2026,7 @@ function TraceSequenceRail({
                 >
                   <span>
                     {receipt.reportedSurface === "webmcp_callback"
-                      ? "Agent"
+                      ? "TRACE"
                       : "Analyst"}
                   </span>
                   <strong>{receipt.title}</strong>
@@ -2041,7 +2041,7 @@ function TraceSequenceRail({
           {activeQuery ? (
             <li className="timeline-query-ready">
               <button
-                aria-label={`${activity.status === "running" && activity.queryId === activeQuery.id ? (activity.actor === "agent" ? "Agent is running" : "Analyst requested") : "Ready to run"} investigation: ${activeQuery.title}.`}
+                aria-label={`${activity.status === "running" && activity.queryId === activeQuery.id ? (activity.actor === "agent" ? "TRACE is running" : "Analyst requested") : "Ready to run"} investigation: ${activeQuery.title}.`}
                 onClick={() =>
                   onSelect({ kind: "entity", id: activeQuery.targetEntityId })
                 }
@@ -2051,7 +2051,7 @@ function TraceSequenceRail({
                   {activity.status === "running" &&
                   activity.queryId === activeQuery.id
                     ? activity.actor === "agent"
-                      ? "Agent scanning"
+                      ? "TRACE scanning"
                       : "Analyst request"
                     : "Ready"}
                 </span>
@@ -2172,13 +2172,13 @@ function ThreatPriorityRail({
   const collaborationLabel =
     activity.status === "running"
       ? activity.actor === "agent"
-        ? `Automation ${investigationPhaseVerb(activity.phase)} case evidence`
+        ? `TRACE ${investigationPhaseVerb(activity.phase)} case evidence`
         : `Analyst ${investigationPhaseVerb(activity.phase)} shared evidence`
       : latestReceipt?.reportedSurface === "webmcp_callback"
-        ? "Automation updated the case"
+        ? "TRACE updated the case"
         : latestReceipt?.reportedSurface === "analyst_control"
           ? "Analyst decision recorded"
-          : "Investigation automation ready";
+          : "TRACE ready";
 
   return (
     <details className="threat-priority-rail">

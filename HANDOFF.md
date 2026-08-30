@@ -1,16 +1,16 @@
-# TRACE//LAB Agent Handoff
+# WATCH//FLOOR Agent Handoff
 
 ## Snapshot
 
 - Runtime repository: `demo/`
 - Stable runtime branch: `main` contains the verified enterprise investigation path.
-- Deployed artifact: [tracelab-webmcp.keegansnowbarger.chatgpt.site](https://tracelab-webmcp.keegansnowbarger.chatgpt.site)
+- Deployed artifact: use the current production URL returned by the Sites project.
 - Deployment access: owner-only through ChatGPT sign-in. Judge access is not configured.
 - Keep the working tree clean before saving a Sites version so its source commit and packaged build remain identical.
 
 ## Product direction
 
-TRACE//LAB is a deterministic incident-response workbench for escalated Tier 2/3 operations. It is not chat over alerts and it is not browser-click automation. The page exposes bounded security operations through WebMCP. The analyst and connected agent operate the same revisioned case, visible query workspace, incident graph, timeline, response record, and evidence report.
+WATCH//FLOOR is a deterministic incident-response workbench for escalated Tier 2/3 operations. It is not chat over alerts and it is not browser-click automation. TRACE uses WebMCP to perform bounded investigation work in the same revisioned case, visible query workspace, incident graph, timeline, response record, and evidence report as the analyst.
 
 The operating model is skills-first: the connected agent lists approved investigation skills, prepares visible KQL, runs bounded queries, attaches exact source records, adds only the next provenance-backed discovery, expands the graph, models exposure, prepares response packages, and drafts the report. The analyst owns evidence disposition, the manual replay control, consequential approvals, and final report sign-off. WebMCP is an integration layer, not an authority boundary.
 

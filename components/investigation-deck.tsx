@@ -213,7 +213,7 @@ export function InvestigationDeck({
           <div className="query-live-heading">
             <span>
               {activity.actor === "agent"
-                ? "Agent · Running"
+                ? "TRACE · Running"
                 : "Analyst · Query requested"}
             </span>
             <code>{selectedQuery.id}</code>
@@ -245,7 +245,7 @@ export function InvestigationDeck({
             <span>
               <small>
                 {resultActor === "agent"
-                  ? "Agent result"
+                  ? "TRACE result"
                   : resultActor === "analyst"
                     ? "Analyst result"
                     : "Query result"}{" "}
@@ -259,7 +259,7 @@ export function InvestigationDeck({
             <div className="query-result-flag">
               <span>
                 {resultActor === "agent"
-                  ? "Agent result"
+                  ? "TRACE result"
                   : resultActor === "analyst"
                     ? "Analyst result"
                     : "Query result"}
@@ -330,7 +330,7 @@ export function InvestigationDeck({
             <span>
               <small>
                 {result.actor === "agent"
-                  ? "Agent result"
+                  ? "TRACE result"
                   : "Analyst-requested result"}{" "}
                 · r{result.resultRevision}
               </small>

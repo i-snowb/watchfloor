@@ -1,6 +1,6 @@
-# TRACE//LAB
+# WATCH//FLOOR
 
-TRACE//LAB is a deterministic WebMCP incident-response workbench for escalated Tier 2/3 operations. Tier 1 escalations enter a revisioned case where an analyst and a connected agent investigate evidence, model impact, authorize response, and close an evidence report.
+WATCH//FLOOR is a deterministic WebMCP incident-response workbench for escalated Tier 2/3 operations. TRACE investigates bounded case evidence through registered page tools. Analysts review the evidence, authorize recorded response, and close the signed report.
 
 The reference build runs on ChatGPT Sites. It does not connect to live security products, execute malware, submit hashes to external services, or change external controls.
 

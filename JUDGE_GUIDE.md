@@ -1,6 +1,6 @@
-# TRACE//LAB Optional Recording Guide
+# WATCH//FLOOR Optional Recording Guide
 
-This guide is for optional competition recording and hands-on evaluation. It is not part of the default TRACE//LAB product workflow or workspace framing.
+This guide is for optional competition recording and hands-on evaluation. It is not part of the default WATCH//FLOOR product workflow or workspace framing.
 
 ## Fast hands-on path
 

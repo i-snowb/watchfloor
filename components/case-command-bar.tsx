@@ -204,7 +204,7 @@ export function CaseCommandBar({
       >
         <div className="case-command-next">
           <div className="case-command-label">
-            <span>Automation paused</span>
+            <span>TRACE paused</span>
             <small>Analyst boundary</small>
           </div>
           <div className="case-command-copy">
@@ -219,7 +219,7 @@ export function CaseCommandBar({
             </p>
           </div>
           <button
-            aria-label="Dismiss automation pause"
+            aria-label="Dismiss TRACE pause"
             className="case-command-dismiss"
             onClick={() => setDismissedStopActivity(investigationActivity)}
             title="Dismiss"
@@ -735,7 +735,7 @@ function CommandControls({
           >
             Draft evidence report
           </button>
-          <code>Automation · generate_case_report</code>
+          <code>TRACE · generate_case_report</code>
         </div>
       );
     }
@@ -988,7 +988,7 @@ function commandDetail(
     return "Supporting evidence is attached and the discovery is ready to add to the case.";
   }
   if (agentStatus.state === "available") {
-    return "Investigation automation is available for the current case scope.";
+    return "TRACE is available for the current case scope.";
   }
   return "The same operation is available in the evidence inspector.";
 }
@@ -1060,10 +1060,10 @@ function authorizationLabel(action: ResponseActionDefinition): string {
 }
 
 function commandOwnerLabel(owner: CommandOwner): string {
-  if (owner === "analyst") return "Automation paused · analyst required";
+  if (owner === "analyst") return "TRACE paused · analyst required";
   if (owner === "evidence") return "Verified evidence ready";
   if (owner === "complete") return "Case complete";
-  return "Investigation automation";
+  return "TRACE investigation";
 }
 
 function commandSequenceLabel(fixture: CaseFixture, state: CaseState): string {

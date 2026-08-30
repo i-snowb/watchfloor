@@ -250,7 +250,7 @@ export function QueryConsole({
                     }
                     type="button"
                   >
-                    {agentPreparing ? "Agent preparing" : "Load approved query"}
+                    {agentPreparing ? "TRACE preparing" : "Load approved query"}
                   </button>
                 ) : (
                   <button
@@ -433,22 +433,22 @@ function queryStatusLabel(
       return "Reload required";
     }
     return preparedQuery.actor === "agent"
-      ? "Prepared by agent"
+      ? "Prepared by TRACE"
       : "Prepared by analyst";
   }
   if (activity.status === "idle" || activity.queryId !== queryId)
     return "Ready";
   if (activity.toolName === "prepare_investigation_query") {
-    if (activity.status === "running") return "Agent preparing";
+    if (activity.status === "running") return "TRACE preparing";
     if (activity.status === "completed") {
       return activity.actor === "agent"
-        ? "Prepared by agent"
+        ? "Prepared by TRACE"
         : "Prepared by analyst";
     }
   }
   if (activity.toolName === "run_investigation_query") {
     if (activity.status === "running") {
-      return activity.actor === "agent" ? "Agent searching" : "Searching";
+      return activity.actor === "agent" ? "TRACE searching" : "Searching";
     }
     if (activity.status === "rejected") return "Query rejected";
   }

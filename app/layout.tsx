@@ -7,32 +7,33 @@ import "./demo-path.css";
 import "./graph-readability.css";
 
 const metadataBase = new URL(
-  process.env.NEXT_PUBLIC_SITE_URL ??
-    "https://tracelab-webmcp.keegansnowbarger.chatgpt.site",
+  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
 );
 
 export const metadata: Metadata = {
   metadataBase,
-  title: "TRACE//LAB · Shared security investigation",
+  title: "WATCH//FLOOR · Agentic security investigations",
   description:
-    "A human-led, agent-scaled security investigation workspace for high-impact operations.",
+    "TRACE investigates bounded case evidence through WebMCP. Analysts review, authorize, and close the case.",
   openGraph: {
-    title: "TRACE//LAB",
-    description: "Human-led. Agent-speed incident response.",
+    title: "WATCH//FLOOR",
+    description:
+      "TRACE investigates bounded evidence. Analysts review, authorize, and close the case.",
     type: "website",
     images: [
       {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "TRACE//LAB interactive security investigation graph",
+        alt: "WATCH//FLOOR evidence and impact map for a security investigation",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "TRACE//LAB",
-    description: "Human-led. Agent-speed incident response.",
+    title: "WATCH//FLOOR",
+    description:
+      "TRACE investigates bounded evidence. Analysts review, authorize, and close the case.",
     images: ["/og.png"],
   },
 };

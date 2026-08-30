@@ -53,11 +53,11 @@ export function AgentDrawer({
       >
         <div className="drawer-header">
           <div>
-            <p className="eyebrow">Shared agent surface</p>
-            <h2 id="agent-drawer-title">Investigation agent</h2>
+            <p className="eyebrow">TRACE / shared case surface</p>
+            <h2 id="agent-drawer-title">TRACE investigation activity</h2>
           </div>
           <button
-            aria-label="Close agent panel"
+            aria-label="Close TRACE panel"
             className="icon-button"
             onClick={onClose}
             type="button"
@@ -65,7 +65,7 @@ export function AgentDrawer({
             ×
           </button>
         </div>
-        <div className="drawer-tabs" role="tablist" aria-label="Agent panel">
+        <div className="drawer-tabs" role="tablist" aria-label="TRACE panel">
           <button
             aria-controls="agent-activity-panel"
             aria-selected={tab === "activity"}
@@ -83,7 +83,7 @@ export function AgentDrawer({
             tabIndex={tab === "activity" ? 0 : -1}
             type="button"
           >
-            Activity <span>{receipts.length}</span>
+            Case activity <span>{receipts.length}</span>
           </button>
           <button
             aria-controls="agent-capabilities-panel"
@@ -102,19 +102,19 @@ export function AgentDrawer({
             tabIndex={tab === "capabilities" ? 0 : -1}
             type="button"
           >
-            Capabilities
+            Tool surface
             <span>
               {registeredCount}/{definitions.length}
             </span>
           </button>
         </div>
         <p className="attribution-note">
-          Every operation creates a revisioned record in the shared case
+          Every TRACE operation creates a revisioned record in the shared case
           history.
         </p>
         <div className="agent-execution-summary">
           <span>
-            {registeredCount}/{definitions.length} capabilities registered
+            {registeredCount}/{definitions.length} page tools registered
           </span>
           <span>{callbackCount} callback receipts</span>
           <span>{authorizedResponses} response approvals recorded</span>
@@ -130,10 +130,10 @@ export function AgentDrawer({
           >
             {receipts.length === 0 ? (
               <div className="drawer-empty-state">
-                <strong>No operations recorded</strong>
+                <strong>No TRACE operations recorded</strong>
                 <p>
-                  Analyst controls and WebMCP callbacks write receipts to this
-                  shared case.
+                  Analyst controls and TRACE WebMCP callbacks write receipts to
+                  this shared case.
                 </p>
               </div>
             ) : (
@@ -214,7 +214,7 @@ export function AgentDrawer({
               <article className="capability-matrix-analyst">
                 <span>Analyst only</span>
                 <strong>Disposition, response, and closure</strong>
-                <small>Not registered as agent capabilities</small>
+                <small>Not registered on the TRACE tool surface</small>
               </article>
             </div>
             <details className="capability-catalog">

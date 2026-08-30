@@ -354,7 +354,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         const message =
           toolError instanceof Error
             ? toolError.message
-            : "Investigation automation failed.";
+            : "TRACE investigation failed.";
         if (agentRunSequence.current === runSequence) {
           setError(message);
           setInvestigationActivity({
@@ -618,7 +618,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       (agentStatus.missingCriticalToolNames?.length ?? 0) > 0 ? (
         <aside className="webmcp-readiness-block" role="alert">
           <div>
-            <span>Investigation automation unavailable</span>
+            <span>TRACE unavailable</span>
             <strong>Critical investigation tools did not register</strong>
           </div>
           <code>{agentStatus.missingCriticalToolNames?.join(" · ")}</code>
@@ -939,7 +939,7 @@ function withSharedViewContext(
       ...result.data,
       sharedView: {
         selection,
-        meaning: "Current human or agent visual focus; not evidence state.",
+        meaning: "Current analyst or TRACE visual focus; not evidence state.",
       },
     },
   };

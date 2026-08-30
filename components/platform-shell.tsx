@@ -39,15 +39,13 @@ export function PlatformShell({
   return (
     <div className={`platform-shell platform-shell-${activeView}`}>
       <header className="platform-header">
-        <Link className="brand" href="/alerts" aria-label="TRACE LAB alerts">
-          <span className="brand-word">TRACE</span>
+        <Link className="brand" href="/alerts" aria-label="WATCH FLOOR alerts">
+          <span className="brand-word">WATCH</span>
           <span className="brand-slashes">{"//"}</span>
-          <span className="brand-word">LAB</span>
+          <span className="brand-word">FLOOR</span>
         </Link>
         <div className="header-context">
-          <span>
-            {activeView === "alerts" ? "Operations" : "Investigation"}
-          </span>
+          <span>Security operations</span>
           <span className="context-separator">/</span>
           <span className="header-case-id">
             {activeView === "alerts"
@@ -110,24 +108,26 @@ function formatCaseId(caseId: string): string {
 }
 
 function agentStatusLabel(status: AgentStatus): string {
-  if (status.state === "checking") return "Connecting agent";
+  if (status.state === "checking") return "Connecting TRACE";
   if (status.state === "unavailable") {
-    return "Agent unavailable in this browser";
+    return "TRACE unavailable in this browser";
   }
   if (status.state === "available") {
-    return `Agent connected · ${status.count} tools ready`;
+    return `TRACE connected · ${status.count} tools ready`;
   }
   const criticalMissing = status.missingCriticalToolNames?.length ?? 0;
   return criticalMissing > 0
-    ? `Agent blocked · ${criticalMissing} critical ${criticalMissing === 1 ? "tool" : "tools"} missing`
-    : `Agent limited · ${status.count}/${status.total ?? status.count} tools`;
+    ? `TRACE blocked · ${criticalMissing} critical ${criticalMissing === 1 ? "tool" : "tools"} missing`
+    : `TRACE limited · ${status.count}/${status.total ?? status.count} tools`;
 }
 
 function agentStatusShortLabel(status: AgentStatus): string {
-  if (status.state === "checking") return "Connecting agent";
-  if (status.state === "unavailable") return "Agent unavailable";
-  if (status.state === "available") return "Agent connected";
+  if (status.state === "checking") return "Connecting TRACE";
+  if (status.state === "unavailable") return "TRACE unavailable";
+  if (status.state === "available") {
+    return `TRACE connected · ${status.count} tools`;
+  }
   return status.missingCriticalToolNames?.length
-    ? "Agent blocked"
-    : "Agent limited";
+    ? "TRACE blocked"
+    : "TRACE limited";
 }

@@ -33,12 +33,12 @@ export function AgentHandoff({ caseId }: { caseId: string }) {
     <>
       <button
         aria-haspopup="dialog"
-        aria-label="Open agent handoff runbook"
+        aria-label="Open TRACE runbook"
         className={styles.trigger}
         onClick={() => setOpen(true)}
         type="button"
       >
-        Runbook
+        TRACE runbook
       </button>
       {open ? (
         <div className="drawer-backdrop" onMouseDown={close}>
@@ -52,11 +52,11 @@ export function AgentHandoff({ caseId }: { caseId: string }) {
           >
             <header className={styles.header}>
               <div>
-                <p>Operational guidance</p>
-                <h2 id="agent-handoff-title">Agent handoff</h2>
+                <p>Bounded investigation guidance</p>
+                <h2 id="agent-handoff-title">Hand off to TRACE</h2>
               </div>
               <button
-                aria-label="Close agent handoff"
+                aria-label="Close TRACE runbook"
                 className="icon-button"
                 onClick={close}
                 type="button"
@@ -67,8 +67,8 @@ export function AgentHandoff({ caseId }: { caseId: string }) {
 
             <div className={styles.content}>
               <p className={styles.intro}>
-                Use page tools for bounded investigation work. Analyst decisions
-                and authorizations remain manual.
+                Use registered page tools for bounded evidence work. Analyst
+                decisions and authorizations remain manual.
               </p>
               <ol className={styles.steps}>
                 <li>
@@ -79,7 +79,7 @@ export function AgentHandoff({ caseId }: { caseId: string }) {
                   </span>
                 </li>
                 <li>
-                  <strong>Hand the case to the connected agent.</strong>
+                  <strong>Hand the case to TRACE.</strong>
                   <span>
                     Ask it to inspect the registered tools and approved skills,
                     then investigate <code>{caseId}</code>.
@@ -96,7 +96,7 @@ export function AgentHandoff({ caseId }: { caseId: string }) {
 
               <div className={styles.prompt}>
                 <div>
-                  <span>Agent instruction</span>
+                  <span>TRACE instruction</span>
                   <p>
                     Read case context, follow its revision-bound action, inspect
                     raw records, and stop at analyst gates.
