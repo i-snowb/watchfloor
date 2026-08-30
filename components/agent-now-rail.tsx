@@ -282,12 +282,7 @@ function resultHeadline(
           (candidate) => candidate.id === query.resultArtifactId,
         )
       : null;
-    return (
-      artifact?.summary ??
-      artifact?.title ??
-      query?.title ??
-      "Evidence attached"
-    );
+    return artifact?.title ?? query?.title ?? "Evidence attached";
   }
   return operationLabel(result.toolName);
 }

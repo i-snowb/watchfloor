@@ -592,10 +592,10 @@ function CaseLedgerDetail({
             {fixture && snapshot ? (
               <div className="case-sheet-stream">
                 <div>
-                  <span>Copilot workflow</span>
+                  <span>Copilot contribution</span>
                   <strong>
-                    Copilot adds verified discoveries after supporting evidence
-                    is attached.
+                    Adds verified entities and relationships from attached
+                    evidence.
                   </strong>
                 </div>
               </div>

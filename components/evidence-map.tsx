@@ -107,7 +107,9 @@ export function EvidenceMap({
   children,
 }: EvidenceMapProps) {
   const [view, setView] = useState<EvidenceView>(
-    fixture.presentation.defaultEvidenceView,
+    state.reachabilityAttached
+      ? fixture.presentation.defaultEvidenceView
+      : "trace",
   );
   const modeledViewActivated = useRef(state.reachabilityAttached);
   const previousRevision = useRef(state.revision);
@@ -138,11 +140,13 @@ export function EvidenceMap({
 
   useEffect(() => {
     if (state.revision < previousRevision.current) {
-      setView(fixture.presentation.defaultEvidenceView);
-    } else if (!modeledViewActivated.current && state.reachabilityAttached) {
-      setView("impact");
+      setView(
+        state.reachabilityAttached
+          ? fixture.presentation.defaultEvidenceView
+          : "trace",
+      );
     } else if (modeledViewActivated.current && !state.reachabilityAttached) {
-      setView(fixture.presentation.defaultEvidenceView);
+      setView("trace");
     }
     modeledViewActivated.current = state.reachabilityAttached;
     previousRevision.current = state.revision;
@@ -733,11 +737,25 @@ export function EvidenceMap({
             Observed activity
           </button>
           <button
+            aria-disabled={!state.reachabilityAttached}
+            aria-describedby="impact-model-status"
             aria-pressed={view === "impact"}
-            onClick={() => setView("impact")}
+            onClick={() => {
+              if (state.reachabilityAttached) setView("impact");
+            }}
+            title={
+              state.reachabilityAttached
+                ? "View modeled potential impact"
+                : "Run reachability analysis to model potential impact"
+            }
             type="button"
           >
-            Potential impact
+            <span>Potential impact</span>
+            <small id="impact-model-status">
+              {state.reachabilityAttached
+                ? "Model ready"
+                : "Reachability required"}
+            </small>
           </button>
         </div>
         <div className="trace-camera-tools" aria-label="Graph view controls">
@@ -772,7 +790,7 @@ export function EvidenceMap({
         <div
           aria-describedby="evidence-map-help"
           aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - 0 Escape"
-          aria-label="Interactive incident evidence and potential-impact map"
+          aria-label="Interactive observed activity and potential impact map"
           className={`trace-scroll trace-viewport evidence-map-viewport ${dragging ? "trace-viewport-dragging" : ""} ${focusing ? "trace-viewport-focusing" : ""}`}
           onKeyDown={onKeyDown}
           onLostPointerCapture={onLostPointerCapture}
@@ -1049,8 +1067,10 @@ export function EvidenceMap({
                   ? "Modeled control effect · analyst approval required"
                   : edge.blocked
                     ? "Attempt prevented"
-                    : edge.truth === "modeled"
-                      ? "Modeled · not observed"
+                    : showImpactLabel
+                      ? edge.truth === "modeled"
+                        ? "Modeled reach"
+                        : "Observed evidence"
                       : (edge.join?.id.replace(/^JOIN-[A-Z]+-/, "J") ??
                         "Observed link");
               return (
@@ -1199,7 +1219,9 @@ export function EvidenceMap({
                   </span>
                   <span className="evidence-entity-copy">
                     <small>
-                      {humanizeEntityKind(entity.kind)} · {position.lane}
+                      {view === "impact"
+                        ? `${modeledOnly ? "Modeled reach" : "Observed evidence"}${impactPosition?.hop === null || impactPosition?.hop === undefined ? "" : ` · hop ${impactPosition.hop}`}`
+                        : `${humanizeEntityKind(entity.kind)} · ${position.lane}`}
                     </small>
                     <strong>{entity.label}</strong>
                     <span>{entity.summary}</span>
