@@ -113,6 +113,11 @@ export function EvidenceMap({
       : "trace",
   );
   const modeledViewActivated = useRef(state.reachabilityAttached);
+  const previousCounterfactualAttached = useRef(state.counterfactualAttached);
+  const authorizedResponseCount = state.responseActions.filter(
+    (action) => action.status === "authorized_in_demo",
+  ).length;
+  const previousAuthorizedResponseCount = useRef(authorizedResponseCount);
   const previousRevision = useRef(state.revision);
   const replayRevision = useRef(state.revision);
   const replayCaseId = useRef<string | null>(null);
@@ -146,15 +151,24 @@ export function EvidenceMap({
           ? fixture.presentation.defaultEvidenceView
           : "trace",
       );
-    } else if (!modeledViewActivated.current && state.reachabilityAttached) {
+    } else if (
+      (!modeledViewActivated.current && state.reachabilityAttached) ||
+      (!previousCounterfactualAttached.current &&
+        state.counterfactualAttached) ||
+      authorizedResponseCount > previousAuthorizedResponseCount.current
+    ) {
       setView("impact");
     } else if (modeledViewActivated.current && !state.reachabilityAttached) {
       setView("trace");
     }
     modeledViewActivated.current = state.reachabilityAttached;
+    previousCounterfactualAttached.current = state.counterfactualAttached;
+    previousAuthorizedResponseCount.current = authorizedResponseCount;
     previousRevision.current = state.revision;
   }, [
+    authorizedResponseCount,
     fixture.presentation.defaultEvidenceView,
+    state.counterfactualAttached,
     state.reachabilityAttached,
     state.revision,
   ]);
@@ -204,7 +218,7 @@ export function EvidenceMap({
       ? replayPlan.joins.length
       : Math.min(2, replayPlan.joins.length);
     setReplayCursor(initialCursor);
-    setReplayPlaying(!reducedMotion && initialCursor < replayPlan.joins.length);
+    setReplayPlaying(false);
     setReplayPulseJoinId(null);
     setActiveExpansion(null);
   }, [fixture.id, reducedMotion, replayPlan.joins.length, state.revision]);

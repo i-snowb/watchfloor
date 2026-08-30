@@ -2090,6 +2090,10 @@ test("malicious case completes staged containment, recovery, report, and closure
   state = completeResponse(fixture, state, "rotate_deployment_credential");
   state = completeResponse(fixture, state, "rollback_workload_image");
   assert.equal(state.lifecycle, "contained_in_demo");
+  assert.equal(
+    getDerivedNextStep(fixture, state).recommendedTool,
+    "generate_case_report",
+  );
 
   state = succeed(
     execute(

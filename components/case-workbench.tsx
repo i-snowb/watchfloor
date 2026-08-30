@@ -306,6 +306,9 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
             baseRevision,
             resultRevision: response.snapshot.state.revision,
             summary,
+            ...(!response.result.ok
+              ? { errorCode: response.result.error.code }
+              : {}),
             receipt: receiptView,
           });
         }
@@ -363,6 +366,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
             baseRevision,
             resultRevision: baseRevision,
             summary: message,
+            errorCode: "OPERATION_UNAVAILABLE",
           });
         }
         return {
@@ -505,6 +509,9 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
             baseRevision,
             resultRevision: response.snapshot.state.revision,
             summary,
+            ...(!response.result.ok
+              ? { errorCode: response.result.error.code }
+              : {}),
             receipt: receiptView,
           });
           if (response.result.ok) {
@@ -536,6 +543,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
             baseRevision,
             resultRevision: baseRevision,
             summary: message,
+            errorCode: "OPERATION_UNAVAILABLE",
           });
         }
       } finally {

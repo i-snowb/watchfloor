@@ -397,6 +397,14 @@
   scrollbar-gutter: stable;
 }
 
+.case-view .webmcp-stop-card .case-command-next {
+  box-shadow: inset 3px 0 0 rgba(232, 179, 95, 0.9);
+}
+
+.case-view .webmcp-stop-card .case-command-copy h2 {
+  color: rgba(245, 242, 232, 0.98);
+}
+
 /* Results and report review open above their stable summary row. */
 .case-view .case-investigation-drawer {
   position: relative;

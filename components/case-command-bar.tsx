@@ -99,6 +99,8 @@ export function CaseCommandBar({
     state.decision.status === "pending" && !decisionReady;
   const [preferredQueryId, setPreferredQueryId] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [dismissedStopActivity, setDismissedStopActivity] =
+    useState<InvestigationActivity | null>(null);
   const previousRevision = useRef(state.revision);
   const previousSelection = useRef(`${selection.kind}:${selection.id}`);
 
@@ -156,6 +158,47 @@ export function CaseCommandBar({
     nextStep.recommendedTool,
     alternateDisposition,
   );
+  const webMcpAnalystStop =
+    dismissedStopActivity !== investigationActivity &&
+    investigationActivity.status === "rejected" &&
+    investigationActivity.actor === "agent" &&
+    investigationActivity.errorCode === "HUMAN_DECISION_REQUIRED";
+
+  if (webMcpAnalystStop && state.decision.status === "pending") {
+    return (
+      <section
+        aria-labelledby="webmcp-analyst-stop-heading"
+        className="case-command-bar command-owner-analyst webmcp-stop-card"
+      >
+        <div className="case-command-next">
+          <div className="case-command-label">
+            <span>Automation paused</span>
+            <small>Analyst boundary</small>
+          </div>
+          <div className="case-command-copy">
+            <h2 id="webmcp-analyst-stop-heading">
+              {investigationActivity.summary}
+            </h2>
+            <p>
+              {requiredContextCount}/
+              {fixture.decision.requiresEnrichmentIds.length} decision records
+              attached. WebMCP cannot record the evidence disposition or
+              authorize a response.
+            </p>
+          </div>
+          <button
+            aria-label="Dismiss automation pause"
+            className="case-command-dismiss"
+            onClick={() => setDismissedStopActivity(investigationActivity)}
+            title="Dismiss"
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   if (nextQuery) {
     return (
@@ -836,6 +879,9 @@ function commandDetail(
     return `${activeAction?.simulatedEffect ?? ""} Approval records the response decision; no external system is contacted.`;
   }
   if (state.decision.status === "pending") {
+    if (commandOwner === "analyst") {
+      return `${requiredContextCount}/${fixture.decision.requiresEnrichmentIds.length} required context records attached. WebMCP cannot record this disposition; analyst review is required.`;
+    }
     return `${requiredContextCount}/${fixture.decision.requiresEnrichmentIds.length} required context records attached.`;
   }
   if (commandOwner === "evidence" && nextStage && !activeAction) {
@@ -914,7 +960,7 @@ function authorizationLabel(action: ResponseActionDefinition): string {
 }
 
 function commandOwnerLabel(owner: CommandOwner): string {
-  if (owner === "analyst") return "Analyst approval required";
+  if (owner === "analyst") return "Automation paused · analyst required";
   if (owner === "evidence") return "Telemetry update";
   if (owner === "complete") return "Case complete";
   return "Investigation automation";

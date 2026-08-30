@@ -18,6 +18,14 @@ Inspect the registered page tools, then investigate the case currently open.
 Read the case context and list the approved investigation skills. Prepare and run one approved query at a time, show its exact KQL before execution, and inspect the raw returned records. Add verified discoveries only when their prerequisites are satisfied. Keep observed evidence, modeled impact, simulated controls, and approvals distinct. Pause at every analyst-only decision or authorization. Do not imply external execution.
 ```
 
+## Case-specific first sequence
+
+For `case-endpoint-0448`, start with `QRY-ENDPOINT-IDENTITY-03`. Prepare its exact KQL, run it, inspect its returned records, and attach `STREAM-LAT-01` when the case reports that discovery as ready. Complete only the remaining decision-required approved skills, including `QRY-ENDPOINT-APP-05`. Then call `calculate_reachability` and stop when the analyst disposition boundary is returned.
+
+For `case-cloud-0421`, start with `QRY-CLOUD-IDENTITY-01`. Prepare its exact KQL, run it, inspect its returned records, and attach `DISCOVERY-CLOUD-01` when ready. Complete the remaining decision-required approved skills, then stop at the analyst disposition boundary.
+
+After each analyst action, read the case context again and follow `collaborationHandoff.exactNextTool` from the new shared revision.
+
 ## Analyst responsibilities
 
 The analyst must manually record the case disposition, approve any response bundle, and approve the final report. Page tools do not make those decisions and do not execute external controls.

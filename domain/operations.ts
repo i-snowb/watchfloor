@@ -557,6 +557,15 @@ export function getDerivedNextStep(
         null,
     };
   }
+  if (caseReportReady(fixture, state)) {
+    return {
+      phase: "respond",
+      objective:
+        "Assemble the deterministic case evidence report for analyst approval.",
+      recommendedTool: "generate_case_report",
+      targetEntityId: null,
+    };
+  }
   const nextPlan = getInvestigationPlans(fixture).find(
     (plan) =>
       (plan.requiresStageId === null ||
@@ -811,6 +820,27 @@ export function getDerivedNextStep(
     recommendedTool: "get_case_context",
     targetEntityId: null,
   };
+}
+
+function caseReportReady(fixture: CaseFixture, state: CaseState): boolean {
+  const requiresImpactModel =
+    fixture.impact.atRiskEntityIds.length > 0 ||
+    fixture.responseActions.length > 0;
+  return (
+    state.report.status === "unavailable" &&
+    state.decision.status === fixture.conclusion.requiredDecision &&
+    fixture.conclusion.requiredEnrichmentIds.every((artifactId) =>
+      state.attachedEnrichmentIds.includes(artifactId),
+    ) &&
+    fixture.conclusion.requiredActionIds.every(
+      (actionId) =>
+        state.responseActions.find((action) => action.actionId === actionId)
+          ?.status === "authorized_in_demo",
+    ) &&
+    state.releasedStreamStageIds.length === fixture.stream.stages.length &&
+    (!requiresImpactModel ||
+      (state.reachabilityAttached && state.counterfactualAttached))
+  );
 }
 
 function executeRead(

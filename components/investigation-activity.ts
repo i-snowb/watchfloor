@@ -26,9 +26,16 @@ export type InvestigationActivity =
       progress: number;
     })
   | (InvestigationActivityBase & {
-      status: "completed" | "rejected";
+      status: "completed";
       resultRevision: number;
       summary: string;
+      receipt?: InvestigationReceiptView;
+    })
+  | (InvestigationActivityBase & {
+      status: "rejected";
+      resultRevision: number;
+      summary: string;
+      errorCode?: string;
       receipt?: InvestigationReceiptView;
     });
 

@@ -47,6 +47,9 @@ export function QueryConsole({
     state.preparedQuery?.queryId === query.id &&
     state.preparedQuery.preparedAtRevision === state.revision;
   const [open, setOpen] = useState(false);
+  const [dismissedRevealKey, setDismissedRevealKey] = useState<string | null>(
+    null,
+  );
   const [draftInput, setDraftInput] = useState<string | null>(null);
   const [showAttachedQuery, setShowAttachedQuery] = useState(false);
   const animationKey = useRef<string | null>(null);
@@ -79,6 +82,17 @@ export function QueryConsole({
     activity.status === "running" &&
     activity.toolName === "run_investigation_query";
   const forceOpen = running || agentPreparing;
+  const completedAgentRevealKey =
+    activityTargetsQuery &&
+    activity.status === "completed" &&
+    activity.actor === "agent" &&
+    (activity.toolName === "prepare_investigation_query" ||
+      activity.toolName === "run_investigation_query")
+      ? `${activity.toolName}:${activity.baseRevision}:${activity.resultRevision}`
+      : null;
+  const autoReveal =
+    completedAgentRevealKey !== null &&
+    completedAgentRevealKey !== dismissedRevealKey;
   const draft = draftInput ?? (prepared || attached ? canonicalText : "");
   const showQueryText = !attached || showAttachedQuery;
   const rejected =
@@ -106,9 +120,19 @@ export function QueryConsole({
     <details
       className={`query-console ${!prepared && !attached && !agentPreparing ? "query-console-unprepared" : ""} ${attached ? "query-console-attached" : ""}`}
       onToggle={(event) => {
-        if (!forceOpen) setOpen(event.currentTarget.open);
+        if (forceOpen) return;
+        if (
+          !event.currentTarget.open &&
+          autoReveal &&
+          completedAgentRevealKey
+        ) {
+          setDismissedRevealKey(completedAgentRevealKey);
+          setOpen(false);
+          return;
+        }
+        setOpen(event.currentTarget.open);
       }}
-      open={open || forceOpen}
+      open={open || forceOpen || autoReveal}
     >
       <summary>
         <span>Investigation skill</span>
