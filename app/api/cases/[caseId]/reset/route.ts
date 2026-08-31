@@ -1,6 +1,7 @@
 import { getCaseFixture } from "@/domain/scenarios";
 import { resetCase } from "@/server/case-store";
-import { jsonResponse, resolveDemoSession } from "@/server/http";
+import { authorizeCaseRequest } from "@/server/case-request";
+import { jsonResponse } from "@/server/http";
 
 interface RouteContext {
   params: Promise<{ caseId: string }>;
@@ -10,9 +11,11 @@ export async function POST(
   request: Request,
   context: RouteContext,
 ): Promise<Response> {
+  const authorization = await authorizeCaseRequest(request);
+  if (!authorization.ok) return authorization.response;
   const { caseId } = await context.params;
   const fixture = getCaseFixture(caseId);
-  const session = resolveDemoSession(request);
+  const { session } = authorization;
   if (!fixture) {
     return jsonResponse(
       request,

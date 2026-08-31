@@ -23,7 +23,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   const sessionCookie = response.headers
     .getSetCookie()
-    .find((value) => value.startsWith("trace_demo_session="));
+    .find(
+      (value) =>
+        value.startsWith("watchfloor_session=") ||
+        value.startsWith("__Host-watchfloor_session="),
+    );
   if (sessionCookie) cookie = sessionCookie.split(";", 1)[0] ?? cookie;
   const body: unknown = await response.json();
   assert.equal(response.ok, true, JSON.stringify(body));

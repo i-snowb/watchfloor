@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "watchfloor-private-review",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-08-26",
+  "compatibility_flags": ["nodejs_compat"],
+  "no_bundle": true,
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "dist/client"
+  },
+  "vars": {
+    "WATCHFLOOR_AUTH_MODE": "cloudflare_access"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "adc7da0a-1e6c-4a2a-a3e5-9e1550f8781e"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

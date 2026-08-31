@@ -48,7 +48,7 @@ With the local server running in another terminal:
 npm run smoke
 ```
 
-`npm run check` verifies formatting, lint, strict TypeScript, unit tests, the fixture-scoped WebMCP tool matrix, and the production build. `npm run smoke` executes both complete HTTP lifecycles, validates idempotency and stale-state rejection, confirms agent and analyst boundaries, checks exact report closure, and resets its anonymous session.
+`npm run check` verifies formatting, lint, strict TypeScript, unit tests, the fixture-scoped WebMCP tool matrix, and the production build. `npm run smoke` executes both complete HTTP lifecycles, validates idempotency and stale-state rejection, confirms agent and analyst boundaries, checks exact report closure, and resets its authenticated local-development session.
 
 The HTTP smoke test does not prove native browser registration. Before submission, run the primary case twice from revision 1 in the signed-in ChatGPT Sites browser.
 
@@ -104,7 +104,17 @@ The stack is intentionally narrow: React, Vinext, Vite, Cloudflare Workers, and 
 - [`webmcp/tools.ts`](./webmcp/tools.ts) defines and registers the semantic WebMCP surface.
 - [`components/evidence-map.tsx`](./components/evidence-map.tsx) renders the shared incident path and exposure map.
 
-The current Sites deployment is owner-only behind ChatGPT sign-in. Inside the application, an anonymous session cookie isolates resettable state. That cookie is not an identity, tenant, or production authorization boundary. The HTTP API records a client-reported surface and is workflow mediation, not authenticated authorization. No production integration should rely on this boundary.
+The current Sites deployment is owner-only behind ChatGPT sign-in. Sites supplies the stable authenticated user ID to the server. A future direct Cloudflare Worker deployment instead requires a verified Cloudflare Access JWT and an explicit analyst email allowlist. Local development is a separate explicit mode, and the development server binds only to loopback.
+
+The server derives the D1 session ID from the verified principal. It does not accept a caller-selected session. HTTPS responses use an `HttpOnly`, `Secure`, `SameSite=Strict`, `__Host-` cookie as a continuity marker. The operation envelope still records the client-reported interaction surface for provenance, but that label does not grant authority. The five analyst-only operations require the server-authenticated analyst role.
+
+All JSON, page, and Cloudflare static-asset responses declare anti-framing, MIME-sniffing, referrer, and browser-feature restrictions. Request bodies are streamed through a 16 KiB limit. Read-only case requests do not allocate D1 state. WebMCP output is labeled as untrusted model content because it can include persisted analyst text.
+
+## Private hosting posture
+
+Keep pre-release review on the owner-only Sites deployment. Before every private Sites release, verify that its access mode is `custom`, the owner is the only allowed account, and there are no external visitors or workspace or tenant groups.
+
+The separate Cloudflare profile in `wrangler.deploy.json` is intentionally non-routable. It disables `workers.dev` and preview URLs, defines no route or custom domain, uses a separate D1 database, and selects fail-closed Cloudflare Access authentication. `npm run cloudflare:check-private` validates those invariants. `npm run cloudflare:upload-private` uploads a version only after the complete release check; it does not attach a public route. Do not add a route or domain until Cloudflare Access protects the complete application and its signing-key issuer, audience, and analyst allowlist are configured.
 
 All inputs are allowlisted and bounded. Writes require the current revision and an idempotent request ID. The operation surface does not accept SQL, URLs, shell commands, credentials, secret values, source code, or arbitrary external targets. Every response approval records `externalExecution: false`.
 

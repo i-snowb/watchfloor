@@ -19,6 +19,16 @@ import { createCaseToolDefinitions, registerCaseTools } from "../webmcp/tools";
 
 let invocation = 0;
 
+test("every WebMCP tool marks returned case content as untrusted", () => {
+  for (const fixture of [cloudIdentityScenario, endpointLateralScenario]) {
+    const definitions = createCaseToolDefinitions(fixture, async () => ({}));
+    assert.ok(definitions.length > 0);
+    for (const definition of definitions) {
+      assert.equal(definition.annotations.untrustedContentHint, true);
+    }
+  }
+});
+
 function invoke(
   fixture: CaseFixture,
   state: CaseState,

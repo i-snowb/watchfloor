@@ -53,7 +53,15 @@ export async function loadCaseSnapshot(
 ): Promise<CaseSnapshot> {
   const db = getDb();
   await ensureSchema(db);
-  await ensureSeededCase(db, sessionId, fixture);
+  const row = await readStateRow(db, sessionId, fixture.id);
+  if (!row || row.fixture_version !== fixture.fixtureVersion) {
+    return { state: createInitialCaseState(fixture), receipts: [] };
+  }
+  try {
+    parseCaseState(row.state_json, fixture);
+  } catch {
+    return { state: createInitialCaseState(fixture), receipts: [] };
+  }
   return readSnapshot(db, sessionId, fixture);
 }
 

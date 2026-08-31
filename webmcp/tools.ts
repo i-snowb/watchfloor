@@ -115,7 +115,7 @@ function definition(
     },
     annotations: {
       readOnlyHint: readOnly,
-      untrustedContentHint: false,
+      untrustedContentHint: true,
     },
     execute: async (input, context) =>
       handler(name, input, context?.signal ?? new AbortController().signal),

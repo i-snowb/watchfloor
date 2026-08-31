@@ -117,7 +117,7 @@ export function CaseReportPanel({
               </small>
             ) : null}
             <small>
-              Attribution assurance: client-reported, unauthenticated
+              Surface label recorded · analyst authority verified server-side
             </small>
           </div>
           <blockquote>{state.report.analystClosureNote}</blockquote>

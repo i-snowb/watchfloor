@@ -1,15 +1,13 @@
 import {
+  isAnalystAuthorityToolName,
   isCaseToolName,
   validateRequestId,
   type CaseToolRequest,
 } from "@/domain/operations";
 import { getCaseFixture } from "@/domain/scenarios";
+import { authorizeCaseRequest } from "@/server/case-request";
 import { executeStoredTool } from "@/server/case-store";
-import {
-  jsonResponse,
-  readJsonObject,
-  resolveDemoSession,
-} from "@/server/http";
+import { jsonResponse, readJsonObject } from "@/server/http";
 
 interface RouteContext {
   params: Promise<{ caseId: string }>;
@@ -21,9 +19,11 @@ export async function POST(
   request: Request,
   context: RouteContext,
 ): Promise<Response> {
+  const authorization = await authorizeCaseRequest(request);
+  if (!authorization.ok) return authorization.response;
   const { caseId } = await context.params;
   const fixture = getCaseFixture(caseId);
-  const session = resolveDemoSession(request);
+  const { session } = authorization;
   if (!fixture) {
     return jsonResponse(
       request,
@@ -87,6 +87,23 @@ export async function POST(
     reportedSurface: body.reportedSurface,
     input: input as Record<string, unknown>,
   };
+
+  if (
+    isAnalystAuthorityToolName(operationRequest.toolName) &&
+    authorization.principal.role !== "analyst"
+  ) {
+    return jsonResponse(
+      request,
+      session,
+      {
+        error: {
+          code: "ANALYST_AUTH_REQUIRED",
+          message: "Authenticated analyst access is required.",
+        },
+      },
+      403,
+    );
+  }
 
   try {
     const response = await executeStoredTool(

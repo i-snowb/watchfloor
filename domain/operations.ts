@@ -67,6 +67,18 @@ export const caseToolNames = [
 export type CaseToolName = (typeof caseToolNames)[number];
 export type ToolSurface = OperationSurface;
 
+const analystAuthorityToolNames = new Set<CaseToolName>([
+  "release_next_synthetic_signal",
+  "authorize_response_action",
+  "authorize_response_bundle",
+  "record_evidence_decision",
+  "approve_case_report",
+]);
+
+export function isAnalystAuthorityToolName(toolName: CaseToolName): boolean {
+  return analystAuthorityToolNames.has(toolName);
+}
+
 export interface CaseToolRequest {
   requestId: string;
   toolName: CaseToolName;

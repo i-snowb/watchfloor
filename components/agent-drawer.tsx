@@ -174,7 +174,9 @@ export function AgentDrawer({
                       </div>
                       <div>
                         <dt>Attribution</dt>
-                        <dd>Client-reported · unauthenticated attribution</dd>
+                        <dd>
+                          Surface reported · authority verified server-side
+                        </dd>
                       </div>
                       <div>
                         <dt>Status</dt>

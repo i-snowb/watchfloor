@@ -71,7 +71,9 @@ Use [DEMO_TEST_HANDOVER.md](./DEMO_TEST_HANDOVER.md) for the complete reset-to-c
 - Analyst-only operations are `record_evidence_decision`, `release_next_synthetic_signal`, `authorize_response_action`, `authorize_response_bundle`, and `approve_case_report`. The connected agent can instead call `attach_discovery_stage`, but only for the next ready stage after its fixture-defined query evidence is attached.
 - Query execution fails closed unless the same query was prepared at the current revision and the submitted text exactly matches the canonical fixture.
 - Mutations require the expected revision and an idempotent request ID. Inputs are allowlisted and bounded.
-- The Sites sign-in gate controls access to the current deployment. Inside the application, the anonymous session cookie isolates resettable state but is not an identity, tenant, or production authorization boundary.
+- The current Sites deployment is owner-only. The server uses the platform-provided authenticated user ID as its principal and derives the D1 session from that identity. The operation envelope's surface label is provenance only; it cannot grant analyst authority.
+- A direct Cloudflare Worker release is a separate, fail-closed mode. It requires a verified Cloudflare Access JWT and analyst email allowlist. Its checked-in private profile has no route, custom domain, `workers.dev` URL, or preview URL.
+- Local analyst authority is enabled only by the explicit local runtime binding, and the development and preview servers bind to loopback.
 
 ## Architecture map
 

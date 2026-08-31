@@ -14,6 +14,9 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 const localBindingConfig = {
   main: "vinext/server/app-router-entry",
   compatibility_flags: ["nodejs_compat"],
+  vars: {
+    WATCHFLOOR_AUTH_MODE: "local",
+  },
   d1_databases: d1
     ? [
         {
@@ -44,6 +47,13 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    server: {
+      host: "127.0.0.1",
+      ...(isCodexSeatbeltSandbox
+        ? { watch: { useFsEvents: false, usePolling: true } }
+        : {}),
+    },
+    preview: { host: "127.0.0.1" },
     optimizeDeps: {
       exclude: [
         "next/link",
@@ -51,9 +61,6 @@ export default defineConfig(async () => {
         "vinext/dist/shims/internal/app-prefetch-fetch-queue.js",
       ],
     },
-    ...(isCodexSeatbeltSandbox
-      ? { server: { watch: { useFsEvents: false, usePolling: true } } }
-      : {}),
     plugins: [
       vinext(),
       sites(),
