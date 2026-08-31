@@ -273,8 +273,8 @@
   align-items: stretch;
   block-size: auto !important;
   display: grid !important;
-  grid-template-columns: 250px minmax(0, 1fr) !important;
-  grid-template-rows: clamp(540px, calc(100dvh - 190px), 720px) auto 116px !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: auto clamp(540px, calc(100dvh - 190px), 720px) auto 116px !important;
   max-height: none !important;
   min-height: 0 !important;
   overflow: hidden;
@@ -282,11 +282,11 @@
 }
 
 .case-view .case-context-rail {
-  align-self: stretch;
+  align-self: start;
   background: #071012;
-  border-right: 1px solid rgba(150, 178, 184, 0.25);
-  display: flex;
-  flex-direction: column;
+  border-bottom: 1px solid rgba(150, 178, 184, 0.25);
+  display: grid;
+  grid-template-columns: minmax(235px, 0.34fr) minmax(0, 0.66fr);
   grid-column: 1;
   grid-row: 1;
   min-height: 0;
@@ -297,10 +297,12 @@
 
 .case-view .case-context-rail > .threat-priority-rail {
   bottom: auto;
-  flex: 0 0 auto;
+  border-right: 1px solid rgba(150, 178, 184, 0.25);
+  grid-column: 1;
+  grid-row: 1;
   left: auto;
   margin: 0;
-  max-height: 62%;
+  max-height: 178px;
   overflow: auto;
   overscroll-behavior: contain;
   position: relative;
@@ -310,17 +312,17 @@
 }
 
 .case-view .case-context-rail > .map-command-dock {
-  background: #071012;
+  background: transparent;
   bottom: auto !important;
-  flex: 1 1 auto;
+  grid-column: 2;
+  grid-row: 1;
   left: auto !important;
   margin: 0 !important;
   max-height: none;
   max-width: none !important;
   min-width: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  padding: 12px;
+  overflow: visible;
+  padding: 8px 12px;
   position: static !important;
   right: auto !important;
   top: auto !important;
@@ -332,8 +334,8 @@
   border: 1px solid rgba(121, 197, 207, 0.26);
   box-shadow: inset 0 0 0 1px rgba(121, 197, 207, 0.05);
   display: block !important;
-  grid-column: 2;
-  grid-row: 1;
+  grid-column: 1;
+  grid-row: 2;
   height: auto !important;
   min-height: 0 !important;
   min-width: 0;
@@ -352,7 +354,7 @@
 
 .case-view .evidence-stage-frame > .case-timeline-dock {
   grid-column: 1 / -1;
-  grid-row: 3;
+  grid-row: 4;
   height: 116px;
   min-height: 116px;
   overflow: hidden;
@@ -365,7 +367,7 @@
   display: grid;
   gap: 8px;
   grid-column: 1 / -1;
-  grid-row: 2;
+  grid-row: 3;
   grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr));
   padding: 8px 10px;
 }
@@ -376,10 +378,24 @@
 
 .case-view .evidence-stage-frame-without-context {
   grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: clamp(540px, calc(100dvh - 190px), 720px) auto 116px !important;
 }
 
 .case-view .evidence-stage-frame-without-context > .evidence-map-viewport {
   grid-column: 1;
+  grid-row: 1;
+}
+
+.case-view .evidence-stage-frame-without-context > .evidence-stage-summary {
+  grid-row: 2;
+}
+
+.case-view .evidence-stage-frame-without-context > .case-timeline-dock {
+  grid-row: 3;
+}
+
+.case-view .evidence-stage-frame-without-context > .case-timeline-dock {
+  grid-row: 3;
 }
 
 /* The query is an intentional bounded workspace, never a layout row. */
@@ -387,10 +403,12 @@
   .evidence-stage-frame:has(.query-console[open])
   .case-context-rail
   > .map-command-dock {
-  bottom: 128px !important;
+  bottom: auto !important;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.52);
+  grid-column: auto !important;
+  grid-row: auto !important;
   left: auto !important;
-  max-height: none;
+  max-height: min(680px, calc(100dvh - 238px));
   max-width: min(600px, calc(100% - 286px)) !important;
   overflow: hidden;
   padding: 0;
@@ -403,17 +421,35 @@
 
 .case-view .evidence-stage-frame .query-console[open] {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  height: 100%;
-  max-height: none;
+  grid-template-rows: auto minmax(0, auto);
+  max-height: min(680px, calc(100dvh - 238px));
   overflow: hidden;
 }
 
 .case-view .evidence-stage-frame .query-console[open] .query-console-body {
+  max-height: min(590px, calc(100dvh - 292px));
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+}
+
+/* Keep the prepared KQL visible and bounded inside the investigation drawer. */
+.case-view .evidence-stage-frame .query-console[open] .query-console-editor {
+  height: clamp(178px, 28dvh, 260px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.case-view
+  .evidence-stage-frame
+  .query-console[open]
+  .query-console-editor
+  textarea {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  resize: none;
 }
 
 .case-view .webmcp-stop-card .case-command-next {
@@ -616,6 +652,10 @@
   .case-view .evidence-stage-frame .query-console[open] {
     height: auto;
     max-height: min(68dvh, 720px);
+  }
+
+  .case-view .evidence-stage-frame .query-console[open] .query-console-body {
+    max-height: min(62dvh, 650px);
   }
 
   .case-view .case-investigation-drawer[open] > .investigation-drawer-body {

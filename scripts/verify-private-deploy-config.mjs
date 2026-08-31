@@ -6,7 +6,7 @@ const config = JSON.parse(await readFile(configUrl, "utf8"));
 
 assert.equal(
   config.name,
-  "watchfloor-private-review",
+  "watchfloor",
   "The review Worker must use its dedicated name.",
 );
 assert.equal(
@@ -18,6 +18,11 @@ assert.equal(
   config.preview_urls,
   false,
   "preview_urls must be explicitly disabled.",
+);
+assert.deepEqual(
+  config.rules,
+  [{ type: "ESModule", globs: ["**/*.js", "**/*.mjs"] }],
+  "The generated Vinext server modules must be uploaded as ES modules.",
 );
 assert.equal(
   Object.hasOwn(config, "route"),

@@ -6,9 +6,12 @@ test("the private Cloudflare profile has no reachable route", async () => {
   const config = JSON.parse(
     await readFile(new URL("../wrangler.deploy.json", import.meta.url), "utf8"),
   );
-  assert.equal(config.name, "watchfloor-private-review");
+  assert.equal(config.name, "watchfloor");
   assert.equal(config.workers_dev, false);
   assert.equal(config.preview_urls, false);
+  assert.deepEqual(config.rules, [
+    { type: "ESModule", globs: ["**/*.js", "**/*.mjs"] },
+  ]);
   assert.equal(Object.hasOwn(config, "route"), false);
   assert.equal(Object.hasOwn(config, "routes"), false);
   assert.equal(Object.hasOwn(config, "custom_domain"), false);

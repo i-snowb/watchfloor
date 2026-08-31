@@ -97,6 +97,7 @@ export function useTraceCamera(
     viewport: TraceSize;
     world: TraceSize;
   } | null>(null);
+  const previousViewportRef = useRef<TraceSize | null>(null);
   const initializedRef = useRef(false);
   const worldRevisionRef = useRef(worldRevision);
   const selectionWorldRevisionRef = useRef(worldRevision);
@@ -520,7 +521,13 @@ export function useTraceCamera(
     const updateBounds = () => {
       const sizes = measureSizes();
       if (!sizes) return;
+      const previousViewport = previousViewportRef.current;
+      const viewportChanged =
+        previousViewport !== null &&
+        (Math.abs(previousViewport.width - sizes.viewport.width) >= 48 ||
+          Math.abs(previousViewport.height - sizes.viewport.height) >= 48);
       sizesRef.current = sizes;
+      previousViewportRef.current = sizes.viewport;
       wheelGeometryRef.current = null;
       const worldChanged = worldRevisionRef.current !== worldRevision;
       worldRevisionRef.current = worldRevision;
@@ -538,7 +545,7 @@ export function useTraceCamera(
               )
             : fitTraceCamera(sizes.viewport, sizes.world),
         );
-      } else if (worldChanged) {
+      } else if (worldChanged || viewportChanged) {
         const activeBounds = measureActiveTraceBounds(plane);
         transitionCamera(
           activeBounds
