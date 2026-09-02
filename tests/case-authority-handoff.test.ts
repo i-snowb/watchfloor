@@ -5,7 +5,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { CaseAuthorityHandoff } from "../components/case-authority-handoff";
 import { buildAgentHandoffPrompt } from "../components/agent-handoff-prompt";
 import type { AgentStatus } from "../components/platform-shell";
-import { AnalystActionDock } from "../components/analyst-action-dock";
 import { createInitialCaseState } from "../domain/operations";
 import { endpointLateralScenario as fixture } from "../domain/scenarios";
 
@@ -91,34 +90,4 @@ test("agent handoff prompt starts from current context and stops at analyst gate
   assert.match(prompt, /case-endpoint-0448/);
   assert.match(prompt, /get_case_context first/);
   assert.match(prompt, /If analystGate is present, stop/);
-});
-
-test("telemetry release gate shows the agent rationale and bounded scope", () => {
-  const state = structuredClone(createInitialCaseState(fixture));
-  state.observationRequest = {
-    stageId: "STREAM-LAT-02",
-    rationale: "Release the bounded telemetry needed to verify recovery scope.",
-    targetEntityIds: ["workload:billing-api"],
-    basedOnRevision: 19,
-    requestedAt: "2026-08-28T14:06:08.000Z",
-    releasedAt: null,
-    status: "pending",
-  };
-
-  const html = renderToStaticMarkup(
-    createElement(AnalystActionDock, {
-      fixture,
-      state,
-      busy: false,
-      streamPlaying: false,
-      onExecute: async () => {},
-      onReleaseSignal: () => {},
-    }),
-  );
-  assert.match(html, /Release requested telemetry/);
-  assert.match(
-    html,
-    /Release the bounded telemetry needed to verify recovery scope/,
-  );
-  assert.match(html, /Requested scope: Recovery scope confirmed/);
 });

@@ -24,8 +24,8 @@ Use this connected-agent instruction:
 
 ## What to verify
 
-- The endpoint case has 24 registered tools; the cloud case has 18. Tool
-  registration is case-scoped.
+- Both case routes have the same 24-tool platform manifest. Registration is
+  case-scoped but does not disclose which capabilities later evidence will use.
 - The connected agent operates the visible shared workbench; it is not browser-click automation.
 - The five analyst-only operations are absent from WebMCP and rejected on the callback route.
 - Prepared query text, raw records, discoveries, graph state, timeline, receipts,
@@ -58,8 +58,8 @@ The anonymous visitor can use analyst controls in this sandbox. This demonstrate
 
 ## Source facts and hosted verification
 
-The full endpoint lifecycle ends at `r29`. Source verification passes 175 tests
-and the production build. The final release procedure also checks the public
+The full endpoint lifecycle ends at `r29`. Source verification covers the
+complete test suite and production build. The final release procedure also checks the public
 sandbox profile and refuses to deploy a source revision that is dirty, absent
 from the declared remote, or different from the release metadata.
 
@@ -69,8 +69,7 @@ both HTTP lifecycles, native queue/endpoint/cloud WebMCP registration, a fresh
 endpoint context read, anonymous routes, browser security headers, and the
 1280×720 recording layout. The source is public at
 [github.com/i-snowb/watchfloor](https://github.com/i-snowb/watchfloor); the
-public video remains pending until its verified URL is recorded in
-[SUBMISSION.md](./SUBMISSION.md).
+public video URL will be added to the repository when it is published.
 
 For local verification:
 

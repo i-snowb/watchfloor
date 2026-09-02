@@ -1,5 +1,5 @@
 import { ensureSchema, getDb } from "@/db";
-import type { ToolApiResponse, ToolApiResult } from "@/domain/api";
+import type { StoredToolResponse, ToolApiResult } from "@/domain/api";
 import { parseCaseState } from "@/domain/case-state";
 import { deriveReceiptReferences } from "@/domain/receipt-lineage";
 import {
@@ -13,6 +13,13 @@ import type {
   CaseSnapshot,
   OperationReceipt,
 } from "@/domain/types";
+import {
+  classifyPublicSessionAdmission,
+  MAX_ACTIVE_PUBLIC_SESSIONS,
+  PUBLIC_SESSION_ADMISSION_LIMIT,
+  PUBLIC_SESSION_ADMISSION_WINDOW_MS,
+  PUBLIC_SESSION_TTL_MS,
+} from "@/server/public-session-admission";
 
 interface CaseStateRow {
   fixture_version: string;
@@ -66,8 +73,6 @@ const MAX_STATE_CHANGES_PER_GENERATION = 64;
 // one 24-hour browser session, while the existing burst limits constrain abuse.
 export const PUBLIC_SANDBOX_SESSION_MUTATION_BUDGET = 160;
 export const PUBLIC_SANDBOX_SESSION_RESET_BUDGET = 12;
-const MAX_ACTIVE_PUBLIC_SESSIONS = 10_000;
-const SESSION_TTL_MS = 24 * 60 * 60 * 1_000;
 const CLEANUP_SESSION_BATCH = 4;
 
 export async function loadCaseSnapshot(
@@ -199,7 +204,7 @@ export async function resetCase(
             requestId,
             fixture.id,
             nowMs,
-            nowMs + SESSION_TTL_MS,
+            nowMs + PUBLIC_SESSION_TTL_MS,
             sessionId,
             fixture.id,
             sessionId,
@@ -292,7 +297,7 @@ export async function resetCase(
           fixture.id,
           nextGeneration,
           nowMs,
-          nowMs + SESSION_TTL_MS,
+          nowMs + PUBLIC_SESSION_TTL_MS,
           sessionId,
           fixture.id,
           row.generation,
@@ -376,7 +381,7 @@ export async function executeStoredTool(
   fixture: CaseFixture,
   request: CaseToolRequest,
   actorAssurance: OperationReceipt["actorAssurance"] = "local_development",
-): Promise<ToolApiResponse> {
+): Promise<StoredToolResponse> {
   const db = getDb();
   await ensureSchema(db);
   const nowMs = Date.now();
@@ -530,7 +535,7 @@ export async function executeStoredTool(
               fixture.id,
               row.generation,
               nowMs,
-              nowMs + SESSION_TTL_MS,
+              nowMs + PUBLIC_SESSION_TTL_MS,
               sessionId,
               fixture.id,
               row.generation,
@@ -684,7 +689,7 @@ async function executePublicNonDurableOperation(
   fixture: CaseFixture,
   request: CaseToolRequest,
   nowMs: number,
-): Promise<ToolApiResponse | null> {
+): Promise<StoredToolResponse | null> {
   const expired = await deleteExpiredSessionIfNeeded(db, sessionId, nowMs);
   const lease = expired
     ? null
@@ -863,15 +868,20 @@ async function ensureActiveSessionLease(
       WHERE (
         SELECT COUNT(*) FROM session_lease WHERE expires_at_ms > ?
       ) < ?
+      AND (
+        SELECT COUNT(*) FROM session_lease WHERE created_at_ms > ?
+      ) < ?
       ON CONFLICT (session_id) DO NOTHING`,
     )
     .bind(
       sessionId,
       nowMs,
       nowMs,
-      nowMs + SESSION_TTL_MS,
+      nowMs + PUBLIC_SESSION_TTL_MS,
       nowMs,
       MAX_ACTIVE_PUBLIC_SESSIONS,
+      nowMs - PUBLIC_SESSION_ADMISSION_WINDOW_MS,
+      PUBLIC_SESSION_ADMISSION_LIMIT,
     )
     .run();
   if (inserted.meta.changes === 1) return;
@@ -880,6 +890,21 @@ async function ensureActiveSessionLease(
     .bind(sessionId)
     .first<SessionLeaseRow>();
   if (raced && raced.expires_at_ms > nowMs) return;
+  const admission = await db
+    .prepare(
+      `SELECT
+        (SELECT COUNT(*) FROM session_lease WHERE expires_at_ms > ?) AS active_count,
+        (SELECT COUNT(*) FROM session_lease WHERE created_at_ms > ?) AS recent_count`,
+    )
+    .bind(nowMs, nowMs - PUBLIC_SESSION_ADMISSION_WINDOW_MS)
+    .first<{ active_count: number; recent_count: number }>();
+  const decision = classifyPublicSessionAdmission(
+    admission?.active_count ?? 0,
+    admission?.recent_count ?? 0,
+  );
+  if (decision === "rate_limited") {
+    throw new Error("PUBLIC_SESSION_ADMISSION_RATE_LIMITED");
+  }
   throw new Error("PUBLIC_SANDBOX_AT_CAPACITY");
 }
 
@@ -1082,7 +1107,7 @@ function resetOccurredResponse(
   requestId: string,
   fixture: CaseFixture,
   snapshot: CaseSnapshot,
-): ToolApiResponse {
+): StoredToolResponse {
   return {
     result: {
       ok: false,
@@ -1104,7 +1129,7 @@ function mutationLimitResponse(
   requestId: string,
   fixture: CaseFixture,
   snapshot: CaseSnapshot,
-): ToolApiResponse {
+): StoredToolResponse {
   return {
     result: {
       ok: false,
@@ -1126,7 +1151,7 @@ function sessionMutationLimitResponse(
   requestId: string,
   fixture: CaseFixture,
   snapshot: CaseSnapshot,
-): ToolApiResponse {
+): StoredToolResponse {
   return {
     result: {
       ok: false,

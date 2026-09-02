@@ -10,6 +10,46 @@ test("runtime smoke permits unauthenticated localhost execution", () => {
   assert.equal(config.authorization, null);
 });
 
+test("runtime smoke accepts only origin URLs", () => {
+  assert.throws(
+    () =>
+      resolveRuntimeSmokeConfig({
+        TRACE_BASE_URL: "https://watchfloor.example/cases/case-endpoint-0448",
+      }),
+    /must be an origin/,
+  );
+  assert.throws(
+    () =>
+      resolveRuntimeSmokeConfig({
+        TRACE_BASE_URL: "https://watchfloor.example/?case=endpoint",
+      }),
+    /must be an origin/,
+  );
+});
+
+test("runtime smoke rejects unsafe unauthenticated network targets", () => {
+  for (const target of [
+    "http://example.com",
+    "https://10.0.0.8",
+    "https://169.254.169.254",
+    "https://[fd00::1]",
+    "https://service.internal",
+  ]) {
+    assert.throws(
+      () => resolveRuntimeSmokeConfig({ TRACE_BASE_URL: target }),
+      /must use HTTPS|must not target/,
+    );
+  }
+});
+
+test("runtime smoke permits an unauthenticated public HTTPS origin", () => {
+  const config = resolveRuntimeSmokeConfig({
+    TRACE_BASE_URL: "https://watchfloor.example",
+  });
+  assert.equal(config.baseUrl.origin, "https://watchfloor.example");
+  assert.equal(config.authorization, null);
+});
+
 test("runtime smoke requires an exact HTTPS trusted origin for credentials", () => {
   const base = { TRACE_AUTH_HEADER: "credential-value" };
   assert.throws(

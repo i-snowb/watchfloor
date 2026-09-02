@@ -84,11 +84,14 @@ async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
     credentials: "same-origin",
     headers: { accept: "application/json", ...init.headers },
   });
-  const data: unknown = await response.json();
+  const data = await readJsonBody(response);
   if (!response.ok) {
     const message =
-      readErrorMessage(data) ?? `Request failed with ${response.status}.`;
+      readErrorMessage(data) ?? fallbackErrorMessage(response.status);
     throw new HttpError(message);
+  }
+  if (data === null) {
+    throw new HttpError("The service returned an invalid response.");
   }
   return data as T;
 }
@@ -97,6 +100,26 @@ class HttpError extends Error {}
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+async function readJsonBody(response: Response): Promise<unknown | null> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes("application/json")) return null;
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+function fallbackErrorMessage(status: number): string {
+  if (status === 429) {
+    return "The public sandbox is temporarily limited. Try again shortly.";
+  }
+  if (status >= 500) {
+    return "The case service is temporarily unavailable. Try again shortly.";
+  }
+  return `The request could not be completed (${status}).`;
 }
 
 function readErrorMessage(value: unknown): string | null {

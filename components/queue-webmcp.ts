@@ -1,8 +1,5 @@
 import { getCaseQueueItems } from "@/domain/case-queue";
-import {
-  createInitialCaseState,
-  getCaseCoordination,
-} from "@/domain/operations";
+import { createInitialCaseState } from "@/domain/operations";
 import { getReferenceCase } from "@/domain/reference-cases";
 import type { CaseFixture, CaseSnapshot } from "@/domain/types";
 import { loadCase } from "@/lib/client-api";
@@ -121,7 +118,11 @@ export function createAlertToolDefinitions(
               route: `/cases/${caseId}`,
               caseKind: "shared_investigation",
               revision: snapshot.state.revision,
-              coordination: getCaseCoordination(fixture, snapshot.state),
+              coordination: {
+                nextOwner: "agent",
+                nextTool: "get_case_context",
+                analystGate: null,
+              },
               agentContinuation: {
                 waitFor: "case_tools_registered",
                 firstTool: "get_case_context",

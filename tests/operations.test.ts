@@ -951,11 +951,10 @@ test("query workset withholds unreleased results and fails closed", () => {
     queryWorkset: {
       availableQueryIds: readonly string[];
       availableCount: number;
-      blockedCount: number;
     };
   };
   assert.equal(data.queryWorkset.availableCount, 7);
-  assert.equal(data.queryWorkset.blockedCount, 3);
+  assert.equal("blockedCount" in data.queryWorkset, false);
   assert.equal(
     data.queryWorkset.availableQueryIds.includes("QRY-ENDPOINT-APP-05"),
     false,
@@ -1438,19 +1437,22 @@ test("response bundles prepare atomically and require analyst authorization", ()
     Array(4).fill("authorized_in_demo"),
   );
 
-  state = succeed(
-    execute(
-      fixture,
-      state,
-      "request_next_observation",
-      {
-        expectedRevision: state.revision,
-        stageId: "STREAM-LAT-02",
-        rationale: "Request credential and workload recovery inventory.",
-      },
-      "webmcp_callback",
-    ),
+  const observationRequest = execute(
+    fixture,
+    state,
+    "request_next_observation",
+    {
+      expectedRevision: state.revision,
+      stageId: "STREAM-LAT-02",
+      rationale: "Request credential and workload recovery inventory.",
+    },
+    "webmcp_callback",
   );
+  assert.equal(
+    JSON.stringify(observationRequest).includes("Recovery scope confirmed"),
+    false,
+  );
+  state = succeed(observationRequest);
   state = succeed(
     execute(fixture, state, "release_next_synthetic_signal", {
       expectedRevision: state.revision,
@@ -1627,7 +1629,7 @@ test("endpoint context orders containment before recovery discovery", () => {
         expectedRevision: preRequestRevision,
         stageId: "STREAM-LAT-02",
         rationale:
-          "Request analyst release of the bounded recovery scope confirmed telemetry.",
+          "Request analyst release of the next bounded telemetry observation.",
       },
       validForRevision: preRequestRevision,
     });
@@ -1926,20 +1928,18 @@ test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
     "attach_discovery_stage",
     "generate_case_report",
   ] satisfies readonly CaseToolName[];
-  assert.deepEqual(cloudNames, new Set<CaseToolName>(common));
-  assert.deepEqual(
-    endpointNames,
-    new Set<CaseToolName>([
-      ...common,
-      "calculate_reachability",
-      "simulate_control",
-      "request_next_observation",
-      "propose_response_action",
-      "simulate_response_action",
-      "prepare_response_bundle",
-    ]),
-  );
-  assert.equal(cloudNames.size, 18);
+  const stablePlatformManifest = new Set<CaseToolName>([
+    ...common,
+    "calculate_reachability",
+    "simulate_control",
+    "request_next_observation",
+    "propose_response_action",
+    "simulate_response_action",
+    "prepare_response_bundle",
+  ]);
+  assert.deepEqual(cloudNames, stablePlatformManifest);
+  assert.deepEqual(endpointNames, stablePlatformManifest);
+  assert.equal(cloudNames.size, 24);
   assert.equal(endpointNames.size, 24);
 
   for (const withheld of [
@@ -1951,16 +1951,6 @@ test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
   ] satisfies readonly CaseToolName[]) {
     assert.equal(cloudNames.has(withheld), false);
     assert.equal(endpointNames.has(withheld), false);
-  }
-  for (const unavailableInCloud of [
-    "calculate_reachability",
-    "simulate_control",
-    "request_next_observation",
-    "propose_response_action",
-    "simulate_response_action",
-    "prepare_response_bundle",
-  ] satisfies readonly CaseToolName[]) {
-    assert.equal(cloudNames.has(unavailableInCloud), false);
   }
   for (const queryBackedEnrichment of [
     "enrich_identity",
@@ -1984,11 +1974,11 @@ test("WebMCP exposes bounded case tools and withholds analyst gates", () => {
   );
   assert.equal(
     cloudDefinitions.some((tool) => tool.name === "request_next_observation"),
-    false,
+    true,
   );
   assert.equal(
     cloudDefinitions.some((tool) => tool.name === "prepare_response_bundle"),
-    false,
+    true,
   );
 
   const endpointDefinitions = createCaseToolDefinitions(
@@ -2050,7 +2040,11 @@ test("tool registration uses the caller-owned teardown signal", async () => {
     "list_investigation_skills",
     "prepare_investigation_query",
     "run_investigation_query",
+    "calculate_reachability",
+    "simulate_control",
     "attach_discovery_stage",
+    "request_next_observation",
+    "prepare_response_bundle",
     "generate_case_report",
   ]);
   controller.abort();

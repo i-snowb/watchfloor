@@ -158,7 +158,15 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     "attach_discovery_stage",
     "generate_case_report",
   ] satisfies readonly CaseToolName[];
-  const expectedCloud = new Set<CaseToolName>(common);
+  const expectedCloud = new Set<CaseToolName>([
+    ...common,
+    "calculate_reachability",
+    "simulate_control",
+    "request_next_observation",
+    "propose_response_action",
+    "simulate_response_action",
+    "prepare_response_bundle",
+  ]);
   const expectedEndpoint = new Set<CaseToolName>([
     ...common,
     "calculate_reachability",
@@ -170,7 +178,7 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
   ]);
   assert.deepEqual(cloudExposed, expectedCloud);
   assert.deepEqual(endpointExposed, expectedEndpoint);
-  assert.equal(cloudExposed.size, 18);
+  assert.equal(cloudExposed.size, 24);
   assert.equal(endpointExposed.size, 24);
   assert.equal(exposed.size, 24);
   const successful = new Set<string>();

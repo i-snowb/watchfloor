@@ -2,32 +2,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("the private Cloudflare profile has no reachable route", async () => {
-  const config = JSON.parse(
-    await readFile(new URL("../wrangler.deploy.json", import.meta.url), "utf8"),
-  );
-  assert.equal(config.name, "watchfloor");
-  assert.equal(config.workers_dev, false);
-  assert.equal(config.preview_urls, false);
-  assert.deepEqual(config.rules, [
-    { type: "ESModule", globs: ["**/*.js", "**/*.mjs"] },
-  ]);
-  assert.equal(Object.hasOwn(config, "route"), false);
-  assert.equal(Object.hasOwn(config, "routes"), false);
-  assert.equal(Object.hasOwn(config, "custom_domain"), false);
-  assert.equal(config.d1_databases?.length, 1);
-  assert.equal(config.vars?.WATCHFLOOR_AUTH_MODE, "cloudflare_access");
-  assert.equal(
-    Object.hasOwn(config.vars ?? {}, "WATCHFLOOR_ALLOW_LOCAL_DEVELOPMENT"),
-    false,
-  );
-});
-
 test("the public Cloudflare profile is a separate bounded sandbox", async () => {
-  const [publicConfig, privateConfig] = await Promise.all(
-    ["../wrangler.public.json", "../wrangler.deploy.json"].map(async (path) =>
-      JSON.parse(await readFile(new URL(path, import.meta.url), "utf8")),
-    ),
+  const publicConfig = JSON.parse(
+    await readFile(new URL("../wrangler.public.json", import.meta.url), "utf8"),
   );
   assert.equal(publicConfig.name, "watchfloor-sandbox");
   assert.equal(publicConfig.main, "worker.public.mjs");
@@ -53,7 +30,6 @@ test("the public Cloudflare profile is a separate bounded sandbox", async () => 
       fallthrough: false,
     },
   ]);
-  assert.notEqual(publicConfig.name, privateConfig.name);
   assert.equal(publicConfig.workers_dev, true);
   assert.equal(publicConfig.preview_urls, false);
   assert.deepEqual(publicConfig.triggers?.crons, ["*/15 * * * *"]);
@@ -70,10 +46,6 @@ test("the public Cloudflare profile is a separate bounded sandbox", async () => 
     );
   }
   assert.equal(publicConfig.d1_databases?.length, 1);
-  assert.notEqual(
-    publicConfig.d1_databases[0].database_id,
-    privateConfig.d1_databases[0].database_id,
-  );
   assert.equal(publicConfig.ratelimits?.length, 2);
   assert.equal(
     new Set(

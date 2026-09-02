@@ -6,6 +6,7 @@ import { resetCase } from "@/server/case-store";
 import { jsonResponse, readJsonObject } from "@/server/http";
 import { enforcePublicMutationRateLimits } from "@/server/request-limits";
 import { requireMutationIntent } from "@/server/request-security";
+import { projectPublicCaseView } from "@/server/public-case-view-only";
 
 interface RouteContext {
   params: Promise<{ caseId: string }>;
@@ -107,14 +108,37 @@ export async function POST(
       body.expectedRevision as number,
       principal.assurance === "anonymous_sandbox",
     );
-    return jsonResponse(request, session, { snapshot });
-  } catch (error) {
-    const code = error instanceof Error ? error.message : "RESET_UNAVAILABLE";
-    const conflict = code === "RESET_REVISION_CONFLICT";
-    const limited = code === "SESSION_RESET_LIMIT_REACHED";
     return jsonResponse(
       request,
       session,
+      projectPublicCaseView(fixture, snapshot),
+    );
+  } catch (error) {
+    const storageCode =
+      error instanceof Error ? error.message : "RESET_UNAVAILABLE";
+    const conflict = storageCode === "RESET_REVISION_CONFLICT";
+    const limited = storageCode === "SESSION_RESET_LIMIT_REACHED";
+    const admissionLimited =
+      storageCode === "PUBLIC_SESSION_ADMISSION_RATE_LIMITED";
+    const atCapacity = storageCode === "PUBLIC_SANDBOX_AT_CAPACITY";
+    const code = conflict
+      ? "RESET_REVISION_CONFLICT"
+      : limited
+        ? "SESSION_RESET_LIMIT_REACHED"
+        : admissionLimited
+          ? "PUBLIC_SESSION_ADMISSION_RATE_LIMITED"
+          : atCapacity
+            ? "PUBLIC_SANDBOX_AT_CAPACITY"
+            : "RESET_UNAVAILABLE";
+    const responseSession =
+      admissionLimited || atCapacity
+        ? session.isNew
+          ? null
+          : session
+        : session;
+    const response = jsonResponse(
+      request,
+      responseSession,
       {
         error: {
           code,
@@ -122,10 +146,16 @@ export async function POST(
             ? "The case changed before reset. Refresh and try again."
             : limited
               ? "This sandbox session reached its reset limit."
-              : "The case could not be reset.",
+              : admissionLimited
+                ? "New public sandbox sessions are temporarily limited. Try again shortly."
+                : atCapacity
+                  ? "The public sandbox is at active-session capacity. Try again later."
+                  : "The case could not be reset.",
         },
       },
-      conflict ? 409 : limited ? 429 : 503,
+      conflict || limited || admissionLimited ? (conflict ? 409 : 429) : 503,
     );
+    if (admissionLimited) response.headers.set("retry-after", "60");
+    return response;
   }
 }

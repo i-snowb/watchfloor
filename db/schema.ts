@@ -46,6 +46,8 @@ export const schemaStatements = [
   )`,
   `CREATE INDEX IF NOT EXISTS session_lease_expiry
     ON session_lease (expires_at_ms)`,
+  `CREATE INDEX IF NOT EXISTS session_lease_created
+    ON session_lease (created_at_ms)`,
   `CREATE TABLE IF NOT EXISTS session_work_ledger (
     session_id TEXT NOT NULL,
     request_id TEXT NOT NULL,

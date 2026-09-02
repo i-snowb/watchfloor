@@ -7,6 +7,7 @@ import { jsonResponse, readJsonObject } from "@/server/http";
 import { enforcePublicMutationRateLimits } from "@/server/request-limits";
 import { requireMutationIntent } from "@/server/request-security";
 import { parseOperationEnvelope } from "@/server/operation-envelope";
+import { projectPublicCaseView } from "@/server/public-case-view-only";
 
 export async function handleCaseOperation(
   request: Request,
@@ -103,18 +104,43 @@ export async function handleCaseOperation(
       envelope.request,
       principal.assurance,
     );
-    return jsonResponse(request, session, response);
-  } catch {
-    return jsonResponse(
+    return jsonResponse(request, session, {
+      ...projectPublicCaseView(fixture, response.snapshot),
+      result: response.result,
+    });
+  } catch (error) {
+    const storageCode =
+      error instanceof Error ? error.message : "OPERATION_UNAVAILABLE";
+    const admissionLimited =
+      storageCode === "PUBLIC_SESSION_ADMISSION_RATE_LIMITED";
+    const atCapacity = storageCode === "PUBLIC_SANDBOX_AT_CAPACITY";
+    const code = admissionLimited
+      ? "PUBLIC_SESSION_ADMISSION_RATE_LIMITED"
+      : atCapacity
+        ? "PUBLIC_SANDBOX_AT_CAPACITY"
+        : "OPERATION_UNAVAILABLE";
+    const responseSession =
+      admissionLimited || atCapacity
+        ? session.isNew
+          ? null
+          : session
+        : session;
+    const response = jsonResponse(
       request,
-      session,
+      responseSession,
       {
         error: {
-          code: "OPERATION_UNAVAILABLE",
-          message: "The operation could not be completed.",
+          code,
+          message: admissionLimited
+            ? "New public sandbox sessions are temporarily limited. Try again shortly."
+            : atCapacity
+              ? "The public sandbox is at active-session capacity. Try again later."
+              : "The operation could not be completed.",
         },
       },
-      503,
+      admissionLimited ? 429 : 503,
     );
+    if (admissionLimited) response.headers.set("retry-after", "60");
+    return response;
   }
 }

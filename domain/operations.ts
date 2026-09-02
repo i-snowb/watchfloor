@@ -878,17 +878,14 @@ export function getDerivedNextStep(
         objective:
           state.observationRequest?.status === "pending" &&
           state.observationRequest.stageId === nextDiscovery.id
-            ? `Wait for analyst release of ${nextDiscovery.title.toLowerCase()}.`
-            : `Request analyst release of ${nextDiscovery.title.toLowerCase()}.`,
+            ? "Wait for analyst release of the next bounded telemetry observation."
+            : "Request analyst release of the next bounded telemetry observation.",
         recommendedTool:
           state.observationRequest?.status === "pending" &&
           state.observationRequest.stageId === nextDiscovery.id
             ? null
             : "request_next_observation",
-        targetEntityId:
-          nextDiscovery.entities[0]?.id ??
-          nextDiscovery.events.at(-1)?.entityIds.at(-1) ??
-          null,
+        targetEntityId: null,
       };
     }
     return {
@@ -1338,7 +1335,8 @@ export function getNextAgentAction(
       input = {
         expectedRevision: state.revision,
         stageId: stage.id,
-        rationale: `Release the bounded telemetry needed to verify ${stage.title.toLowerCase()}.`,
+        rationale:
+          "Release the next bounded telemetry observation for analyst review.",
       };
     }
   } else if (toolName === "calculate_reachability") {
@@ -1601,7 +1599,11 @@ function executeRead(
         },
         discoveries: {
           nextStageId: getNextStreamStage(fixture, state)?.id ?? null,
-          available: fixture.stream.stages.map((stage) => {
+          available: [
+            ...(getNextStreamStage(fixture, state)
+              ? [getNextStreamStage(fixture, state)!]
+              : []),
+          ].map((stage) => {
             const attached = state.releasedStreamStageIds.includes(stage.id);
             const containmentReady = containmentAuthorizationSatisfied(
               fixture,
@@ -1618,7 +1620,7 @@ function executeRead(
             const isNext = stage.id === getNextStreamStage(fixture, state)?.id;
             return {
               id: stage.id,
-              title: stage.title,
+              title: "Pending verified discovery",
               releaseAuthority: stage.releaseAuthority,
               requiredEnrichmentIds: stage.admission.requiredEnrichmentIds,
               sourceQueryIds: stage.admission.sourceQueryIds,
@@ -1671,11 +1673,6 @@ function executeRead(
               query.requiresStageId === null ||
               state.releasedStreamStageIds.includes(query.requiresStageId),
           ).length,
-          blockedCount: fixture.investigationQueries.filter(
-            (query) =>
-              query.requiresStageId !== null &&
-              !state.releasedStreamStageIds.includes(query.requiresStageId),
-          ).length,
           permittedKnownPivots: fixture.investigationQueries
             .filter(
               (query) =>
@@ -1693,33 +1690,38 @@ function executeRead(
                 "This approved query may investigate a known pivot before its staged graph evidence is released. It returns only its bounded query result and does not release the pivot's telemetry, entity, or relationships.",
             })),
         },
-        investigationPlans: getInvestigationPlans(fixture).map((plan) => ({
-          ...plan,
-          progress: plan.queryIds.every((queryId) => {
-            return state.executedInvestigationQueryIds.includes(queryId);
-          })
-            ? "complete"
-            : plan.requiresStageId === null ||
-                state.releasedStreamStageIds.includes(plan.requiresStageId)
-              ? "available"
-              : "blocked",
-        })),
+        investigationPlans: getInvestigationPlans(fixture)
+          .filter(
+            (plan) =>
+              plan.requiresStageId === null ||
+              state.releasedStreamStageIds.includes(plan.requiresStageId),
+          )
+          .map((plan) => ({
+            ...plan,
+            progress: plan.queryIds.every((queryId) =>
+              state.executedInvestigationQueryIds.includes(queryId),
+            )
+              ? "complete"
+              : "available",
+          })),
         observationRequest: state.observationRequest,
-        responsePackages: getResponseBundles(fixture).map((bundle) => ({
-          ...bundle,
-          progress: state.authorizedResponseBundleIds.includes(bundle.id)
-            ? "authorized"
-            : state.responseBundle?.bundleId === bundle.id
-              ? "prepared"
-              : bundle.actionIds.some(
-                    (actionId) =>
-                      state.responseActions.find(
-                        (action) => action.actionId === actionId,
-                      )?.status === "available",
-                  )
-                ? "available"
-                : "blocked",
-        })),
+        responsePackages: getResponseBundles(fixture)
+          .map((bundle) => ({
+            ...bundle,
+            progress: state.authorizedResponseBundleIds.includes(bundle.id)
+              ? "authorized"
+              : state.responseBundle?.bundleId === bundle.id
+                ? "prepared"
+                : bundle.actionIds.some(
+                      (actionId) =>
+                        state.responseActions.find(
+                          (action) => action.actionId === actionId,
+                        )?.status === "available",
+                    )
+                  ? "available"
+                  : "blocked",
+          }))
+          .filter((bundle) => bundle.progress !== "blocked"),
         ...getCaseCoordination(fixture, state),
       },
       {
@@ -1763,18 +1765,18 @@ function executeRead(
   if (toolName === "get_case_delta") {
     const invalid = validateInput(input, ["sinceCursor"], ["sinceCursor"]);
     if (invalid) return fail(state, toolName, invalid);
+    const appliedStages = getAppliedStreamStages(fixture, state);
     if (
       !Number.isInteger(input.sinceCursor) ||
       Number(input.sinceCursor) < 0 ||
-      Number(input.sinceCursor) > fixture.stream.stages.length
+      Number(input.sinceCursor) > appliedStages.length
     ) {
       return fail(
         state,
         toolName,
-        `sinceCursor must be an integer from 0 to ${fixture.stream.stages.length}.`,
+        "sinceCursor must identify a currently released stream cursor.",
       );
     }
-    const appliedStages = getAppliedStreamStages(fixture, state);
     const updates = appliedStages.slice(Number(input.sinceCursor));
     return success(
       state,
@@ -3034,7 +3036,8 @@ function executeWrite(
               input: {
                 expectedRevision: state.revision,
                 stageId: stage.id,
-                rationale: `Request analyst release of the bounded ${stage.title.toLowerCase()} telemetry.`,
+                rationale:
+                  "Request analyst release of the next bounded telemetry observation.",
               },
               validForRevision: state.revision,
             },
@@ -3110,12 +3113,15 @@ function executeWrite(
       );
     }
     const updated = nextState(state);
+    const visibleEntityIds = new Set(
+      getVisibleEntities(fixture, state).map((entity) => entity.id),
+    );
     updated.observationRequest = {
       stageId: stage.id,
       rationale: input.rationale,
       targetEntityIds: [
         ...new Set(stage.events.flatMap((event) => event.entityIds)),
-      ],
+      ].filter((entityId) => visibleEntityIds.has(entityId)),
       basedOnRevision: state.revision,
       requestedAt: deterministicTimestamp(updated.revision),
       releasedAt: null,
@@ -3129,8 +3135,9 @@ function executeWrite(
       },
       {
         title: "Requested next observation",
-        target: stage.title,
-        resultSummary: `${stage.title} requested · analyst release required`,
+        target: "Pending verified discovery",
+        resultSummary:
+          "Pending verified discovery requested · analyst release required",
       },
       true,
     );

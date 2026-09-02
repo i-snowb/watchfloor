@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   title: "WATCH//FLOOR · Agentic security investigations",
   description:
     "Bring your own WebMCP agent or harness. Investigate bounded evidence while analysts retain every consequential decision.",
+  icons: {
+    icon: "/favicon.svg",
+  },
   openGraph: {
     title: "WATCH//FLOOR",
     description:

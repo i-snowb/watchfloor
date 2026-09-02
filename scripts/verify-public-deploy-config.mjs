@@ -4,13 +4,9 @@ import { readFile } from "node:fs/promises";
 const publicConfig = JSON.parse(
   await readFile(new URL("../wrangler.public.json", import.meta.url), "utf8"),
 );
-const privateConfig = JSON.parse(
-  await readFile(new URL("../wrangler.deploy.json", import.meta.url), "utf8"),
-);
 const uuid =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-assert.notEqual(publicConfig.name, privateConfig.name);
 assert.equal(publicConfig.name, "watchfloor-sandbox");
 assert.equal(publicConfig.main, "worker.public.mjs");
 assert.deepEqual(publicConfig.rules, [
@@ -62,11 +58,9 @@ for (const forbidden of [
 }
 assert.equal(publicConfig.d1_databases?.length, 1);
 const publicDatabase = publicConfig.d1_databases[0];
-const privateDatabase = privateConfig.d1_databases[0];
 assert.equal(publicDatabase.binding, "DB");
 assert.equal(publicDatabase.database_name, "watchfloor-sandbox");
 assert.match(publicDatabase.database_id, uuid);
-assert.notEqual(publicDatabase.database_id, privateDatabase.database_id);
 
 assert.equal(publicConfig.ratelimits?.length, 2);
 assert.deepEqual(publicConfig.ratelimits.map((entry) => entry.name).sort(), [

@@ -1,3 +1,5 @@
+import type { PublicCaseFixture, PublicCaseSnapshot } from "./public-view";
+import type { CaseToolName } from "./operations";
 import type { CaseSnapshot } from "./types";
 
 export interface ApiError {
@@ -28,9 +30,17 @@ export type ToolApiResult =
     };
 
 export interface CaseApiResponse {
-  snapshot: CaseSnapshot;
+  fixture: PublicCaseFixture;
+  snapshot: PublicCaseSnapshot;
+  toolNames: readonly CaseToolName[];
 }
 
 export interface ToolApiResponse extends CaseApiResponse {
+  result: ToolApiResult;
+}
+
+/** Internal store response before the server applies the public projection. */
+export interface StoredToolResponse {
+  snapshot: CaseSnapshot;
   result: ToolApiResult;
 }

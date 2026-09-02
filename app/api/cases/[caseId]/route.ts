@@ -2,6 +2,7 @@ import { getCaseFixture } from "@/domain/scenarios";
 import { loadCaseSnapshot } from "@/server/case-store";
 import { authorizeCaseRequest } from "@/server/case-request";
 import { jsonResponse } from "@/server/http";
+import { projectPublicCaseView } from "@/server/public-case-view-only";
 
 interface RouteContext {
   params: Promise<{ caseId: string }>;
@@ -29,7 +30,11 @@ export async function GET(
 
   try {
     const snapshot = await loadCaseSnapshot(session.id, fixture);
-    return jsonResponse(request, session, { snapshot });
+    return jsonResponse(
+      request,
+      session,
+      projectPublicCaseView(fixture, snapshot),
+    );
   } catch {
     return jsonResponse(
       request,

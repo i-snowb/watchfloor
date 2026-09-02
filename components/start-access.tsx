@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import type { CaseFixture } from "@/domain/types";
+import type { PublicCaseFixture } from "@/domain/public-view";
 import {
   registerCaseTools,
   type ToolRegistrationOutcome,
@@ -21,7 +21,7 @@ import styles from "./start-access.module.css";
 export function StartAccess({
   fixtures,
 }: {
-  fixtures: readonly CaseFixture[];
+  fixtures: readonly PublicCaseFixture[];
 }) {
   const router = useRouter();
   const [agentStatus, setAgentStatus] = useState<AgentStatus>({

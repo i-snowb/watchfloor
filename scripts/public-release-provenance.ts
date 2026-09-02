@@ -57,7 +57,8 @@ export function resolvePublicReleaseMetadata(
 
 /**
  * Ensures the public release metadata identifies the exact, clean source that
- * is about to be deployed. It does not contact a forge or Cloudflare.
+ * is about to be deployed. It verifies that the commit is reachable from a
+ * current branch on the declared forge, but it does not contact Cloudflare.
  */
 export function assertPublicReleaseIsPublishable(
   metadata: PublicReleaseMetadata,
@@ -100,21 +101,40 @@ export function assertPublicReleaseIsPublishable(
       "WATCHFLOOR_SOURCE_REPOSITORY must match a configured Git remote.",
     );
   }
-  const remoteTrackingRefs = command("git", [
-    "branch",
-    "--remotes",
-    "--contains",
-    "HEAD",
-  ])
-    .split(/\r?\n/)
-    .map((ref) => ref.trim().replace(/^\*\s*/, ""))
-    .filter((ref) => !ref.includes(" -> "));
-  const pushedToMatchingRemote = matchingRemotes.some((remote) =>
-    remoteTrackingRefs.some((ref) => ref.startsWith(`${remote}/`)),
-  );
-  if (!pushedToMatchingRemote) {
+  const reachableFromMatchingRemote = matchingRemotes.some((remote) => {
+    try {
+      command("git", ["fetch", "--prune", "--quiet", remote]);
+      const branchReferences = command("git", [
+        "for-each-ref",
+        "--format=%(refname)",
+        `refs/remotes/${remote}`,
+      ])
+        .split(/\r?\n/)
+        .map((reference) => reference.trim())
+        .filter(
+          (reference) =>
+            reference.length > 0 && reference !== `refs/remotes/${remote}/HEAD`,
+        );
+      return branchReferences.some((reference) => {
+        try {
+          command("git", ["merge-base", "--is-ancestor", head, reference]);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+    } catch {
+      return false;
+    }
+  });
+  if (command("git", ["status", "--porcelain=v1"]).trim()) {
     throw new Error(
-      "Refuse public deployment until HEAD is contained in a remote-tracking branch for the declared repository.",
+      "Refuse public deployment because remote verification changed the working tree.",
+    );
+  }
+  if (!reachableFromMatchingRemote) {
+    throw new Error(
+      "Refuse public deployment until HEAD is reachable from a current branch of the declared repository.",
     );
   }
 }

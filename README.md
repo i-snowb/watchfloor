@@ -49,10 +49,11 @@ agent can work with canonical queries, raw records, evidence receipts, and
 explicit allowed transitions instead of scraping pixels or improvising API
 calls.
 
-The queue exposes 2 triage tools. The endpoint case exposes 24 investigation
-tools; the cloud case exposes 18. Tool count is not the point: the allowed
-action surface narrows as case authority changes, and every successful mutation
-returns the next allowed action or an analyst gate.
+The queue exposes 2 triage tools. Every case route exposes the same stable set
+of 24 investigation tools, independent of unreleased scenario content. Tool
+count is not the point: the operation layer narrows what is allowed as case
+authority changes, and every successful mutation returns the next allowed
+action or an analyst gate.
 
 WATCH//FLOOR does not ask an agent to be an authority. It gives the agent a
 bounded, observable role in an analyst-led investigation.
@@ -151,8 +152,6 @@ the production build. Run `npm run smoke` while the local server is active.
 
 - [JUDGE_GUIDE.md](./JUDGE_GUIDE.md): exact evaluator path and hero moments.
 - [public/agent-handoff.md](./public/agent-handoff.md): canonical connected-agent instruction.
-- [DEMO_TEST_HANDOVER.md](./DEMO_TEST_HANDOVER.md): acceptance and lifecycle evidence.
-- [SUBMISSION.md](./SUBMISSION.md): verified public release record.
 - `domain/`: fixtures, evidence visibility, state transitions, and query contracts.
 - `webmcp/`: route-scoped WebMCP tool definitions.
 - `server/`: request boundaries, persistence, receipts, limits, and session isolation.

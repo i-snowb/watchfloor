@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getCaseQueueItems } from "@/domain/case-queue";
 import { createInitialCaseState } from "@/domain/operations";
+import type { PublicCaseFixture } from "@/domain/public-view";
 import { getReferenceCase } from "@/domain/reference-cases";
 import type { CaseFixture, CaseQueueItem, CaseSnapshot } from "@/domain/types";
 import { loadCase, resetCase } from "@/lib/client-api";
@@ -23,10 +24,12 @@ type QueueFilter = "all" | "critical" | "high";
 type QueueSyncState = "checking" | "ready" | "stale";
 
 export function AlertWorkspace({
-  fixtures,
+  fixtures: initialFixtures,
 }: {
-  fixtures: readonly CaseFixture[];
+  fixtures: readonly PublicCaseFixture[];
 }) {
+  const [fixtures, setFixtures] =
+    useState<readonly PublicCaseFixture[]>(initialFixtures);
   const fixture = fixtures[0];
   if (!fixture) {
     throw new Error("The alert queue requires at least one case record.");
@@ -94,6 +97,17 @@ export function AlertWorkspace({
         );
         if (active) {
           setQueueSyncState("ready");
+          setFixtures((current) =>
+            current.map((caseFixture) => {
+              const loaded = responses.find(
+                (item) => item.caseId === caseFixture.id,
+              )?.response.fixture;
+              return loaded &&
+                loaded.projectionRevision > caseFixture.projectionRevision
+                ? loaded
+                : caseFixture;
+            }),
+          );
           setSnapshots((current) => {
             let changed = false;
             const next = { ...current };
@@ -169,13 +183,18 @@ export function AlertWorkspace({
   }, [definitions]);
 
   const resetQueueCase = useCallback(
-    async (caseFixture: CaseFixture) => {
+    async (caseFixture: PublicCaseFixture) => {
       setBusy(true);
       setError(null);
       try {
         const response = await resetCase(
           caseFixture.id,
           snapshots[caseFixture.id]?.state.revision ?? 1,
+        );
+        setFixtures((current) =>
+          current.map((candidate) =>
+            candidate.id === caseFixture.id ? response.fixture : candidate,
+          ),
         );
         setSnapshots((current) => ({
           ...current,
@@ -208,6 +227,11 @@ export function AlertWorkspace({
       const response = await resetCase(
         endpointFixture.id,
         snapshots[endpointFixture.id]?.state.revision ?? 1,
+      );
+      setFixtures((current) =>
+        current.map((candidate) =>
+          candidate.id === endpointFixture.id ? response.fixture : candidate,
+        ),
       );
       setSnapshots((current) => ({
         ...current,

@@ -10,23 +10,23 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "cloudflare:check-private": "node scripts/verify-private-deploy-config.mjs",
     "cloudflare:check-public": "node scripts/verify-public-deploy-config.mjs",
     "cloudflare:check-public-release": "node --import tsx scripts/public-release-provenance.ts",
-    "cloudflare:upload-private": "npm run check && npm run cloudflare:check-private && wrangler versions upload --config wrangler.deploy.json",
     "cloudflare:deploy-public": "npm run cloudflare:check-public-release && npm run check && npm run cloudflare:check-public && node --import tsx scripts/public-release-provenance.ts --deploy",
+    "verify:client-boundary": "node scripts/verify-client-data-boundary.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "smoke": "node --import tsx scripts/runtime-smoke.ts",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm run verify:client-boundary"
   },
   "dependencies": {
     "next": "16.3.3",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "server-only": "0.0.1"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.54.1",

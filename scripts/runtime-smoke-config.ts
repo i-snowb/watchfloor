@@ -14,7 +14,10 @@ export function resolveRuntimeSmokeConfig(
   );
   const authorization = readAuthorization(environment);
 
+  requireOriginOnly(baseUrl, "TRACE_BASE_URL");
+
   if (authorization === null) {
+    validateUnauthenticatedTarget(baseUrl);
     return { baseUrl, authorization: null };
   }
 
@@ -50,6 +53,81 @@ export function resolveRuntimeSmokeConfig(
   return { baseUrl, authorization };
 }
 
+function requireOriginOnly(url: URL, variableName: string): void {
+  if (url.pathname !== "/" || url.search || url.hash) {
+    throw new Error(
+      `${variableName} must be an origin without a path, query, or fragment.`,
+    );
+  }
+}
+
+function validateUnauthenticatedTarget(url: URL): void {
+  const hostname = normalizedHostname(url);
+  if (isLoopbackHostname(hostname)) return;
+  if (url.protocol !== "https:") {
+    throw new Error(
+      "Remote TRACE_BASE_URL targets must use HTTPS; HTTP is allowed only for loopback development.",
+    );
+  }
+  if (isNonPublicHost(hostname)) {
+    throw new Error(
+      "TRACE_BASE_URL must not target a private, link-local, multicast, or reserved address.",
+    );
+  }
+}
+
+function normalizedHostname(url: URL): string {
+  return url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+}
+
+function isLoopbackHostname(hostname: string): boolean {
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) return true;
+  if (isIP(hostname) === 4) return Number(hostname.split(".")[0]) === 127;
+  return hostname === "::1";
+}
+
+function isNonPublicHost(hostname: string): boolean {
+  if (
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal") ||
+    hostname.endsWith(".home.arpa")
+  ) {
+    return true;
+  }
+  const addressFamily = isIP(hostname);
+  if (addressFamily === 4) return isNonPublicIpv4(hostname);
+  if (addressFamily === 6) return isNonPublicIpv6(hostname);
+  return false;
+}
+
+function isNonPublicIpv4(hostname: string): boolean {
+  const [a = 0, b = 0] = hostname.split(".").map(Number);
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    a >= 224
+  );
+}
+
+function isNonPublicIpv6(hostname: string): boolean {
+  const value = hostname.toLowerCase();
+  return (
+    value === "::" ||
+    value === "::1" ||
+    value.startsWith("fc") ||
+    value.startsWith("fd") ||
+    /^fe[89ab]/.test(value) ||
+    value.startsWith("ff") ||
+    value.startsWith("2001:db8:")
+  );
+}
+
 function readAuthorization(environment: Environment): string | null {
   const configured = environment.TRACE_AUTH_HEADER;
   const legacy = environment.TRACE_SITES_AUTHORIZATION;
@@ -76,3 +154,4 @@ function parseHttpUrl(value: string, variableName: string): URL {
   }
   return url;
 }
+import { isIP } from "node:net";

@@ -109,7 +109,9 @@ async function op(
           retryable: false,
         },
       },
+      fixture: current.fixture,
       snapshot: current.snapshot,
+      toolNames: current.toolNames,
     };
   }
   const response = body as ToolApiResponse;

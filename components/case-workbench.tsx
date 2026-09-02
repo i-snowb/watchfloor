@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ToolApiResponse } from "@/domain/api";
+import type { PublicCaseView } from "@/domain/public-view";
 import {
   createInitialCaseState,
   getInvestigationPlans,
@@ -72,16 +73,18 @@ function createAgentToolDispatcher(): AgentToolDispatcher {
   };
 }
 
-export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
+export function CaseWorkbench({
+  initialView,
+}: {
+  initialView: PublicCaseView;
+}) {
   const router = useRouter();
-  const initialSelection = useMemo(
-    () => getInitialSelection(fixture),
-    [fixture],
+  const [fixture, setFixture] = useState(initialView.fixture);
+  const [initialSelection] = useState(() =>
+    getInitialSelection(initialView.fixture),
   );
-  const [snapshot, setSnapshot] = useState<CaseSnapshot>({
-    state: createInitialCaseState(fixture),
-    receipts: [],
-  });
+  const [snapshot, setSnapshot] = useState<CaseSnapshot>(initialView.snapshot);
+  const caseId = initialView.fixture.id;
   const snapshotRef = useRef(snapshot);
   const errorRevisionRef = useRef<number | null>(null);
   const [selection, setSelection] = useState<TraceSelection>(initialSelection);
@@ -208,8 +211,9 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     let active = true;
     async function hydrateCase() {
       try {
-        const response = await loadCase(fixture.id);
+        const response = await loadCase(caseId);
         if (!active) return;
+        setFixture(response.fixture);
         setSnapshot(response.snapshot);
         setSelection(initialSelection);
         setAnalystSelectionActive(false);
@@ -229,7 +233,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     return () => {
       active = false;
     };
-  }, [fixture, initialSelection, reportOperationError]);
+  }, [caseId, initialSelection, reportOperationError]);
 
   useEffect(() => {
     if (!backendReady) return;
@@ -238,9 +242,14 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     const interval = window.setInterval(() => {
       if (document.visibilityState === "hidden" || syncing) return;
       syncing = true;
-      void loadCase(fixture.id)
+      void loadCase(caseId)
         .then((response) => {
           if (!active) return;
+          setFixture((current) =>
+            response.fixture.projectionRevision >= current.projectionRevision
+              ? response.fixture
+              : current,
+          );
           setSnapshot((current) =>
             response.snapshot.state.revision !== current.state.revision ||
             response.snapshot.receipts.length !== current.receipts.length
@@ -257,7 +266,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       active = false;
       window.clearInterval(interval);
     };
-  }, [backendReady, fixture.id]);
+  }, [backendReady, caseId]);
 
   useEffect(() => {
     const prepared = snapshot.state.preparedQuery;
@@ -339,6 +348,11 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
           input,
           requestId,
           signal,
+        );
+        setFixture((current) =>
+          response.fixture.projectionRevision >= current.projectionRevision
+            ? response.fixture
+            : current,
         );
         setSnapshot((current) =>
           response.snapshot.state.revision > current.state.revision ||
@@ -478,8 +492,13 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
   }, [agentToolDispatcher, runAgentTool]);
 
   const caseDefinitions = useMemo(
-    () => createCaseToolDefinitions(fixture, agentToolDispatcher.run),
-    [agentToolDispatcher, fixture],
+    () =>
+      createCaseToolDefinitions(
+        initialView.fixture,
+        agentToolDispatcher.run,
+        initialView.toolNames,
+      ),
+    [agentToolDispatcher, initialView.fixture, initialView.toolNames],
   );
 
   useEffect(() => {
@@ -578,6 +597,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
           "analyst_control",
           input,
         );
+        setFixture(response.fixture);
         setSnapshot(response.snapshot);
         const receipt = response.snapshot.receipts.at(-1);
         if (response.result.ok && receipt?.status === "completed") {
@@ -675,6 +695,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         fixture.id,
         snapshotRef.current.state.revision,
       );
+      setFixture(response.fixture);
       setSnapshot(response.snapshot);
       setSelection(initialSelection);
       setAgentFocusEntityId(null);

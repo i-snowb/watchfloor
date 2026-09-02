@@ -1,8 +1,5 @@
-import {
-  getInvestigationPlans,
-  getResponseBundles,
-  type CaseToolName,
-} from "@/domain/operations";
+import { type CaseToolName } from "@/domain/operations";
+import { getCaseToolManifest } from "@/domain/tool-manifest";
 import type { CaseFixture } from "@/domain/types";
 
 export type WebMcpHandler = (
@@ -93,6 +90,21 @@ const visibleResponseActionId = {
   description: "Response action ID returned by the current case context.",
 };
 
+const sourceCategories = [
+  "identity_telemetry",
+  "cloud_audit",
+  "endpoint_telemetry",
+  "windows_authentication",
+  "identity_directory",
+  "network_inventory",
+  "cloud_configuration",
+  "asset_inventory",
+  "sandbox_artifact",
+  "static_analysis",
+  "analyst_judgment",
+  "deterministic_model",
+] as const;
+
 function definition(
   name: CaseToolName,
   title: string,
@@ -129,42 +141,33 @@ function definition(
 export function createCaseToolDefinitions(
   fixture: CaseFixture,
   handler: WebMcpHandler,
+  toolNames: readonly CaseToolName[] = getCaseToolManifest(),
 ): WebMcpToolDefinition[] {
   // Registration is case-scoped, not revision-scoped. Availability remains
   // enforced by the operation layer using the current shared case state.
-  const caseEnrichments = [
-    ...fixture.enrichments,
-    ...fixture.stream.stages.flatMap((stage) => stage.enrichments),
-  ];
-  const availableQueries = fixture.investigationQueries;
-  const queryResultArtifactIds = new Set(
-    availableQueries.map((query) => query.resultArtifactId),
-  );
-  const directCaseEnrichments = caseEnrichments.filter(
-    (artifact) => !queryResultArtifactIds.has(artifact.id),
-  );
-  const availableEnrichmentTools = new Set(
-    directCaseEnrichments.map((artifact) => artifact.toolName),
-  );
-  const availablePlans = getInvestigationPlans(fixture);
-  const supportsImpactModel =
-    fixture.impact.atRiskEntityIds.length > 0 ||
-    fixture.responseActions.length > 0;
-  const availableResponseActions = fixture.responseActions;
-  const availableBundles = getResponseBundles(fixture);
-  const eventSourceCategories = [
-    ...new Set(
-      [
-        ...fixture.events,
-        ...fixture.stream.stages.flatMap((stage) => stage.events),
-      ].map((event) => event.sourceCategory),
-    ),
-  ];
+  // Registration is a stable platform capability manifest. Case-specific IDs,
+  // source categories, actions, and future stages are returned only by current
+  // server reads and remain enforced by the operation layer.
+  const availableQueries = [fixture.id];
+  const availablePlans = [fixture.id];
+  const availableResponseActions = [fixture.id];
+  const availableBundles = [fixture.id];
+  const supportsImpactModel = true;
+  const supportsDiscoveryTools = true;
+  const availableEnrichmentTools = new Set([
+    "enrich_identity",
+    "enrich_network_indicator",
+    "enrich_cloud_role",
+    "enrich_resource",
+    "enrich_endpoint",
+    "enrich_file",
+  ]);
   const includeTools = (
     condition: boolean,
     ...tools: readonly CaseToolName[]
   ): readonly CaseToolName[] => (condition ? tools : []);
-  const recommendedTools: readonly CaseToolName[] = [
+  const toolNameSet = new Set(toolNames);
+  const recommendedToolCandidates: readonly CaseToolName[] = [
     "inspect_entity",
     "inspect_relationship",
     "query_related_activity",
@@ -198,13 +201,8 @@ export function createCaseToolDefinitions(
       "calculate_reachability",
       "simulate_control",
     ),
-    ...includeTools(fixture.stream.stages.length > 0, "attach_discovery_stage"),
-    ...includeTools(
-      fixture.stream.stages.some(
-        (stage) => stage.releaseAuthority === "analyst",
-      ),
-      "request_next_observation",
-    ),
+    ...includeTools(supportsDiscoveryTools, "attach_discovery_stage"),
+    ...includeTools(supportsDiscoveryTools, "request_next_observation"),
     "inspect_event",
     ...includeTools(
       availableResponseActions.length > 0,
@@ -214,7 +212,10 @@ export function createCaseToolDefinitions(
     ...includeTools(availableBundles.length > 0, "prepare_response_bundle"),
     "generate_case_report",
   ];
-  return [
+  const recommendedTools = recommendedToolCandidates.filter((toolName) =>
+    toolNameSet.has(toolName),
+  );
+  const definitions = [
     definition(
       "get_case_context",
       "Start or resume case investigation",
@@ -232,7 +233,7 @@ export function createCaseToolDefinitions(
         sinceCursor: {
           type: "integer",
           minimum: 0,
-          maximum: fixture.stream.stages.length,
+          maximum: 100,
         },
       },
       ["sinceCursor"],
@@ -311,7 +312,8 @@ export function createCaseToolDefinitions(
         entityId: visibleArtifactId,
         sourceCategory: {
           type: "string",
-          enum: eventSourceCategories,
+          enum: sourceCategories,
+          description: "Source category returned by a released case read.",
         },
         action: { type: "string", minLength: 1, maxLength: 80 },
         limit: { type: "integer", minimum: 1, maximum: 50 },
@@ -560,8 +562,9 @@ export function createCaseToolDefinitions(
             {
               expectedRevision: revision,
               fromEntityId: {
-                type: "string",
-                enum: [fixture.reachability.sourceEntityId],
+                ...visibleArtifactId,
+                description:
+                  "Modeled source entity ID returned by the current case context.",
               },
               maxDepth: { type: "integer", minimum: 1, maximum: 8 },
             },
@@ -577,7 +580,7 @@ export function createCaseToolDefinitions(
               expectedRevision: revision,
               control: {
                 type: "string",
-                enum: [fixture.counterfactual.control],
+                enum: ["remove_role_trust", "isolate_compromised_path"],
               },
             },
             ["expectedRevision", "control"],
@@ -586,7 +589,7 @@ export function createCaseToolDefinitions(
           ),
         ]
       : []),
-    ...(fixture.stream.stages.length > 0
+    ...(supportsDiscoveryTools
       ? [
           definition(
             "attach_discovery_stage",
@@ -607,9 +610,7 @@ export function createCaseToolDefinitions(
           ),
         ]
       : []),
-    ...(fixture.stream.stages.some(
-      (stage) => stage.releaseAuthority === "analyst",
-    )
+    ...(supportsDiscoveryTools
       ? [
           definition(
             "request_next_observation",
@@ -697,6 +698,9 @@ export function createCaseToolDefinitions(
       handler,
     ),
   ];
+  return definitions.filter((item) =>
+    toolNameSet.has(item.name as CaseToolName),
+  );
 }
 
 export async function registerCaseTools(

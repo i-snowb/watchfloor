@@ -35,8 +35,19 @@ function cleanGit(
     ) {
       return overrides.remoteUrl ?? `${sourceRepository}.git\n`;
     }
-    if (command === "branch --remotes --contains HEAD") {
-      return overrides.remoteBranches ?? "origin/main\n";
+    if (
+      command === "fetch --prune --quiet origin" ||
+      command === "fetch --prune --quiet upstream"
+    ) {
+      if (overrides.fetchError) throw new Error(overrides.fetchError);
+      return "";
+    }
+    if (command.startsWith("for-each-ref --format=%(refname) refs/remotes/")) {
+      return overrides.remoteRefs ?? "refs/remotes/origin/main\n";
+    }
+    if (command.startsWith("merge-base --is-ancestor ")) {
+      if (overrides.notAncestor) throw new Error("not an ancestor");
+      return "";
     }
     throw new Error(`Unexpected command: ${command}`);
   };
@@ -95,7 +106,7 @@ test("public release provenance binds metadata to a clean matching Git remote", 
       metadata,
       cleanGit({
         remoteUrl: "git@github.com:watchfloor-demo/watchfloor.git\n",
-        remoteBranches: "origin/main\n",
+        remoteRefs: "refs/remotes/origin/main\n",
       }),
     ),
   );
@@ -105,7 +116,7 @@ test("public release provenance binds metadata to a clean matching Git remote", 
       cleanGit({
         remotes: "upstream\n",
         remoteUrl: "https://github.com/watchfloor-demo/watchfloor.git\n",
-        remoteBranches: "upstream/release\n",
+        remoteRefs: "refs/remotes/upstream/release\n",
       }),
     ),
   );
@@ -133,9 +144,19 @@ test("public release provenance binds metadata to a clean matching Git remote", 
     () =>
       assertPublicReleaseIsPublishable(
         metadata,
-        cleanGit({ remoteBranches: "upstream/main\n" }),
+        cleanGit({ notAncestor: "true" }),
       ),
-    /until HEAD is contained in a remote-tracking branch/,
+    /until HEAD is reachable from a current branch/,
+  );
+});
+
+test("public release provenance accepts a published ancestor of the current branch tip", () => {
+  const metadata = resolvePublicReleaseMetadata(environment());
+  assert.doesNotThrow(() =>
+    assertPublicReleaseIsPublishable(
+      metadata,
+      cleanGit({ remoteRefs: "refs/remotes/origin/main\n" }),
+    ),
   );
 });
 
