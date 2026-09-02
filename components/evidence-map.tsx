@@ -1166,7 +1166,11 @@ export function EvidenceMap({
         {actionDock || threatHierarchy ? (
           <aside
             aria-label="Case investigation context"
-            className="case-context-rail"
+            className={`case-context-rail ${
+              threatHierarchy
+                ? "case-context-rail-with-threats"
+                : "case-context-rail-command-only"
+            }`}
           >
             {threatHierarchy ? (
               <ThreatPriorityRail

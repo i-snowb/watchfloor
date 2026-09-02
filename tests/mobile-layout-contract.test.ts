@@ -43,7 +43,7 @@ test("small case views retain a bounded evidence plane and stacked controls", as
   assert.match(mobileRules, /overflow-x: clip;/);
 });
 
-test("recording view keeps the timeline visible and gives KQL its own graph column", async () => {
+test("recording view keeps controls out of the graph and preserves the timeline", async () => {
   const styles = await readFile(graphStylesPath, "utf8");
 
   assert.match(
@@ -58,17 +58,24 @@ test("recording view keeps the timeline visible and gives KQL its own graph colu
     styles,
     /\.case-timeline-dock \.timeline-tracks,[\s\S]*grid-template-rows: calc\(var\(--timeline-row-height\) - 30px\) 28px;/,
   );
-  assert.match(
-    styles,
-    /\.evidence-stage-frame:has\(\.query-console\[open\]\)[\s\S]*> \.evidence-map-viewport \{[\s\S]*width: calc\(100% - clamp\(420px, 42vw, 540px\)\) !important;/,
+  const constrainedRules = styles.slice(
+    styles.indexOf("Codex and other split-pane desktop shells"),
   );
   assert.match(
-    styles,
-    /\.case-context-rail:has\(\.query-console\[open\]\) \{[\s\S]*overflow: visible;/,
+    constrainedRules,
+    /\.case-context-rail:has\(\.command-owner-analyst\),[\s\S]*overflow: hidden;/,
   );
   assert.match(
-    styles,
-    /\.evidence-stage-frame:has\(\.query-console\[open\]\)[\s\S]*\.case-context-rail[\s\S]*> \.map-command-dock \{[\s\S]*bottom: var\(--timeline-row-height\) !important;[\s\S]*top: var\(--context-row-height\) !important;/,
+    constrainedRules,
+    /\.evidence-stage-frame:has\(\.query-console\[open\]\)[\s\S]*> \.evidence-map-viewport \{[\s\S]*width: 100% !important;/,
+  );
+  assert.match(
+    constrainedRules,
+    /\.case-context-rail:has\(\.query-console\[open\]\)[\s\S]*> \.map-command-dock[\s\S]*position: static !important;/,
+  );
+  assert.match(
+    constrainedRules,
+    /grid-template-rows:[\s\S]*auto clamp\(360px, calc\(100dvh - 300px\), 460px\)[\s\S]*var\(--timeline-row-height\) !important;/,
   );
   assert.match(
     styles,
@@ -106,13 +113,16 @@ test("viewport and touch graph controls retain navigation without motion", async
     styles,
     /height: calc\(100dvh - var\(--platform-header-height\)\);/,
   );
-  assert.match(
-    styles,
-    /\.case-context-rail:has\(\.command-owner-analyst\) \{[\s\S]*overflow: visible;[\s\S]*z-index: 50;/,
+  const constrainedRules = styles.slice(
+    styles.indexOf("Codex and other split-pane desktop shells"),
   );
   assert.match(
-    styles,
-    /\.case-context-rail:has\(\.command-owner-analyst\)[\s\S]*> \.map-command-dock \{[\s\S]*max-height: none;[\s\S]*overflow: visible;/,
+    constrainedRules,
+    /\.platform-shell-case \.platform-main \{[\s\S]*overflow-x: hidden;[\s\S]*overflow-y: auto;/,
+  );
+  assert.match(
+    constrainedRules,
+    /\.case-context-rail > \.threat-priority-rail,[\s\S]*> \.map-command-dock \{[\s\S]*max-height: min\(42dvh, 320px\);[\s\S]*overflow: auto;/,
   );
   assert.match(
     styles,
@@ -125,6 +135,47 @@ test("viewport and touch graph controls retain navigation without motion", async
   assert.match(
     styles,
     /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.evidence-entity,[\s\S]*\.evidence-edge-label,[\s\S]*transition: none;/,
+  );
+});
+
+test("command-only case context uses the full constrained pane", async () => {
+  const [styles, source] = await Promise.all([
+    readFile(graphStylesPath, "utf8"),
+    readFile(evidenceMapPath, "utf8"),
+  ]);
+
+  assert.match(source, /case-context-rail-command-only/);
+  assert.match(
+    styles,
+    /\.case-view \.case-context-rail-command-only \{[\s\S]*grid-template-columns: minmax\(0, 1fr\);/,
+  );
+  assert.match(
+    styles,
+    /\.case-context-rail-command-only[\s\S]*> \.map-command-dock \{[\s\S]*grid-column: 1;/,
+  );
+});
+
+test("threat and command rails cannot occupy the same constrained grid cell", async () => {
+  const [styles, source] = await Promise.all([
+    readFile(graphStylesPath, "utf8"),
+    readFile(evidenceMapPath, "utf8"),
+  ]);
+  const constrainedRules = styles.slice(
+    styles.indexOf("Codex and other split-pane desktop shells"),
+  );
+
+  assert.match(source, /case-context-rail-with-threats/);
+  assert.match(
+    constrainedRules,
+    /\.case-context-rail-with-threats > \.threat-priority-rail \{[\s\S]*grid-column: 1;[\s\S]*grid-row: 1;/,
+  );
+  assert.match(
+    constrainedRules,
+    /\.case-context-rail-with-threats:has\(\.command-owner-analyst\)[\s\S]*> \.map-command-dock,[\s\S]*\.case-context-rail-with-threats:has\(\.query-console\[open\]\)[\s\S]*> \.map-command-dock \{[\s\S]*grid-column: 2 !important;/,
+  );
+  assert.match(
+    constrainedRules,
+    /@media \(min-width: 701px\) and \(max-width: 820px\) \{[\s\S]*\.case-context-rail-with-threats \{[\s\S]*grid-template-columns: minmax\(0, 1fr\);[\s\S]*grid-template-rows: auto auto;/,
   );
 });
 

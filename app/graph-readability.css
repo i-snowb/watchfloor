@@ -1229,6 +1229,196 @@
   }
 }
 
+/*
+ * Codex and other split-pane desktop shells expose a short, narrow browser
+ * viewport while still matching desktop media queries. Keep operations in
+ * document flow, give the graph its own bounded row, and scroll inside long
+ * panels instead of allowing them to cover evidence.
+ */
+.case-view .case-context-rail-command-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.case-view .case-context-rail-command-only > .map-command-dock {
+  grid-column: 1;
+}
+
+@media (min-width: 701px) and (max-width: 1180px),
+  (min-width: 981px) and (max-height: 800px) {
+  .platform-shell-case {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .platform-shell-case .platform-body {
+    height: calc(100dvh - var(--platform-header-height));
+    min-height: 0;
+  }
+
+  .platform-shell-case .platform-main {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+
+  .case-view .evidence-stage-frame,
+  .case-view .evidence-stage-frame-without-context {
+    --context-row-height: auto;
+    --timeline-row-height: 72px;
+    grid-template-rows:
+      auto clamp(360px, calc(100dvh - 300px), 460px) auto
+      var(--timeline-row-height) !important;
+    height: auto;
+    max-height: none !important;
+    overflow: visible;
+  }
+
+  .case-view .case-context-rail {
+    grid-template-columns: minmax(220px, 28%) minmax(0, 1fr);
+    height: auto;
+    max-height: none;
+    overflow: hidden;
+  }
+
+  .case-view .case-context-rail-command-only {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .case-view .case-context-rail-with-threats > .threat-priority-rail {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .case-view .case-context-rail > .threat-priority-rail,
+  .case-view .case-context-rail > .map-command-dock {
+    height: auto;
+    max-height: min(42dvh, 320px);
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .case-view .case-context-rail:has(.command-owner-analyst),
+  .case-view .case-context-rail:has(.query-console[open]) {
+    overflow: hidden;
+    z-index: 5;
+  }
+
+  .case-view .case-context-rail:has(.command-owner-analyst) > .map-command-dock,
+  .case-view .case-context-rail:has(.query-console[open]) > .map-command-dock,
+  .case-view
+    .evidence-stage-frame:has(.query-console[open])
+    .case-context-rail
+    > .map-command-dock {
+    bottom: auto !important;
+    grid-row: 1 !important;
+    height: auto !important;
+    left: auto !important;
+    max-height: min(42dvh, 320px);
+    max-width: none !important;
+    overflow: auto;
+    padding: 8px 12px;
+    position: static !important;
+    right: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    z-index: auto;
+  }
+
+  .case-view
+    .case-context-rail-with-threats:has(.command-owner-analyst)
+    > .map-command-dock,
+  .case-view
+    .case-context-rail-with-threats:has(.query-console[open])
+    > .map-command-dock {
+    grid-column: 2 !important;
+  }
+
+  .case-view
+    .case-context-rail-command-only:has(.command-owner-analyst)
+    > .map-command-dock,
+  .case-view
+    .case-context-rail-command-only:has(.query-console[open])
+    > .map-command-dock {
+    grid-column: 1 !important;
+  }
+
+  .case-view
+    .evidence-stage-frame:has(.query-console[open])
+    > .evidence-map-viewport {
+    justify-self: stretch;
+    width: 100% !important;
+  }
+
+  .case-view .evidence-stage-frame .query-console[open] {
+    height: min(42dvh, 320px);
+    max-height: min(42dvh, 320px);
+  }
+
+  .case-view .case-context-rail .case-command-next {
+    gap: 12px;
+    grid-template-columns: minmax(84px, auto) minmax(0, 1fr) minmax(
+        150px,
+        220px
+      );
+    min-height: 68px;
+    padding: 8px 42px 8px 12px;
+  }
+
+  .case-view .case-context-rail .case-command-copy h2 {
+    font-size: clamp(14px, 1.7vw, 17px);
+  }
+
+  .case-view .case-context-rail .case-command-control {
+    min-width: 0;
+  }
+
+  .case-view .case-context-rail .case-command-control .case-command-primary,
+  .case-view .case-context-rail .case-command-control .case-command-secondary {
+    max-width: none;
+    width: 100%;
+  }
+
+  .case-view .evidence-stage-frame > .evidence-map-viewport {
+    height: auto !important;
+    min-height: 360px !important;
+  }
+
+  .case-view .evidence-stage-frame > .case-timeline-dock,
+  .case-view
+    .evidence-stage-frame
+    > .case-timeline-dock
+    .investigation-timeline {
+    height: var(--timeline-row-height);
+    max-height: var(--timeline-row-height);
+    min-height: var(--timeline-row-height);
+  }
+}
+
+@media (min-width: 701px) and (max-width: 820px) {
+  .case-view .case-context-rail-with-threats {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+  }
+
+  .case-view .case-context-rail-with-threats > .threat-priority-rail {
+    grid-column: 1;
+    grid-row: 1;
+    max-height: 190px;
+  }
+
+  .case-view .case-context-rail-with-threats > .map-command-dock,
+  .case-view
+    .case-context-rail-with-threats:has(.command-owner-analyst)
+    > .map-command-dock,
+  .case-view
+    .case-context-rail-with-threats:has(.query-console[open])
+    > .map-command-dock {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+  }
+}
+
 /* Deeper-forensics is a bounded branch, not a dead-end reset prompt. */
 .case-view .deeper-forensics-branch {
   display: grid;
