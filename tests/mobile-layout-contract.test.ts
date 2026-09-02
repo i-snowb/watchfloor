@@ -62,6 +62,18 @@ test("recording view keeps controls out of the graph and preserves the timeline"
     styles,
     /@media \(min-width: 701px\) and \(max-width: 1180px\) \{/,
   );
+  const fixedDesktopRules = styles.slice(
+    styles.indexOf("@media (min-width: 981px) and (max-height: 1000px)"),
+    styles.indexOf("@media (min-width: 981px) and (max-height: 800px)"),
+  );
+  assert.match(
+    fixedDesktopRules,
+    /\.platform-shell-case,\s*\.platform-shell-case \.platform-body,\s*\.platform-shell-case \.platform-main \{[^}]*min-height: 0;[^}]*overflow: clip;/,
+  );
+  assert.doesNotMatch(
+    fixedDesktopRules,
+    /\.platform-shell-case,\s*\.platform-shell-case \.platform-body,\s*\.platform-shell-case \.platform-main \{[^}]*overflow: hidden;/,
+  );
   const compactDesktopRules = styles.slice(
     styles.indexOf("@media (min-width: 981px) and (max-height: 800px)"),
     styles.indexOf("/* Persistent case feedback"),

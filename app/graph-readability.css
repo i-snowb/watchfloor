@@ -963,7 +963,7 @@
   .platform-shell-case .platform-body,
   .platform-shell-case .platform-main {
     min-height: 0;
-    overflow: hidden;
+    overflow: clip;
   }
 
   .platform-shell-case {
