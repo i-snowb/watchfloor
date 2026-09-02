@@ -10,6 +10,7 @@ import { getReferenceCase } from "@/domain/reference-cases";
 import type { CaseFixture, CaseQueueItem, CaseSnapshot } from "@/domain/types";
 import { loadCase, resetCase } from "@/lib/client-api";
 import { formatUtcTime } from "@/lib/format";
+import { reconcileQueueFixtures } from "@/lib/queue-fixtures";
 import {
   registerCaseTools,
   type ToolRegistrationOutcome,
@@ -98,15 +99,13 @@ export function AlertWorkspace({
         if (active) {
           setQueueSyncState("ready");
           setFixtures((current) =>
-            current.map((caseFixture) => {
-              const loaded = responses.find(
-                (item) => item.caseId === caseFixture.id,
-              )?.response.fixture;
-              return loaded &&
-                loaded.projectionRevision > caseFixture.projectionRevision
-                ? loaded
-                : caseFixture;
-            }),
+            reconcileQueueFixtures(
+              current,
+              responses.map(({ caseId, response }) => ({
+                caseId,
+                fixture: response.fixture,
+              })),
+            ),
           );
           setSnapshots((current) => {
             let changed = false;
