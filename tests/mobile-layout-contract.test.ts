@@ -48,7 +48,11 @@ test("recording view keeps controls out of the graph and preserves the timeline"
 
   assert.match(
     styles,
-    /height: calc\(100dvh - \(var\(--platform-header-height\) \+ 107px\)\);/,
+    /height: calc\(100dvh - \(var\(--platform-header-height\) \+ 115px\)\);/,
+  );
+  assert.doesNotMatch(
+    styles,
+    /@media \(min-width: 701px\) and \(max-width: 1180px\),\s*\(min-width: 981px\) and \(max-height: 800px\)/,
   );
   assert.match(
     styles,
