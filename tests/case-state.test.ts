@@ -308,21 +308,13 @@ test("persisted investigation proposals round-trip with visible or null targets"
 test("pending observations and prepared response bundles round-trip", () => {
   const fixture = endpointLateralScenario;
   let state = createInitialCaseState(fixture);
-  state = write(fixture, state, "request_next_observation", {
+  state = completeInvestigationPlan(fixture, state, "tier1_initial");
+  state = write(fixture, state, "attach_discovery_stage", {
     expectedRevision: state.revision,
     stageId: "STREAM-LAT-01",
-    rationale: "Request the target-host prevention observation.",
+    rationale:
+      "Attach the verified target-host prevention observation to the case.",
   });
-  assert.deepEqual(parseCaseState(JSON.stringify(state), fixture), state);
-
-  state = completeInvestigationPlan(fixture, state, "tier1_initial");
-  state = write(
-    fixture,
-    state,
-    "release_next_synthetic_signal",
-    { expectedRevision: state.revision },
-    "analyst_control",
-  );
   state = completeInvestigationPlan(fixture, state, "stage_1_verification");
   state = write(
     fixture,
@@ -351,12 +343,30 @@ test("pending observations and prepared response bundles round-trip", () => {
   });
   assert.equal(state.responseBundle?.bundleId, "containment");
   assert.deepEqual(parseCaseState(JSON.stringify(state), fixture), state);
+  state = write(
+    fixture,
+    state,
+    "authorize_response_bundle",
+    {
+      expectedRevision: state.revision,
+      bundleId: "containment",
+      proposalId: state.responseBundle?.id,
+      acknowledgement: "AUTHORIZE_SYNTHETIC_BUNDLE",
+    },
+    "analyst_control",
+  );
+  state = write(fixture, state, "request_next_observation", {
+    expectedRevision: state.revision,
+    stageId: "STREAM-LAT-02",
+    rationale: "Request the bounded recovery-scope observation.",
+  });
+  assert.equal(state.observationRequest?.status, "pending");
+  assert.deepEqual(state.authorizedResponseBundleIds, ["containment"]);
+  assert.deepEqual(parseCaseState(JSON.stringify(state), fixture), state);
 
   const invalid = structuredClone(state);
-  invalid.responseActions[0] = {
-    ...invalid.responseActions[0]!,
-    proposalId: "BUNDLE-TAMPERED-0001",
-  };
+  assert.ok(invalid.observationRequest);
+  invalid.observationRequest.stageId = "STREAM-LAT-01";
   assert.throws(
     () => parseCaseState(JSON.stringify(invalid), fixture),
     /Stored response state/,

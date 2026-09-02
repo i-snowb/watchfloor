@@ -29,6 +29,58 @@ test("every WebMCP tool marks returned case content as untrusted", () => {
   }
 });
 
+test("case tool metadata requires context before other reads and registration does not invoke handlers", async () => {
+  let handlerCalls = 0;
+  const definitions = createCaseToolDefinitions(
+    endpointLateralScenario,
+    async () => {
+      handlerCalls += 1;
+      return {};
+    },
+  );
+  const context = definitions.find(
+    (definition) => definition.name === "get_case_context",
+  );
+  assert.ok(context);
+  assert.equal(context.title, "Start or resume case investigation");
+  assert.match(context.description, /Required first tool/);
+  assert.match(
+    context.description,
+    /investigate, triage, review, resume, or continue/,
+  );
+
+  for (const definition of definitions) {
+    if (
+      definition.name === "get_case_context" ||
+      !definition.annotations.readOnlyHint
+    ) {
+      continue;
+    }
+    assert.match(
+      definition.description,
+      /^Call get_case_context first unless following its current nextAgentAction\./,
+      `${definition.name} must direct the agent through current case context`,
+    );
+  }
+
+  const registered: string[] = [];
+  const registration = await registerCaseTools(
+    definitions,
+    new AbortController(),
+    {
+      async registerTool(definition) {
+        registered.push(definition.name);
+      },
+    },
+  );
+  assert.equal(registration.registered, definitions.length);
+  assert.equal(registered.length, definitions.length);
+  assert.equal(handlerCalls, 0);
+
+  await context.execute({});
+  assert.equal(handlerCalls, 1);
+});
+
 function invoke(
   fixture: CaseFixture,
   state: CaseState,
@@ -92,6 +144,7 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     "inspect_event",
     "inspect_entity",
     "inspect_relationship",
+    "trace_evidence_lineage",
     "focus_entity",
     "search_events",
     "find_first_occurrence",
@@ -105,31 +158,21 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     "attach_discovery_stage",
     "generate_case_report",
   ] satisfies readonly CaseToolName[];
-  const expectedCloud = new Set<CaseToolName>([
-    ...common,
-    "enrich_identity",
-    "enrich_network_indicator",
-    "enrich_cloud_role",
-    "enrich_resource",
-  ]);
+  const expectedCloud = new Set<CaseToolName>(common);
   const expectedEndpoint = new Set<CaseToolName>([
     ...common,
-    "enrich_identity",
-    "enrich_network_indicator",
-    "enrich_resource",
-    "enrich_endpoint",
-    "enrich_file",
     "calculate_reachability",
     "simulate_control",
+    "request_next_observation",
     "propose_response_action",
     "simulate_response_action",
     "prepare_response_bundle",
   ]);
   assert.deepEqual(cloudExposed, expectedCloud);
   assert.deepEqual(endpointExposed, expectedEndpoint);
-  assert.equal(cloudExposed.size, 21);
-  assert.equal(endpointExposed.size, 27);
-  assert.equal(exposed.size, 28);
+  assert.equal(cloudExposed.size, 18);
+  assert.equal(endpointExposed.size, 24);
+  assert.equal(exposed.size, 24);
   const successful = new Set<string>();
   const web = (
     fixture: CaseFixture,
@@ -206,6 +249,10 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
   cloud = web(cloudIdentityScenario, cloud, "inspect_relationship", {
     relationshipId: "JOIN-CLOUD-01",
   });
+  cloud = web(cloudIdentityScenario, cloud, "trace_evidence_lineage", {
+    targetType: "event",
+    targetId: "EVT-OKTA-0001",
+  });
   cloud = web(cloudIdentityScenario, cloud, "focus_entity", {
     entityId: "role:prod-admin",
   });
@@ -228,25 +275,9 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
   cloud = web(cloudIdentityScenario, cloud, "propose_investigation_step", {
     expectedRevision: cloud.revision,
     phase: "inspect",
-    objective: "Attach the bounded identity context before resolving the case.",
-    recommendedTool: "enrich_identity",
+    objective: "Prepare the bounded identity query before resolving the case.",
+    recommendedTool: "prepare_investigation_query",
     entityId: "identity:jdoe",
-  });
-  cloud = web(cloudIdentityScenario, cloud, "enrich_identity", {
-    expectedRevision: cloud.revision,
-    entityId: "identity:jdoe",
-  });
-  cloud = web(cloudIdentityScenario, cloud, "enrich_network_indicator", {
-    expectedRevision: cloud.revision,
-    entityId: "indicator:198.51.100.24",
-  });
-  cloud = web(cloudIdentityScenario, cloud, "enrich_cloud_role", {
-    expectedRevision: cloud.revision,
-    entityId: "role:prod-admin",
-  });
-  cloud = web(cloudIdentityScenario, cloud, "enrich_resource", {
-    expectedRevision: cloud.revision,
-    entityId: "object:customer-export",
   });
   for (const queryId of [
     "QRY-CLOUD-IDENTITY-01",
@@ -295,49 +326,49 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     expectedRevision: endpoint.revision,
     queryId: "QRY-ENDPOINT-HASH-10",
   });
-  endpoint = web(endpointLateralScenario, endpoint, "enrich_file", {
-    expectedRevision: endpoint.revision,
-    entityId: "file:invoice-sync-helper",
-  });
-  endpoint = web(endpointLateralScenario, endpoint, "enrich_endpoint", {
-    expectedRevision: endpoint.revision,
-    entityId: "endpoint:fin-ws-044",
-  });
-  endpoint = web(endpointLateralScenario, endpoint, "enrich_identity", {
-    expectedRevision: endpoint.revision,
-    entityId: "identity:svc-fin-reports",
-  });
-  endpoint = web(
-    endpointLateralScenario,
-    endpoint,
-    "enrich_network_indicator",
-    {
-      expectedRevision: endpoint.revision,
-      entityId: "indicator:203.0.113.91",
-    },
-  );
-  endpoint = web(
-    endpointLateralScenario,
-    endpoint,
-    "prepare_investigation_query",
-    {
-      expectedRevision: endpoint.revision,
-      queryId: "QRY-ENDPOINT-IDENTITY-03",
-    },
-  );
-  endpoint = web(endpointLateralScenario, endpoint, "run_investigation_query", {
-    expectedRevision: endpoint.revision,
-    queryId: "QRY-ENDPOINT-IDENTITY-03",
-  });
+  for (const queryId of [
+    "QRY-ENDPOINT-FILE-01",
+    "QRY-ENDPOINT-HOST-02",
+    "QRY-ENDPOINT-IDENTITY-03",
+    "QRY-ENDPOINT-EGRESS-04",
+  ]) {
+    endpoint = web(
+      endpointLateralScenario,
+      endpoint,
+      "prepare_investigation_query",
+      {
+        expectedRevision: endpoint.revision,
+        queryId,
+      },
+    );
+    endpoint = web(
+      endpointLateralScenario,
+      endpoint,
+      "run_investigation_query",
+      {
+        expectedRevision: endpoint.revision,
+        queryId,
+      },
+    );
+  }
   endpoint = web(endpointLateralScenario, endpoint, "attach_discovery_stage", {
     expectedRevision: endpoint.revision,
     stageId: "STREAM-LAT-01",
     rationale:
       "Attach the verified host-boundary discovery after service identity evidence was returned.",
   });
-  endpoint = web(endpointLateralScenario, endpoint, "enrich_endpoint", {
+  endpoint = web(
+    endpointLateralScenario,
+    endpoint,
+    "prepare_investigation_query",
+    {
+      expectedRevision: endpoint.revision,
+      queryId: "QRY-ENDPOINT-APP-05",
+    },
+  );
+  endpoint = web(endpointLateralScenario, endpoint, "run_investigation_query", {
     expectedRevision: endpoint.revision,
-    entityId: "endpoint:app-srv-021",
+    queryId: "QRY-ENDPOINT-APP-05",
   });
   endpoint = analystDecision(
     endpointLateralScenario,
@@ -385,6 +416,31 @@ test("every WebMCP-exposed tool reaches a successful bounded operation", () => {
     "simulated",
   );
 
+  let observationProbe = structuredClone(bundleProbe);
+  observationProbe = invoke(
+    endpointLateralScenario,
+    observationProbe,
+    "authorize_response_bundle",
+    {
+      expectedRevision: observationProbe.revision,
+      bundleId: "containment",
+      proposalId: observationProbe.responseBundle?.id,
+      acknowledgement: "AUTHORIZE_SYNTHETIC_BUNDLE",
+    },
+    "analyst_control",
+  );
+  observationProbe = web(
+    endpointLateralScenario,
+    observationProbe,
+    "request_next_observation",
+    {
+      expectedRevision: observationProbe.revision,
+      stageId: "STREAM-LAT-02",
+      rationale: "Request credential and workload recovery inventory.",
+    },
+  );
+  assert.equal(observationProbe.observationRequest?.status, "pending");
+
   assert.deepEqual([...successful].sort(), [...exposed].sort());
   for (const analystOnly of [
     "release_next_synthetic_signal",
@@ -424,9 +480,18 @@ test("WebMCP keeps one stable case-scoped registration across revisions", async 
     expectedRevision: state.revision,
     queryId: "QRY-ENDPOINT-HASH-10",
   });
-  state = invoke(endpointLateralScenario, state, "enrich_file", {
+  state = invoke(
+    endpointLateralScenario,
+    state,
+    "prepare_investigation_query",
+    {
+      expectedRevision: state.revision,
+      queryId: "QRY-ENDPOINT-FILE-01",
+    },
+  );
+  state = invoke(endpointLateralScenario, state, "run_investigation_query", {
     expectedRevision: state.revision,
-    entityId: "file:invoice-sync-helper",
+    queryId: "QRY-ENDPOINT-FILE-01",
   });
   const revisedDefinitions = createCaseToolDefinitions(
     endpointLateralScenario,
@@ -458,13 +523,18 @@ test("WebMCP keeps one stable case-scoped registration across revisions", async 
     })),
   );
 
-  state = invoke(endpointLateralScenario, state, "enrich_endpoint", {
+  state = invoke(
+    endpointLateralScenario,
+    state,
+    "prepare_investigation_query",
+    {
+      expectedRevision: state.revision,
+      queryId: "QRY-ENDPOINT-HOST-02",
+    },
+  );
+  state = invoke(endpointLateralScenario, state, "run_investigation_query", {
     expectedRevision: state.revision,
-    entityId: "endpoint:fin-ws-044",
-  });
-  state = invoke(endpointLateralScenario, state, "enrich_identity", {
-    expectedRevision: state.revision,
-    entityId: "identity:svc-fin-reports",
+    queryId: "QRY-ENDPOINT-HOST-02",
   });
   state = invoke(
     endpointLateralScenario,
@@ -485,9 +555,18 @@ test("WebMCP keeps one stable case-scoped registration across revisions", async 
     rationale:
       "Attach the verified host-boundary discovery after service identity evidence was returned.",
   });
-  state = invoke(endpointLateralScenario, state, "enrich_endpoint", {
+  state = invoke(
+    endpointLateralScenario,
+    state,
+    "prepare_investigation_query",
+    {
+      expectedRevision: state.revision,
+      queryId: "QRY-ENDPOINT-APP-05",
+    },
+  );
+  state = invoke(endpointLateralScenario, state, "run_investigation_query", {
     expectedRevision: state.revision,
-    entityId: "endpoint:app-srv-021",
+    queryId: "QRY-ENDPOINT-APP-05",
   });
   state = analystDecision(
     endpointLateralScenario,
@@ -573,6 +652,41 @@ test("WebMCP schemas expose only investigation-relevant inputs", () => {
     );
     assert.equal(schema.required?.includes("requestId") ?? false, false);
   }
+
+  const lineage = definitions.find(
+    (definition) => definition.name === "trace_evidence_lineage",
+  );
+  assert.ok(lineage);
+  assert.equal(lineage.annotations.readOnlyHint, true);
+  assert.equal(lineage.annotations.untrustedContentHint, true);
+  assert.deepEqual(lineage.inputSchema, {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      targetType: {
+        type: "string",
+        enum: [
+          "event",
+          "entity",
+          "relationship",
+          "enrichment",
+          "discovery",
+          "report_finding",
+        ],
+        description:
+          "Released case target type. report_finding uses the attached enrichment artifact ID, not a display-row label.",
+      },
+      targetId: {
+        type: "string",
+        pattern: "^[A-Za-z0-9][A-Za-z0-9:._-]*$",
+        minLength: 3,
+        maxLength: 120,
+        description:
+          "Stable ID of a currently released or attached target of targetType.",
+      },
+    },
+    required: ["targetType", "targetId"],
+  });
 });
 
 test("investigation receipt summarizes executed query context", () => {

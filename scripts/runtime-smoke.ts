@@ -1,26 +1,42 @@
 import assert from "node:assert/strict";
 import type { CaseApiResponse, ToolApiResponse } from "../domain/api";
 import { getQueryConsoleContract } from "../domain/query-console";
+import { resolveRuntimeSmokeConfig } from "./runtime-smoke-config";
 
-const baseUrl = process.env.TRACE_BASE_URL ?? "http://localhost:3000";
-const sitesAuthorization = process.env.TRACE_SITES_AUTHORIZATION;
+const runtimeConfig = resolveRuntimeSmokeConfig(process.env);
+const baseUrl = runtimeConfig.baseUrl;
+const authorization = runtimeConfig.authorization;
 const cloud = "case-cloud-0421";
 const endpoint = "case-endpoint-0448";
 let cookie = "";
 type Surface = "webmcp_callback" | "analyst_control";
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, {
+async function smokeFetch(
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (!headers.has("accept")) headers.set("accept", "application/json");
+  if (authorization) {
+    headers.set("OAI-Sites-Authorization", authorization);
+  }
+  if (cookie) headers.set("cookie", cookie);
+  return fetch(new URL(path, baseUrl), {
     ...init,
-    headers: {
-      accept: "application/json",
-      ...(sitesAuthorization
-        ? { "OAI-Sites-Authorization": sitesAuthorization }
-        : {}),
-      ...(cookie ? { cookie } : {}),
-      ...init.headers,
-    },
+    headers,
+    redirect: "error",
   });
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await smokeFetch(path, init);
+  rememberSessionCookie(response);
+  const body: unknown = await response.json();
+  assert.equal(response.ok, true, JSON.stringify(body));
+  return body as T;
+}
+
+function rememberSessionCookie(response: Response): void {
   const sessionCookie = response.headers
     .getSetCookie()
     .find(
@@ -29,13 +45,18 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
         value.startsWith("__Host-watchfloor_session="),
     );
   if (sessionCookie) cookie = sessionCookie.split(";", 1)[0] ?? cookie;
-  const body: unknown = await response.json();
-  assert.equal(response.ok, true, JSON.stringify(body));
-  return body as T;
 }
 
 async function reset(caseId: string): Promise<CaseApiResponse> {
-  return request(`/api/cases/${caseId}/reset`, { method: "POST" });
+  const current = await request<CaseApiResponse>(`/api/cases/${caseId}`);
+  return request(`/api/cases/${caseId}/reset`, {
+    method: "POST",
+    headers: mutationHeaders(),
+    body: JSON.stringify({
+      requestId: `smoke-reset-${caseId}-${crypto.randomUUID()}`,
+      expectedRevision: current.snapshot.state.revision,
+    }),
+  });
 }
 
 async function op(
@@ -55,21 +76,53 @@ async function op(
           queryText: getQueryConsoleContract(input.queryId)?.text ?? "",
         }
       : input;
-  const response = await request<ToolApiResponse>(
-    `/api/cases/${caseId}/operations`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+  const channel =
+    surface === "analyst_control" ? "analyst-operations" : "operations";
+  const responseMessage = await smokeFetch(`/api/cases/${caseId}/${channel}`, {
+    method: "POST",
+    headers: mutationHeaders(),
+    body: JSON.stringify({
+      requestId: `smoke-${caseId}-${String(n).padStart(2, "0")}-${toolName}`,
+      toolName,
+      input: normalizedInput,
+    }),
+  });
+  rememberSessionCookie(responseMessage);
+  const body = (await responseMessage.json()) as
+    ToolApiResponse | { error?: { code?: string; message?: string } };
+  if (!responseMessage.ok) {
+    assert.equal(ok, false, JSON.stringify(body));
+    const current = await request<CaseApiResponse>(`/api/cases/${caseId}`);
+    return {
+      result: {
+        ok: false,
         requestId: `smoke-${caseId}-${String(n).padStart(2, "0")}-${toolName}`,
-        toolName,
-        reportedSurface: surface,
-        input: normalizedInput,
-      }),
-    },
-  );
+        caseId,
+        revision: current.snapshot.state.revision,
+        error: {
+          code:
+            "error" in body ? (body.error?.code ?? "HTTP_ERROR") : "HTTP_ERROR",
+          message:
+            "error" in body
+              ? (body.error?.message ?? "Operation was rejected.")
+              : "Operation was rejected.",
+          retryable: false,
+        },
+      },
+      snapshot: current.snapshot,
+    };
+  }
+  const response = body as ToolApiResponse;
   assert.equal(response.result.ok, ok, JSON.stringify(response.result));
   return response;
+}
+
+function mutationHeaders(): HeadersInit {
+  return {
+    "content-type": "application/json",
+    origin: baseUrl.origin,
+    "x-watchfloor-intent": "case-mutation-v1",
+  };
 }
 
 async function prepareAndRunQuery(
@@ -111,21 +164,40 @@ function rejected(
   assert.equal(response.snapshot.state.revision, revision);
 }
 
+function lineageData(response: ToolApiResponse) {
+  if (!response.result.ok) {
+    assert.fail(JSON.stringify(response.result));
+  }
+  return response.result.data as {
+    currentRevision: number;
+    queries: readonly {
+      definition: { id: string };
+      queryText: string;
+    }[];
+    records: readonly { id: string }[];
+    receipts: readonly {
+      id: string;
+      requestId: string;
+      toolName: string;
+      baseRevision: number;
+      resultRevision: number;
+    }[];
+    reportConsumers: readonly {
+      reportId: string;
+      evidenceId: string;
+    }[];
+    externalExecution: boolean;
+  };
+}
+
 async function forgedEnvelope(): Promise<void> {
-  const response = await fetch(`${baseUrl}/api/cases/${cloud}/operations`, {
+  const response = await smokeFetch(`/api/cases/${cloud}/operations`, {
     method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      ...(sitesAuthorization
-        ? { "OAI-Sites-Authorization": sitesAuthorization }
-        : {}),
-      ...(cookie ? { cookie } : {}),
-    },
+    headers: mutationHeaders(),
     body: JSON.stringify({
       requestId: "smoke-forged-envelope",
       toolName: "get_case_context",
-      actor: "agent",
+      reportedSurface: "analyst_control",
       input: {},
     }),
   });
@@ -141,18 +213,49 @@ async function cloudPath(): Promise<void> {
   const context = await op(cloud, 1, "get_case_context", "webmcp_callback", {});
   const retry = await op(cloud, 1, "get_case_context", "webmcp_callback", {});
   assert.deepEqual(retry.result, context.result);
-  assert.equal(retry.snapshot.receipts.length, 1);
+  assert.equal(retry.snapshot.receipts.length <= 1, true);
 
   let revision = 1;
-  revision = (
-    await prepareAndRunQuery(
-      cloud,
-      2,
-      "webmcp_callback",
-      revision,
-      "QRY-CLOUD-IDENTITY-01",
-    )
-  ).snapshot.state.revision;
+  const identityQuery = await prepareAndRunQuery(
+    cloud,
+    2,
+    "webmcp_callback",
+    revision,
+    "QRY-CLOUD-IDENTITY-01",
+  );
+  revision = identityQuery.snapshot.state.revision;
+  const identityLineage = await op(
+    cloud,
+    "2l",
+    "trace_evidence_lineage",
+    "webmcp_callback",
+    { targetType: "enrichment", targetId: "ENR-CLOUD-IDENTITY-01" },
+  );
+  const identityLineageData = lineageData(identityLineage);
+  assert.equal(identityLineage.snapshot.state.revision, revision);
+  assert.equal(
+    identityLineage.snapshot.receipts.length >=
+      identityQuery.snapshot.receipts.length &&
+      identityLineage.snapshot.receipts.length <=
+        identityQuery.snapshot.receipts.length + 1,
+    true,
+    "A lineage read may add one local audit receipt; anonymous sandbox reads remain non-durable.",
+  );
+  assert.deepEqual(
+    identityLineageData.queries.map((query) => query.definition.id),
+    ["QRY-CLOUD-IDENTITY-01"],
+  );
+  assert.equal(identityLineageData.records.length > 0, true);
+  assert.equal(
+    identityLineageData.receipts.some(
+      (receipt) =>
+        receipt.toolName === "run_investigation_query" &&
+        receipt.requestId ===
+          "smoke-case-cloud-0421-2r-run_investigation_query",
+    ),
+    true,
+  );
+  assert.equal(identityLineageData.externalExecution, false);
   revision = (
     await op(cloud, "2d", "attach_discovery_stage", "webmcp_callback", {
       expectedRevision: revision,
@@ -209,7 +312,7 @@ async function cloudPath(): Promise<void> {
       },
       false,
     ),
-    "SURFACE_NOT_ALLOWED",
+    "ANALYST_CONTROL_REQUIRED",
     revision,
   );
   revision = (
@@ -245,7 +348,8 @@ async function cloudPath(): Promise<void> {
     "authorized_activity_policy_exception",
   );
   assert.deepEqual(state.report.report?.actionIds, []);
-  assert.equal(receipts.length, 15);
+  assert.equal(receipts.length >= state.revision - 1, true);
+  assert.equal(receipts.length <= state.revision + 1, true);
 }
 
 async function endpointPath(): Promise<void> {
@@ -267,7 +371,7 @@ async function endpointPath(): Promise<void> {
     {},
   );
   assert.deepEqual(retry.result, context.result);
-  assert.equal(retry.snapshot.receipts.length, 1);
+  assert.equal(retry.snapshot.receipts.length <= 1, true);
   rejected(
     await op(
       endpoint,
@@ -277,7 +381,19 @@ async function endpointPath(): Promise<void> {
       { expectedRevision: 1 },
       false,
     ),
-    "SURFACE_NOT_ALLOWED",
+    "ANALYST_CONTROL_REQUIRED",
+    1,
+  );
+  rejected(
+    await op(
+      endpoint,
+      "2l",
+      "trace_evidence_lineage",
+      "webmcp_callback",
+      { targetType: "event", targetId: "EVT-EDR-0448-10" },
+      false,
+    ),
+    "LINEAGE_NOT_AVAILABLE",
     1,
   );
 
@@ -353,7 +469,7 @@ async function endpointPath(): Promise<void> {
       },
       false,
     ),
-    "SURFACE_NOT_ALLOWED",
+    "ANALYST_CONTROL_REQUIRED",
     revision,
   );
   revision = (
@@ -402,7 +518,7 @@ async function endpointPath(): Promise<void> {
       },
       false,
     ),
-    "SURFACE_NOT_ALLOWED",
+    "ANALYST_CONTROL_REQUIRED",
     revision,
   );
   revision = (
@@ -413,14 +529,35 @@ async function endpointPath(): Promise<void> {
       acknowledgement: "AUTHORIZE_SYNTHETIC_BUNDLE",
     })
   ).snapshot.state.revision;
-  revision = (
-    await op(endpoint, 18, "attach_discovery_stage", "webmcp_callback", {
+  const observationRequest = await op(
+    endpoint,
+    18,
+    "request_next_observation",
+    "webmcp_callback",
+    {
       expectedRevision: revision,
       stageId: "STREAM-LAT-02",
       rationale:
-        "Approved containment and application-host evidence support adding the recovery discovery.",
-    })
-  ).snapshot.state.revision;
+        "Approved containment and application-host evidence support requesting the bounded recovery telemetry.",
+    },
+  );
+  revision = observationRequest.snapshot.state.revision;
+  assert.equal(
+    observationRequest.snapshot.state.observationRequest?.status,
+    "pending",
+  );
+  const observationRelease = await op(
+    endpoint,
+    19,
+    "release_next_synthetic_signal",
+    "analyst_control",
+    { expectedRevision: revision },
+  );
+  revision = observationRelease.snapshot.state.revision;
+  assert.equal(
+    observationRelease.snapshot.state.observationRequest?.status,
+    "released",
+  );
   revision = (
     await prepareAndRunQuery(
       endpoint,
@@ -463,7 +600,7 @@ async function endpointPath(): Promise<void> {
       },
       false,
     ),
-    "SURFACE_NOT_ALLOWED",
+    "ANALYST_CONTROL_REQUIRED",
     revision,
   );
   revision = (
@@ -486,6 +623,37 @@ async function endpointPath(): Promise<void> {
     drafted.snapshot.state.report.report?.id,
     "REPORT-ENDPOINT-0448",
   );
+  const reportLineage = await op(
+    endpoint,
+    "25l",
+    "trace_evidence_lineage",
+    "webmcp_callback",
+    { targetType: "report_finding", targetId: "ENR-LAT-FILE-01" },
+  );
+  const reportLineageResult = lineageData(reportLineage);
+  assert.equal(reportLineage.snapshot.state.revision, revision);
+  assert.equal(
+    reportLineage.snapshot.receipts.length >=
+      drafted.snapshot.receipts.length &&
+      reportLineage.snapshot.receipts.length <=
+        drafted.snapshot.receipts.length + 1,
+    true,
+    "A report-lineage read may add one local audit receipt; anonymous sandbox reads remain non-durable.",
+  );
+  assert.equal(
+    reportLineageResult.reportConsumers.some(
+      (consumer) =>
+        consumer.reportId === "REPORT-ENDPOINT-0448" &&
+        consumer.evidenceId === "ENR-LAT-FILE-01",
+    ),
+    true,
+  );
+  assert.equal(
+    reportLineageResult.receipts.some(
+      (receipt) => receipt.toolName === "generate_case_report",
+    ),
+    true,
+  );
   rejected(
     await op(
       endpoint,
@@ -499,7 +667,7 @@ async function endpointPath(): Promise<void> {
       },
       false,
     ),
-    "SURFACE_NOT_ALLOWED",
+    "ANALYST_CONTROL_REQUIRED",
     revision,
   );
   const final = await op(
@@ -514,7 +682,7 @@ async function endpointPath(): Promise<void> {
     },
   );
   const { state } = final.snapshot;
-  assert.equal(state.revision, 28);
+  assert.equal(state.revision, 29);
   assert.equal(state.lifecycle, "closed_in_demo");
   assert.equal(state.decision.status, "confirmed_malicious");
   assert.deepEqual(state.releasedStreamStageIds, [
@@ -555,5 +723,5 @@ assert.equal(endpointReset.snapshot.state.revision, 1);
 assert.equal(cloudReset.snapshot.receipts.length, 0);
 assert.equal(endpointReset.snapshot.receipts.length, 0);
 console.log(
-  "Server/API smoke passed: all catalog queries, both deterministic case lifecycles, idempotency, forged envelope, stale-state, WebMCP/analyst boundaries, exact report closure, and final reset. Native WebMCP registration and callbacks are not exercised by this check.",
+  "Server/API smoke passed: all catalog queries, both deterministic case lifecycles, release-bounded evidence lineage, trusted receipt references, idempotency, forged envelope, stale-state, WebMCP/analyst boundaries, exact report closure, and final reset. Native WebMCP registration and callbacks are not exercised by this check.",
 );

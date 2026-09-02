@@ -27,6 +27,7 @@ interface QueryConsoleProps {
   onPrepare: (input: Record<string, unknown>) => Promise<void>;
   onExecute: (input: Record<string, unknown>) => Promise<void>;
   onSelect: (selection: TraceSelection) => void;
+  openInitially?: boolean;
   query: InvestigationQueryDefinition;
   state: CaseState;
 }
@@ -43,6 +44,7 @@ export function QueryConsole({
   onPrepare,
   onExecute,
   onSelect,
+  openInitially = false,
   query,
   state,
 }: QueryConsoleProps) {
@@ -52,7 +54,7 @@ export function QueryConsole({
   const prepared =
     state.preparedQuery?.queryId === query.id &&
     state.preparedQuery.preparedAtRevision === state.revision;
-  const [open, setOpen] = useState(!attached);
+  const [open, setOpen] = useState(openInitially || (prepared && !attached));
   const [dismissedRevealKey, setDismissedRevealKey] = useState<string | null>(
     null,
   );
@@ -69,18 +71,47 @@ export function QueryConsole({
   const agentPrepareKey = agentPreparing
     ? `${query.id}:${activity.baseRevision}`
     : null;
+  const previouslyPrepared = useRef(prepared);
+
+  useEffect(() => {
+    if (prepared && !previouslyPrepared.current) {
+      const frame = window.requestAnimationFrame(() => setOpen(true));
+      previouslyPrepared.current = prepared;
+      return () => window.cancelAnimationFrame(frame);
+    }
+    previouslyPrepared.current = prepared;
+  }, [prepared]);
 
   useEffect(() => {
     if (!agentPrepareKey || animationKey.current === agentPrepareKey) return;
     animationKey.current = agentPrepareKey;
-    setDraftInput("");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (reducedMotion.matches) {
+      const frame = window.requestAnimationFrame(() => {
+        setDraftInput(canonicalText);
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
+    const initialFrame = window.requestAnimationFrame(() => {
+      setDraftInput("");
+    });
     let cursor = 0;
     const timer = window.setInterval(() => {
       cursor = Math.min(canonicalText.length, cursor + 20);
       setDraftInput(canonicalText.slice(0, cursor));
       if (cursor >= canonicalText.length) window.clearInterval(timer);
     }, 18);
-    return () => window.clearInterval(timer);
+    const finishImmediately = (event: MediaQueryListEvent) => {
+      if (!event.matches) return;
+      window.clearInterval(timer);
+      setDraftInput(canonicalText);
+    };
+    reducedMotion.addEventListener("change", finishImmediately);
+    return () => {
+      window.cancelAnimationFrame(initialFrame);
+      window.clearInterval(timer);
+      reducedMotion.removeEventListener("change", finishImmediately);
+    };
   }, [agentPrepareKey, canonicalText]);
 
   const running =

@@ -1,23 +1,25 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { buildAgentHandoffPrompt } from "./agent-handoff-prompt";
+import { getAgentHandoffPresentation } from "./agent-handoff-status";
+import type { AgentStatus } from "./platform-shell";
 import { useModalDialog } from "./use-modal-dialog";
 import styles from "./agent-handoff.module.css";
 
-function buildAgentHandoffPrompt(caseId: string): string {
-  return `Inspect the registered page tools, then investigate ${caseId}.
-
-Call get_case_context first. If nextAgentAction is present, call exactly that tool with its supplied input. Continue from the nextAgentAction returned by each successful write. Do not invent case IDs, query IDs, stage IDs, response IDs, or revisions.
-
-If analystGate is present, stop and tell the analyst what must be reviewed. Resume by reading case context after the analyst acts. Keep observed evidence, modeled impact, simulated controls, and approvals distinct. Do not imply external execution.`;
-}
-
-export function AgentHandoff({ caseId }: { caseId: string }) {
+export function AgentHandoff({
+  agentStatus,
+  caseId,
+}: {
+  agentStatus: AgentStatus;
+  caseId: string;
+}) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   const dialogRef = useModalDialog(open, close);
   const agentHandoffPrompt = buildAgentHandoffPrompt(caseId);
+  const presentation = getAgentHandoffPresentation(agentStatus);
 
   const copyPrompt = useCallback(async () => {
     try {
@@ -33,12 +35,12 @@ export function AgentHandoff({ caseId }: { caseId: string }) {
     <>
       <button
         aria-haspopup="dialog"
-        aria-label="Open TRACE runbook"
+        aria-label="Open agent handoff"
         className={styles.trigger}
         onClick={() => setOpen(true)}
         type="button"
       >
-        TRACE runbook
+        Agent handoff
       </button>
       {open ? (
         <div className="drawer-backdrop" onMouseDown={close}>
@@ -52,11 +54,17 @@ export function AgentHandoff({ caseId }: { caseId: string }) {
           >
             <header className={styles.header}>
               <div>
-                <p>Bounded investigation guidance</p>
-                <h2 id="agent-handoff-title">Hand off to TRACE</h2>
+                <p>
+                  {presentation.ready
+                    ? "Bounded investigation guidance"
+                    : "Agent access status"}
+                </p>
+                <h2 id="agent-handoff-title">
+                  {presentation.ready ? "Hand off to TRACE" : "Agent handoff"}
+                </h2>
               </div>
               <button
-                aria-label="Close TRACE runbook"
+                aria-label="Close agent handoff"
                 className="icon-button"
                 onClick={close}
                 type="button"
@@ -66,51 +74,59 @@ export function AgentHandoff({ caseId }: { caseId: string }) {
             </header>
 
             <div className={styles.content}>
-              <p className={styles.intro}>
-                Use registered page tools for bounded evidence work. Analyst
-                decisions and authorizations remain manual.
-              </p>
-              <ol className={styles.steps}>
-                <li>
-                  <strong>Start from the current case state.</strong>
-                  <span>
-                    Review <code>{caseId}</code>. Use the case menu to reset it
-                    only when you need a clean investigation run.
-                  </span>
-                </li>
-                <li>
-                  <strong>Hand the case to TRACE.</strong>
-                  <span>
-                    Ask it to inspect the registered tools and approved skills,
-                    then investigate <code>{caseId}</code>.
-                  </span>
-                </li>
-                <li>
-                  <strong>Complete analyst gates yourself.</strong>
-                  <span>
-                    Review disposition, response, and report approvals before
-                    allowing the case to advance.
-                  </span>
-                </li>
-              </ol>
+              <p className={styles.intro}>{presentation.detail}</p>
+              {presentation.ready ? (
+                <>
+                  <ol className={styles.steps}>
+                    <li>
+                      <strong>Start from the current case state.</strong>
+                      <span>
+                        Review <code>{caseId}</code>. Use the case menu to reset
+                        it only when you need a clean investigation run.
+                      </span>
+                    </li>
+                    <li>
+                      <strong>Hand the case to TRACE.</strong>
+                      <span>
+                        Ask it to inspect the registered tools and approved
+                        skills, then investigate <code>{caseId}</code>.
+                      </span>
+                    </li>
+                    <li>
+                      <strong>Complete analyst gates yourself.</strong>
+                      <span>
+                        Review disposition, response, and report approvals
+                        before allowing the case to advance.
+                      </span>
+                    </li>
+                  </ol>
 
-              <div className={styles.prompt}>
-                <div>
-                  <span>TRACE instruction</span>
-                  <p>
-                    Read case context, follow its revision-bound action, inspect
-                    raw records, and stop at analyst gates.
-                  </p>
-                </div>
-                <button onClick={() => void copyPrompt()} type="button">
-                  {copied ? "Copied" : "Copy instruction"}
-                </button>
-              </div>
+                  <div className={styles.prompt}>
+                    <div>
+                      <span>TRACE instruction</span>
+                      <p>
+                        Call <code>get_case_context</code> first. Follow only
+                        its revision-bound <code>nextAgentAction</code>, inspect
+                        raw records, and stop at <code>analystGate</code>.
+                      </p>
+                    </div>
+                    <button onClick={() => void copyPrompt()} type="button">
+                      {copied ? "Copied" : "Copy agent task"}
+                    </button>
+                  </div>
+                </>
+              ) : null}
             </div>
 
             <footer className={styles.footer}>
-              <a href="/agent-handoff.md" rel="noreferrer" target="_blank">
-                Open detailed handoff
+              <a
+                href={presentation.ready ? "/agent-handoff.md" : "/start"}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {presentation.ready
+                  ? "Open detailed handoff"
+                  : "Review agent access"}
               </a>
               <button onClick={close} type="button">
                 Done

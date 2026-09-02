@@ -1,0 +1,77 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "watchfloor-sandbox",
+  "main": "worker.public.mjs",
+  "compatibility_date": "2026-08-31",
+  "compatibility_flags": ["nodejs_compat"],
+  "no_bundle": true,
+  "rules": [
+    {
+      "type": "ESModule",
+      "globs": ["dist/server/**/*.js", "server/public-retention.mjs"],
+      "fallthrough": false
+    },
+    {
+      "type": "CompiledWasm",
+      "globs": ["dist/server/**/*.wasm"],
+      "fallthrough": false
+    },
+    {
+      "type": "Text",
+      "globs": ["dist/server/**/*.txt"],
+      "fallthrough": false
+    },
+    {
+      "type": "Data",
+      "globs": ["dist/server/**/*.bin"],
+      "fallthrough": false
+    }
+  ],
+  "workers_dev": true,
+  "preview_urls": false,
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
+  "assets": {
+    "directory": "dist/client"
+  },
+  "vars": {
+    "WATCHFLOOR_AUTH_MODE": "anonymous_sandbox"
+  },
+  "version_metadata": {
+    "binding": "WATCHFLOOR_VERSION"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "watchfloor-sandbox",
+      "database_id": "67a23b4f-0848-4bda-b322-a32bb2b41bc1"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "WATCHFLOOR_IP_LIMITER",
+      "namespace_id": "2026083101",
+      "simple": { "limit": 120, "period": 60 }
+    },
+    {
+      "name": "WATCHFLOOR_SESSION_LIMITER",
+      "namespace_id": "2026083102",
+      "simple": { "limit": 60, "period": 60 }
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false,
+      "head_sampling_rate": 0.1,
+      "persist": true
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.01,
+      "persist": true
+    }
+  }
+}

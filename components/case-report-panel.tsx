@@ -12,6 +12,7 @@ import type {
   CaseState,
   OperationReceipt,
 } from "@/domain/types";
+import type { EvidenceProvenanceTargetType } from "./trace-interaction";
 
 interface CaseReportPanelProps {
   approvalReceipt: OperationReceipt | null;
@@ -19,6 +20,10 @@ interface CaseReportPanelProps {
   fixture: CaseFixture;
   findingsSectionId: string;
   onApprove: (signoff: AnalystReportSignoff) => Promise<void>;
+  onViewProvenance: (target: {
+    targetId: string;
+    targetType: EvidenceProvenanceTargetType;
+  }) => void;
   reportId: string;
   state: CaseState;
 }
@@ -29,6 +34,7 @@ export function CaseReportPanel({
   fixture,
   findingsSectionId,
   onApprove,
+  onViewProvenance,
   reportId,
   state,
 }: CaseReportPanelProps) {
@@ -39,6 +45,9 @@ export function CaseReportPanel({
   useEffect(() => {
     if (!reportApproved) return;
     const frame = window.requestAnimationFrame(() => {
+      documentRef.current
+        ?.querySelector<HTMLElement>("h3")
+        ?.focus({ preventScroll: true });
       documentRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
     });
     return () => window.cancelAnimationFrame(frame);
@@ -74,15 +83,22 @@ export function CaseReportPanel({
   const canApprove =
     normalizedNoteLength >= analystClosureNoteMinLength &&
     normalizedNoteLength <= analystClosureNoteMaxLength;
+  const approvalActor = approvalReceipt
+    ? receiptActorLabel(approvalReceipt)
+    : "Operator";
 
   return (
     <article
       aria-label="Case evidence report"
-      aria-live="polite"
       className={`case-report-document ${approved ? "case-report-approved" : ""}`}
       id={reportId}
       ref={documentRef}
     >
+      <p aria-live="polite" className="sr-only">
+        {approved
+          ? "Case report approved and case closed."
+          : "Evidence report draft ready for operator approval."}
+      </p>
       <header className="report-document-header">
         <div>
           <p>
@@ -96,28 +112,29 @@ export function CaseReportPanel({
 
       {approved ? (
         <section
-          aria-label="Analyst approval record"
+          aria-label="Operator approval record"
           className="report-approval-record"
         >
           <div>
-            <span>Analyst-approved evidence report</span>
+            <span>{approvalActor}-approved evidence report</span>
             <strong>
               {evidenceFindings.length} findings · {recordedActions.length}{" "}
               recorded controls · shared revision r{state.revision}
             </strong>
             <small>
-              Approved {formatUtcTime(state.report.approvedAt)} · synthetic case
-              record · no external system contacted
+              Approved {formatUtcTime(state.report.approvedAt)} · modeled case
+              record · no external control executed
             </small>
             {approvalReceipt ? (
               <small>
-                Approval receipt {approvalReceipt.id} · analyst control · r
+                Approval receipt {approvalReceipt.id} · {approvalActor} · r
                 {approvalReceipt.baseRevision}→r
                 {approvalReceipt.resultRevision}
               </small>
             ) : null}
             <small>
-              Surface label recorded · analyst authority verified server-side
+              {approvalActor} channel recorded · WebMCP cannot invoke this
+              control
             </small>
           </div>
           <blockquote>{state.report.analystClosureNote}</blockquote>
@@ -157,6 +174,19 @@ export function CaseReportPanel({
               <div role="cell">
                 <strong>{finding.title}</strong>
                 <p>{finding.summary}</p>
+                <button
+                  aria-label={`View provenance for F-${String(index + 1).padStart(2, "0")}: ${finding.title}`}
+                  className="report-evidence-provenance"
+                  onClick={() =>
+                    onViewProvenance({
+                      targetId: finding.id,
+                      targetType: "report_finding",
+                    })
+                  }
+                  type="button"
+                >
+                  View provenance
+                </button>
               </div>
               <span role="cell">{finding.sourceLabel}</span>
               <span
@@ -170,7 +200,7 @@ export function CaseReportPanel({
         </div>
         {state.decision.rationale ? (
           <div className="report-analyst-decision">
-            <span>Analyst decision</span>
+            <span>Operator decision</span>
             <p>{state.decision.rationale}</p>
           </div>
         ) : null}
@@ -186,7 +216,7 @@ export function CaseReportPanel({
                   <strong>{action.title}</strong>
                   <span>{action.targetEntityId}</span>
                 </div>
-                <span>Analyst authorized</span>
+                <span>{approvalActor} authorized</span>
                 <small>Recorded only · no external execution</small>
               </li>
             ))}
@@ -222,7 +252,7 @@ export function CaseReportPanel({
         <p>
           Drafted from {evidenceFindings.length} attached investigation
           findings, {report.evidenceIds.length} immutable evidence references,
-          and {report.actionIds.length} analyst-authorized response records.
+          and {report.actionIds.length} operator-authorized response records.
         </p>
         <code>{report.evidenceIds.join(" · ")}</code>
       </details>
@@ -266,7 +296,7 @@ export function CaseReportPanel({
         </form>
       ) : (
         <section className="report-approval-summary">
-          <p className="report-section-label">Analyst approval</p>
+          <p className="report-section-label">{approvalActor} approval</p>
           <blockquote>{state.report.analystClosureNote}</blockquote>
           <p>
             Approved {formatUtcTime(state.report.approvedAt)} · No external
@@ -283,6 +313,20 @@ export function CaseReportPanel({
       )}
     </article>
   );
+}
+
+function receiptActorLabel(receipt: OperationReceipt): string {
+  switch (receipt.actorAssurance) {
+    case "anonymous_sandbox":
+      return "Anonymous operator";
+    case "cloudflare_access_verified":
+    case "openai_sites_authenticated":
+      return "Verified analyst";
+    case "local_development":
+      return "Local analyst";
+    default:
+      return "Operator";
+  }
 }
 
 function formatReportDisposition(

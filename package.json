@@ -1,6 +1,7 @@
 {
   "name": "watchfloor-webmcp",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -10,7 +11,10 @@
     "build": "vinext build",
     "start": "vinext start",
     "cloudflare:check-private": "node scripts/verify-private-deploy-config.mjs",
+    "cloudflare:check-public": "node scripts/verify-public-deploy-config.mjs",
+    "cloudflare:check-public-release": "node --import tsx scripts/public-release-provenance.ts",
     "cloudflare:upload-private": "npm run check && npm run cloudflare:check-private && wrangler versions upload --config wrangler.deploy.json",
+    "cloudflare:deploy-public": "npm run cloudflare:check-public-release && npm run check && npm run cloudflare:check-public && node --import tsx scripts/public-release-provenance.ts --deploy",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",

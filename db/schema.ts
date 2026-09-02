@@ -31,9 +31,33 @@ export const schemaStatements = [
     occurred_at TEXT NOT NULL,
     input_json TEXT NOT NULL,
     output_json TEXT NOT NULL,
+    server_derived INTEGER NOT NULL DEFAULT 0,
+    principal_assurance TEXT NOT NULL DEFAULT 'legacy_unrecorded',
     PRIMARY KEY (session_id, case_id, generation, request_id),
     UNIQUE (session_id, case_id, generation, logical_sequence)
   )`,
   `CREATE INDEX IF NOT EXISTS operation_receipt_case_sequence
     ON operation_receipt (session_id, case_id, generation, logical_sequence)`,
+  `CREATE TABLE IF NOT EXISTS session_lease (
+    session_id TEXT NOT NULL PRIMARY KEY,
+    created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),
+    last_activity_at_ms INTEGER NOT NULL CHECK (last_activity_at_ms >= 0),
+    expires_at_ms INTEGER NOT NULL CHECK (expires_at_ms > created_at_ms)
+  )`,
+  `CREATE INDEX IF NOT EXISTS session_lease_expiry
+    ON session_lease (expires_at_ms)`,
+  `CREATE TABLE IF NOT EXISTS session_work_ledger (
+    session_id TEXT NOT NULL,
+    request_id TEXT NOT NULL,
+    case_id TEXT NOT NULL,
+    generation INTEGER NOT NULL CHECK (generation >= 1),
+    work_kind TEXT NOT NULL CHECK (work_kind IN ('mutation', 'reset')),
+    created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),
+    expires_at_ms INTEGER NOT NULL CHECK (expires_at_ms > created_at_ms),
+    PRIMARY KEY (session_id, case_id, generation, request_id)
+  )`,
+  `CREATE INDEX IF NOT EXISTS session_work_ledger_budget
+    ON session_work_ledger (session_id, work_kind, expires_at_ms)`,
+  `CREATE INDEX IF NOT EXISTS session_work_ledger_expiry
+    ON session_work_ledger (expires_at_ms)`,
 ] as const;

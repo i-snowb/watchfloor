@@ -28,6 +28,8 @@ import type {
   AnalystReportSignoff,
 } from "@/domain/types";
 import { formatUtcTime, humanizeEntityKind } from "@/lib/format";
+import { layoutImpactEdgeLabels } from "@/lib/impact-edge-label-layout";
+import { layoutTraceEdgeLabels } from "@/lib/trace-edge-label-layout";
 import { layoutTraceResultPackets } from "@/lib/trace-result-layout";
 import { TRACE_CASE_READABLE_SCALE } from "@/lib/trace-camera";
 import { TRACE_NODE_HEIGHT, TRACE_NODE_WIDTH } from "@/lib/trace-geometry";
@@ -35,6 +37,8 @@ import { EscalationBrief } from "./escalation-brief";
 import {
   selectionContainsEntity,
   useTraceCamera,
+  type EvidenceProvenanceRequest,
+  type EvidenceProvenanceTargetType,
   type TraceSelection,
 } from "./trace-interaction";
 import { EntityGlyph } from "./entity-glyph";
@@ -42,6 +46,10 @@ import type {
   InvestigationActivity,
   InvestigationResultView,
 } from "./investigation-activity";
+import {
+  getInvestigationResultPresentation,
+  investigationResultKey,
+} from "./investigation-result-presentation";
 import { InvestigationDrawer } from "./investigation-drawer";
 import {
   buildCausalPhasePlanes,
@@ -51,7 +59,9 @@ import {
   buildThreatHierarchy,
   findReplayStepForEntity,
   getCausalVisualState,
+  initialEvidenceReplayCursor,
   getReplayEntityIds,
+  shouldCatchUpEvidenceReplay,
   type CausalPhasePlane,
   type DirectionalImpactEnvelope,
   type ThreatHierarchyIssue,
@@ -74,6 +84,11 @@ interface EvidenceMapProps {
   receipts?: readonly OperationReceipt[];
   showInvestigationActions?: boolean;
   reportReviewRequestToken?: number;
+  provenanceRequest?: EvidenceProvenanceRequest | null;
+  onViewProvenance: (target: {
+    targetId: string;
+    targetType: EvidenceProvenanceTargetType;
+  }) => void;
   children?: ReactNode;
 }
 
@@ -101,12 +116,15 @@ export function EvidenceMap({
   onApproveReport,
   actionDock,
   investigationActivity,
+  investigationResult = null,
   agentFocusEntityId = null,
   latestReceipt = null,
   latestAuthorizationReceipt = null,
   receipts = [],
   showInvestigationActions = false,
   reportReviewRequestToken = 0,
+  provenanceRequest = null,
+  onViewProvenance,
   children,
 }: EvidenceMapProps) {
   const [view, setView] = useState<EvidenceView>(
@@ -123,11 +141,16 @@ export function EvidenceMap({
   const previousRevision = useRef(state.revision);
   const replayRevision = useRef(state.revision);
   const replayCaseId = useRef<string | null>(null);
+  const replayJoinCount = useRef(0);
+  const replayGrowthFrame = useRef<number | null>(null);
   const [replayCursor, setReplayCursor] = useState(0);
   const [replayPlaying, setReplayPlaying] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [modelRevealHop, setModelRevealHop] = useState(0);
+  const [dismissedResultKey, setDismissedResultKey] = useState<string | null>(
+    null,
+  );
   const [replayPulseJoinId, setReplayPulseJoinId] = useState<string | null>(
     null,
   );
@@ -145,6 +168,28 @@ export function EvidenceMap({
     state.releasedStreamStageIds.includes(activeExpansion.stageId)
       ? activeExpansion
       : null;
+  const currentResultKey = investigationResult
+    ? investigationResultKey(investigationResult)
+    : null;
+  const resultPresentation = investigationResult
+    ? getInvestigationResultPresentation(
+        investigationResult.toolName,
+        investigationResult.data,
+      )
+    : null;
+  const visibleInvestigationResult =
+    investigationResult && currentResultKey !== dismissedResultKey
+      ? investigationResult
+      : null;
+
+  useEffect(() => {
+    if (!currentResultKey) return;
+    const timer = window.setTimeout(
+      () => setDismissedResultKey(currentResultKey),
+      7_000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [currentResultKey]);
 
   useEffect(() => {
     if (state.revision < previousRevision.current) {
@@ -216,14 +261,113 @@ export function EvidenceMap({
     replayCaseId.current = fixture.id;
     replayRevision.current = state.revision;
     if (!reset) return;
-    const initialCursor = reducedMotion
-      ? replayPlan.joins.length
-      : Math.min(2, replayPlan.joins.length);
-    setReplayCursor(initialCursor);
+    replayJoinCount.current = replayPlan.joins.length;
+    setReplayCursor(
+      initialEvidenceReplayCursor({
+        joinCount: replayPlan.joins.length,
+        reducedMotion,
+        revision: state.revision,
+      }),
+    );
     setReplayPlaying(false);
     setReplayPulseJoinId(null);
     setActiveExpansion(null);
   }, [fixture.id, reducedMotion, replayPlan.joins.length, state.revision]);
+
+  const completeReplay = useCallback(() => {
+    setReplayPlaying(false);
+    setReplayCursor(replayPlan.joins.length);
+    setReplayPulseJoinId(null);
+  }, [replayPlan.joins.length]);
+  const scheduleReplayCompletion = useCallback(() => {
+    queueMicrotask(completeReplay);
+  }, [completeReplay]);
+
+  useEffect(() => {
+    if (
+      !shouldCatchUpEvidenceReplay({
+        hydrated,
+        revision: state.revision,
+      }) ||
+      document.visibilityState !== "hidden"
+    ) {
+      return;
+    }
+    // requestAnimationFrame is throttled in a hidden tab. Persisted evidence
+    // is not an animation, so reveal it synchronously instead of waiting.
+    scheduleReplayCompletion();
+  }, [hydrated, scheduleReplayCompletion, state.revision]);
+
+  useEffect(() => {
+    const recoverReplay = () => {
+      if (
+        !shouldCatchUpEvidenceReplay({
+          hydrated,
+          revision: state.revision,
+        })
+      ) {
+        return;
+      }
+      if (replayGrowthFrame.current !== null) {
+        window.cancelAnimationFrame(replayGrowthFrame.current);
+        replayGrowthFrame.current = null;
+      }
+      if (document.visibilityState === "hidden") {
+        scheduleReplayCompletion();
+        return;
+      }
+      if (document.visibilityState === "visible") completeReplay();
+    };
+    document.addEventListener("visibilitychange", recoverReplay);
+    return () =>
+      document.removeEventListener("visibilitychange", recoverReplay);
+  }, [completeReplay, hydrated, scheduleReplayCompletion, state.revision]);
+
+  useEffect(() => {
+    const previousJoinCount = replayJoinCount.current;
+    replayJoinCount.current = replayPlan.joins.length;
+    if (
+      previousJoinCount === 0 ||
+      replayPlan.joins.length <= previousJoinCount
+    ) {
+      return;
+    }
+    if (
+      document.visibilityState === "hidden" &&
+      shouldCatchUpEvidenceReplay({
+        hydrated,
+        revision: state.revision,
+      })
+    ) {
+      scheduleReplayCompletion();
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      replayGrowthFrame.current = null;
+      if (reducedMotion) {
+        completeReplay();
+        return;
+      }
+      // A live discovery can add several joins at once. Resume from the visible
+      // cursor so each new relationship still arrives as a distinct movement.
+      setReplayCursor((cursor) => Math.min(cursor, previousJoinCount));
+      setReplayPlaying(true);
+    });
+    replayGrowthFrame.current = frame;
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (replayGrowthFrame.current === frame) {
+        replayGrowthFrame.current = null;
+      }
+    };
+  }, [
+    completeReplay,
+    hydrated,
+    reducedMotion,
+    replayPlan.joins.length,
+    scheduleReplayCompletion,
+    state.revision,
+  ]);
 
   useEffect(() => {
     if (!replayPlaying || reducedMotion) return;
@@ -412,6 +556,21 @@ export function EvidenceMap({
     view === "impact" && state.reachabilityAttached
       ? impactLayout.positions
       : tracePositions;
+  const impactEdgeLabelPlacements =
+    view === "impact" && state.reachabilityAttached
+      ? layoutImpactEdgeLabels(
+          edges.filter(
+            (edge) =>
+              mapEntityIds.has(edge.fromEntityId) &&
+              mapEntityIds.has(edge.toEntityId),
+          ),
+          [...positions.values()].filter((position) =>
+            mapEntityIds.has(position.entityId),
+          ),
+          fixture.presentation.graphWidth,
+          fixture.presentation.graphHeight,
+        )
+      : new Map();
   const activeGraphHeight =
     view === "impact"
       ? fixture.presentation.graphHeight
@@ -426,6 +585,22 @@ export function EvidenceMap({
               64,
           ),
         );
+  const traceEdgeLabelPlacements =
+    view === "trace"
+      ? layoutTraceEdgeLabels(
+          edges.filter(
+            (edge) =>
+              edge.join !== null &&
+              mapEntityIds.has(edge.fromEntityId) &&
+              mapEntityIds.has(edge.toEntityId),
+          ),
+          [...positions.values()].filter((position) =>
+            mapEntityIds.has(position.entityId),
+          ),
+          fixture.presentation.graphWidth,
+          activeGraphHeight,
+        )
+      : new Map();
   const phasePlanes = useMemo(() => buildCausalPhasePlanes(fixture), [fixture]);
   const impactEnvelope = buildDirectionalImpactEnvelope(impactLayout);
   const maxImpactHop = impactEnvelope.at(-1)?.hop ?? 0;
@@ -599,6 +774,9 @@ export function EvidenceMap({
     fixture.presentation.graphWidth,
     activeGraphHeight,
   );
+  const resultOverlayPlacement = visibleInvestigationResult?.targetEntityId
+    ? queryResultPlacements.get(visibleInvestigationResult.targetEntityId)
+    : null;
   const nextStep = getDerivedNextStep(fixture, state);
   const reportTrigger =
     state.report.status === "approved_in_demo"
@@ -636,6 +814,7 @@ export function EvidenceMap({
     nextStep.phase === "inspect" ? nextStep.targetEntityId : null;
   const findingsSectionId = `${fixture.id}-attached-findings`;
   const reportReviewId = `${fixture.id}-report-review`;
+  const provenanceRequestId = provenanceRequest?.requestId ?? null;
   const openFindings = useCallback(() => {
     setDrawerOpen(true);
     window.requestAnimationFrame(() => {
@@ -649,6 +828,11 @@ export function EvidenceMap({
       });
     });
   }, []);
+  useEffect(() => {
+    if (provenanceRequestId === null) return;
+    const frame = window.requestAnimationFrame(() => setDrawerOpen(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [provenanceRequestId]);
   const openedReportId = useRef<string | null>(null);
   const openReportReview = useCallback(() => {
     setDrawerOpen(true);
@@ -724,10 +908,13 @@ export function EvidenceMap({
     fixture.id,
     view,
     fixture.presentation.graphWidth,
-    fixture.presentation.graphHeight,
+    activeGraphHeight,
     state.reachabilityAttached ? "modeled" : "observed",
     state.releasedStreamStageIds.join(","),
-    visibleGraphNodes.map((node) => node.entityId).join(","),
+    // The restored case deliberately reveals the graph relationship by
+    // relationship. Refit as entities enter that visible field rather than
+    // retaining the camera derived from the first replay frame.
+    mapEntities.map((entity) => entity.id).join(","),
   ].join(":");
   const {
     camera,
@@ -776,11 +963,64 @@ export function EvidenceMap({
     selectEvidence({ kind: "model", id: priorityRouteId });
     window.requestAnimationFrame(fit);
   };
+  useEffect(() => {
+    if (!visibleExpansion) return;
+    const entityId = [...visibleExpansion.entityIds].find((candidate) =>
+      positions.has(candidate),
+    );
+    if (!entityId) return;
+    const frame = window.requestAnimationFrame(() =>
+      focusTarget({ kind: "entity", id: entityId }),
+    );
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusTarget, positions, visibleExpansion]);
+  useEffect(() => {
+    if (
+      !investigationResult ||
+      (investigationResult.toolName !== "run_investigation_query" &&
+        investigationResult.toolName !== "run_investigation_plan") ||
+      !investigationResult.targetEntityId
+    ) {
+      return;
+    }
+    const entityId = investigationResult.targetEntityId;
+    const frame = window.requestAnimationFrame(() =>
+      focusTarget({ kind: "entity", id: entityId }),
+    );
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusTarget, investigationResult]);
   const agentTargetPosition =
     investigationActivity.status !== "idle" &&
     investigationActivity.targetEntityId
       ? positions.get(investigationActivity.targetEntityId)
       : null;
+  const resultTargetPosition = visibleInvestigationResult?.targetEntityId
+    ? positions.get(visibleInvestigationResult.targetEntityId)
+    : null;
+  const reviewInvestigationResult = useCallback(() => {
+    if (!visibleInvestigationResult) return;
+    if (visibleInvestigationResult.toolName === "generate_case_report") {
+      openReportReview();
+    } else {
+      if (visibleInvestigationResult.targetEntityId) {
+        const target = {
+          kind: "entity" as const,
+          id: visibleInvestigationResult.targetEntityId,
+        };
+        selectEvidence(target);
+        focusTarget(target);
+      }
+      openFindings();
+    }
+    setDismissedResultKey(currentResultKey);
+  }, [
+    currentResultKey,
+    focusTarget,
+    openFindings,
+    openReportReview,
+    selectEvidence,
+    visibleInvestigationResult,
+  ]);
   const latestAuthorizedTargetPosition = latestAuthorizedAction
     ? positions.get(latestAuthorizedAction.targetEntityId)
     : null;
@@ -879,12 +1119,10 @@ export function EvidenceMap({
             Observed activity
           </button>
           <button
-            aria-disabled={!state.reachabilityAttached}
             aria-describedby="impact-model-status"
             aria-pressed={view === "impact"}
-            onClick={() => {
-              if (state.reachabilityAttached) setView("impact");
-            }}
+            disabled={!state.reachabilityAttached}
+            onClick={() => setView("impact")}
             title={
               state.reachabilityAttached
                 ? "View modeled potential impact"
@@ -1187,29 +1425,27 @@ export function EvidenceMap({
                 state.reachabilityAttached &&
                 (priorityJoinIds.has(edge.id) ||
                   edge.pathIds.some((pathId) => priorityPathIds.has(pathId)));
-              const geometry = edgeGeometry(
-                from.x,
-                from.y,
-                to.x,
-                to.y,
-                view === "impact",
-              );
+              const labelPlacement = showImpactLabel
+                ? impactEdgeLabelPlacements.get(edge.id)
+                : traceEdgeLabelPlacements.get(edge.id);
+              if (!labelPlacement) return null;
               const label = severed
-                ? "Modeled path blocked"
+                ? "Path blocked"
                 : predicted
-                  ? "Modeled control effect · analyst approval required"
+                  ? "Control effect"
                   : edge.blocked
                     ? "Attempt prevented"
                     : threatPriority
-                      ? "Priority threat route"
+                      ? "Priority route"
                       : showImpactLabel
                         ? edge.truth === "modeled"
                           ? "Modeled reach"
                           : "Observed evidence"
-                        : (edge.join?.id.replace(/^JOIN-[A-Z]+-/, "J") ??
-                          "Observed link");
+                        : humanizeRelation(edge.join?.relation ?? "observed");
+              const joinReference = edge.join?.id.replace(/^JOIN-[A-Z]+-/, "J");
               return (
                 <button
+                  aria-label={`${label}: ${edge.label}. ${edge.fromEntityId} to ${edge.toEntityId}.`}
                   aria-pressed={
                     showImpactLabel
                       ? selection.kind === "model" && selection.id === modelId
@@ -1226,13 +1462,17 @@ export function EvidenceMap({
                     selectEdge(edge);
                   }}
                   style={{
-                    left: geometry.label.x,
-                    top: geometry.label.y,
+                    left: labelPlacement.x,
+                    top: labelPlacement.y,
                   }}
                   type="button"
                 >
                   <span>{label}</span>
-                  <strong>{edge.label}</strong>
+                  {showTraceLabel && joinReference ? (
+                    <small aria-hidden="true">{joinReference}</small>
+                  ) : (
+                    <strong>{edge.label}</strong>
+                  )}
                 </button>
               );
             })}
@@ -1340,7 +1580,7 @@ export function EvidenceMap({
                 : `${entityEvents.length} ${entityEvents.length === 1 ? "event" : "events"}`;
               return (
                 <button
-                  aria-label={`${entityStateLabel} ${humanizeEntityKind(entity.kind)} ${entity.label}${impactPosition?.hop === null || view !== "impact" ? "" : `, modeled hop ${impactPosition?.hop}`}`}
+                  aria-label={`${entityStateLabel} ${humanizeEntityKind(entity.kind)} ${entity.label}. ${entity.summary}${impactPosition?.hop === null || view !== "impact" ? "" : ` Modeled hop ${impactPosition?.hop}.`}`}
                   aria-pressed={selected}
                   className={`evidence-entity evidence-entity-${position.lane} evidence-kind-${entity.kind} causal-state-${causalState} ${observed ? "evidence-entity-observed" : ""} ${atRisk ? "evidence-entity-at-risk" : ""} ${contained ? "evidence-entity-contained" : ""} ${containmentEntering ? "evidence-entity-containment-enter" : ""} ${modeledOnly ? "evidence-entity-modeled-only" : ""} ${modelPending ? "evidence-entity-model-pending" : ""} ${expanding ? "evidence-entity-expanding" : ""} ${agentFocusEntityId === entity.id ? "evidence-entity-agent" : ""} ${investigationRunning ? `evidence-entity-query-running evidence-entity-query-${investigationActivity.actor}` : ""} ${nextGap ? "evidence-entity-next-gap" : ""} ${selected ? "evidence-entity-active-pivot" : ""} ${related ? "evidence-entity-related" : ""} ${dimmed ? "evidence-entity-dimmed" : ""} ${threatIssue ? `evidence-entity-threat evidence-entity-threat-${threatIssue.certainty}` : ""} ${threatIssue?.rank === 1 && state.decision.status === "confirmed_malicious" ? "evidence-entity-compromise-confirmed" : ""}`}
                   data-control-state={containedAction?.id}
@@ -1445,6 +1685,11 @@ export function EvidenceMap({
 
             {[...visibleAttachedQueriesByTarget.entries()].map(
               ([targetEntityId, targetQueries]) => {
+                if (
+                  visibleInvestigationResult?.targetEntityId === targetEntityId
+                ) {
+                  return null;
+                }
                 if (!positions.has(targetEntityId)) return null;
                 const resultPlacement =
                   queryResultPlacements.get(targetEntityId);
@@ -1532,6 +1777,48 @@ export function EvidenceMap({
               </div>
             ) : null}
 
+            {visibleInvestigationResult && resultPresentation ? (
+              <section
+                aria-live="polite"
+                className={`investigation-result-overlay investigation-result-overlay-${resultPresentation.tone}`}
+                style={
+                  resultOverlayPlacement
+                    ? {
+                        left: resultOverlayPlacement.x,
+                        top: resultOverlayPlacement.y,
+                        transform: "none",
+                      }
+                    : resultTargetPosition
+                      ? {
+                          left: resultTargetPosition.x + nodeWidth / 2,
+                          top: resultTargetPosition.y + nodeHeight + 24,
+                        }
+                      : { left: 18, top: 18, transform: "none" }
+                }
+              >
+                <span>{resultPresentation.stateLabel}</span>
+                <strong>{resultPresentation.title}</strong>
+                <small>
+                  r{visibleInvestigationResult.baseRevision} → r
+                  {visibleInvestigationResult.resultRevision} ·{" "}
+                  {resultPresentation.summary ??
+                    visibleInvestigationResult.summary}
+                </small>
+                <div>
+                  <button onClick={reviewInvestigationResult} type="button">
+                    Review result
+                  </button>
+                  <button
+                    aria-label="Dismiss result update"
+                    onClick={() => setDismissedResultKey(currentResultKey)}
+                    type="button"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </section>
+            ) : null}
+
             {latestAuthorizedAction && latestAuthorizedTargetPosition ? (
               <div
                 className="containment-action-callout"
@@ -1570,7 +1857,7 @@ export function EvidenceMap({
                   : "Analyst"}
               </span>
               <code>{activityCategory(latestReceipt.toolName)}</code>
-              <small>{formatUtcTime(latestReceipt.occurredAt)}</small>
+              <small>{formatSyntheticReceiptTime(latestReceipt)}</small>
               <strong>{receiptUpdateTitle(latestReceipt)}</strong>
             </div>
           ) : null}
@@ -1769,6 +2056,8 @@ export function EvidenceMap({
         onSelect={focusFromDrawer}
         onOpenChange={setDrawerOpen}
         open={drawerOpen}
+        onViewProvenance={onViewProvenance}
+        provenanceRequest={provenanceRequest}
         reportReviewId={reportReviewId}
         receipts={receipts}
         selectionDetails={children}
@@ -1880,7 +2169,9 @@ function TraceSequenceRail({
         receipt.toolName.startsWith("enrich_")),
   );
   const latestDiscoveryReceiptId = investigationReceipts.findLast(
-    (receipt) => receipt.toolName === "attach_discovery_stage",
+    (receipt) =>
+      receipt.toolName === "attach_discovery_stage" ||
+      receipt.toolName === "release_next_synthetic_signal",
   )?.id;
   const observedDiscoveryReceiptId = useRef<string | undefined>(
     latestDiscoveryReceiptId,
@@ -2012,10 +2303,11 @@ function TraceSequenceRail({
             const targetEntityId = receipt.target
               ? (entityByLabel.get(receipt.target) ?? null)
               : null;
+            const duration = receiptDurationLabel(activity, receipt);
             return (
               <li key={receipt.id}>
                 <button
-                  aria-label={`${receipt.reportedSurface === "webmcp_callback" ? "TRACE" : "Analyst"} investigation: ${receipt.title}. Completed ${formatUtcTime(receipt.occurredAt)}.`}
+                  aria-label={`${receipt.reportedSurface === "webmcp_callback" ? "TRACE" : "Analyst"} investigation: ${receipt.title}. Recorded at ${formatSyntheticReceiptTime(receipt)}${duration ? `. ${duration}.` : ""}`}
                   onClick={() => {
                     if (targetEntityId) {
                       onSelect({ kind: "entity", id: targetEntityId });
@@ -2031,8 +2323,9 @@ function TraceSequenceRail({
                   </span>
                   <strong>{receipt.title}</strong>
                   <small>
-                    {formatUtcTime(receipt.occurredAt)} ·{" "}
+                    {formatSyntheticReceiptTime(receipt)} ·{" "}
                     {activityCategory(receipt.toolName)}
+                    {duration ? ` · ${duration}` : ""}
                   </small>
                 </button>
               </li>
@@ -2165,6 +2458,7 @@ function ThreatPriorityRail({
   routeSelected: boolean;
   selectedEntityId: string | null;
 }) {
+  const [expanded, setExpanded] = useState(true);
   const urgentCount = hierarchy.issues.filter(
     (issue) =>
       issue.controlState === "active" && issue.certainty === "observed",
@@ -2181,7 +2475,11 @@ function ThreatPriorityRail({
           : "TRACE ready";
 
   return (
-    <details className="threat-priority-rail">
+    <details
+      className="threat-priority-rail"
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+      open={expanded}
+    >
       <summary>
         <span>Active issues</span>
         <strong>
@@ -2191,8 +2489,8 @@ function ThreatPriorityRail({
       <div className="threat-priority-context">
         <strong>{escalationReason}</strong>
         <span>
-          {escalationObservationCount} observed relationships · no response
-          authorized
+          {escalationObservationCount} observed relationships · response
+          withheld at Tier 1
         </span>
       </div>
       <ol>
@@ -2478,6 +2776,25 @@ function receiptUpdateTitle(receipt: OperationReceipt): string {
   return "Case updated";
 }
 
+function formatSyntheticReceiptTime(receipt: OperationReceipt): string {
+  return `Case sequence ${receipt.sequence} · ${formatUtcTime(receipt.occurredAt)}`;
+}
+
+function receiptDurationLabel(
+  activity: InvestigationActivity,
+  receipt: OperationReceipt,
+): string | null {
+  if (
+    !("receipt" in activity) ||
+    !activity.receipt ||
+    activity.toolName !== receipt.toolName ||
+    activity.resultRevision !== receipt.resultRevision
+  ) {
+    return null;
+  }
+  return `${Math.max(1, Math.round(activity.receipt.durationMs))} ms client duration`;
+}
+
 function entityEvidenceState(
   entity: Entity,
   events: ReturnType<typeof getVisibleEvents>,
@@ -2599,7 +2916,7 @@ function edgeGeometry(
   toX: number,
   toY: number,
   radial: boolean,
-): { path: string; label: { x: number; y: number } } {
+): { path: string } {
   if (radial) {
     const fromCenter = {
       x: fromX + nodeWidth / 2,
@@ -2635,10 +2952,6 @@ function edgeGeometry(
     };
     return {
       path: `M ${start.x} ${start.y} Q ${control.x} ${control.y}, ${end.x} ${end.y}`,
-      label: {
-        x: start.x * 0.25 + control.x * 0.5 + end.x * 0.25,
-        y: start.y * 0.25 + control.y * 0.5 + end.y * 0.25,
-      },
     };
   }
   const startX = fromX + nodeWidth;
@@ -2649,9 +2962,5 @@ function edgeGeometry(
   const bend = Math.max(55, Math.abs(endX - startX) * 0.42) * direction;
   return {
     path: `M ${startX} ${startY} C ${startX + bend} ${startY}, ${endX - bend} ${endY}, ${endX} ${endY}`,
-    label: {
-      x: (fromX + toX) / 2 + nodeWidth / 2,
-      y: (fromY + toY) / 2 + nodeHeight / 2,
-    },
   };
 }

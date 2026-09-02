@@ -11,6 +11,37 @@ export interface EvidenceReplayPlan {
   initialEntityIds: ReadonlySet<string>;
 }
 
+/**
+ * A completed case must restore its complete evidence path on a new page load.
+ * The abbreviated opening is reserved for a brand-new, unworked case only.
+ */
+export function initialEvidenceReplayCursor({
+  joinCount,
+  reducedMotion,
+  revision,
+}: {
+  joinCount: number;
+  reducedMotion: boolean;
+  revision: number;
+}): number {
+  if (joinCount <= 0) return 0;
+  return reducedMotion || revision > 1 ? joinCount : Math.min(2, joinCount);
+}
+
+/**
+ * A restored case must not wait for a background-tab animation frame before it
+ * shows evidence that is already part of the persisted investigation.
+ */
+export function shouldCatchUpEvidenceReplay({
+  hydrated,
+  revision,
+}: {
+  hydrated: boolean;
+  revision: number;
+}): boolean {
+  return hydrated && revision > 1;
+}
+
 export interface ImpactNodePosition extends CaseGraphNode {
   hop: number | null;
   role: "source" | "reachable" | "context";
@@ -241,8 +272,17 @@ export function buildImpactLayout(
   const tracePositions = new Map(
     graphNodes.map((node) => [node.entityId, node]),
   );
+  const maxHop = Math.max(0, ...hops.values());
+  const rightmostNodeX = graphWidth - nodeWidth - 16;
+  const minimumColumnGap = 28;
+  const sourceX = clamp(
+    Math.round(graphWidth * 0.22),
+    16,
+    Math.max(16, rightmostNodeX - maxHop * (nodeWidth + minimumColumnGap)),
+  );
+  const hopColumnWidth = maxHop === 0 ? 0 : (rightmostNodeX - sourceX) / maxHop;
   const center = {
-    x: Math.round(graphWidth * 0.48),
+    x: sourceX + nodeWidth / 2,
     y: Math.round(graphHeight * 0.52),
   };
   const positions = new Map<string, ImpactNodePosition>();
@@ -256,7 +296,6 @@ export function buildImpactLayout(
     y: center.y - nodeHeight / 2,
   });
 
-  const maxHop = Math.max(0, ...hops.values());
   const rings = Array.from({ length: maxHop }, (_, index) => {
     const hop = index + 1;
     return {
@@ -275,7 +314,6 @@ export function buildImpactLayout(
         return leftOrder - rightOrder || left.id.localeCompare(right.id);
       });
     atHop.forEach((entity, index) => {
-      const angle = fanAngle(index, atHop.length);
       const trace = tracePositions.get(entity.id);
       positions.set(entity.id, {
         entityId: entity.id,
@@ -283,12 +321,14 @@ export function buildImpactLayout(
         lane: trace?.lane ?? "impact",
         role: "reachable",
         x: clamp(
-          center.x + ring.radiusX * Math.cos(angle) - nodeWidth / 2,
+          sourceX + hopColumnWidth * ring.hop,
           16,
           graphWidth - nodeWidth - 16,
         ),
         y: clamp(
-          center.y + ring.radiusY * Math.sin(angle) - nodeHeight / 2,
+          center.y +
+            (index - (atHop.length - 1) / 2) * (nodeHeight + 28) -
+            nodeHeight / 2,
           16,
           graphHeight - nodeHeight - 16,
         ),
@@ -362,12 +402,6 @@ function buildReachabilityAdjacency(
     }
   }
   return adjacency;
-}
-
-function fanAngle(index: number, count: number): number {
-  if (count <= 1) return 0;
-  const limit = (56 * Math.PI) / 180;
-  return -limit + (index / (count - 1)) * limit * 2;
 }
 
 function polar(

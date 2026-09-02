@@ -6,7 +6,8 @@ const clockSkewSeconds = 30;
 const jwksCacheTtlMs = 5 * 60 * 1_000;
 const jwksFetchTimeoutMs = 3_000;
 
-type AuthenticationMode = "cloudflare_access" | "local" | "openai_sites";
+export type AuthenticationMode =
+  "anonymous_sandbox" | "cloudflare_access" | "local" | "openai_sites";
 
 export interface AccessBindings {
   WATCHFLOOR_AUTH_MODE?: AuthenticationMode | string;
@@ -21,10 +22,11 @@ export interface RequestPrincipal {
   issuer: string;
   audience: string;
   assurance:
+    | "anonymous_sandbox"
     | "cloudflare_access_verified"
     | "local_development"
     | "openai_sites_authenticated";
-  role: "analyst";
+  role: "analyst" | "sandbox_analyst";
 }
 
 export type AuthenticationResult =
@@ -75,6 +77,23 @@ export async function authenticateRequest(
   options: { fetcher?: Fetcher; nowSeconds?: number } = {},
 ): Promise<AuthenticationResult> {
   const mode = bindings.WATCHFLOOR_AUTH_MODE?.trim();
+
+  if (mode === "anonymous_sandbox") {
+    if (new URL(request.url).protocol !== "https:") {
+      return accessNotConfigured();
+    }
+    return {
+      ok: true,
+      principal: {
+        subject: "anonymous-browser",
+        email: "anonymous@watchfloor.invalid",
+        issuer: "watchfloor-public-sandbox",
+        audience: "watchfloor-public-sandbox",
+        assurance: "anonymous_sandbox",
+        role: "sandbox_analyst",
+      },
+    };
+  }
 
   if (mode === "local" && isLoopbackRequest(request)) {
     return {

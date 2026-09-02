@@ -933,6 +933,7 @@ export const cloudIdentityScenario = {
       {
         id: "DISCOVERY-CLOUD-01",
         ordinal: 1,
+        releaseAuthority: "agent",
         title: "Managed endpoint attributed to the session",
         summary:
           "Directory and session records identify NXS-LT-227 as Jordan Doe's assigned managed endpoint.",
@@ -1012,6 +1013,7 @@ export const cloudIdentityScenario = {
       {
         id: "DISCOVERY-CLOUD-02",
         ordinal: 2,
+        releaseAuthority: "agent",
         title: "Required export role identified",
         summary:
           "The policy snapshot identifies data-export-operator as the approved workflow role and confirms that prod-admin exceeded it.",

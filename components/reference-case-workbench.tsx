@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type {
   ReferenceCase,
   ReferenceEntity,
@@ -10,16 +16,19 @@ import type {
 } from "@/domain/reference-cases";
 import { getReferenceQueryExecution } from "@/domain/reference-evidence";
 import { formatUtcTime } from "@/lib/format";
+import {
+  registerCaseTools,
+  type ToolRegistrationOutcome,
+} from "@/webmcp/tools";
 import { PlatformShell, type AgentStatus } from "./platform-shell";
-
-type ReferenceToolName =
-  | "get_reference_case"
-  | "inspect_reference_entity"
-  | "inspect_reference_event"
-  | "inspect_reference_relationship"
-  | "focus_reference_entity"
-  | "run_reference_query"
-  | "run_reference_investigation_plan";
+import {
+  createReferenceToolDefinitions,
+  type ReferenceToolFailure,
+  type ReferenceToolName,
+  type ReferenceToolResult,
+  type ReferenceToolSuccess,
+} from "./reference-webmcp";
+import { useModalDialog } from "./use-modal-dialog";
 
 interface ReferenceReceipt {
   id: string;
@@ -58,6 +67,16 @@ export function ReferenceCaseWorkbench({
   });
   const [capabilitiesOpen, setCapabilitiesOpen] = useState(false);
   const [assessmentOpen, setAssessmentOpen] = useState(false);
+  const [registrationOutcomes, setRegistrationOutcomes] = useState<
+    ToolRegistrationOutcome[]
+  >([]);
+  const closeCapabilities = useCallback(() => setCapabilitiesOpen(false), []);
+  const closeAssessment = useCallback(() => setAssessmentOpen(false), []);
+  const capabilitiesDialogRef = useModalDialog(
+    capabilitiesOpen,
+    closeCapabilities,
+  );
+  const assessmentDialogRef = useModalDialog(assessmentOpen, closeAssessment);
 
   const recordReceipt = useCallback(
     (
@@ -84,18 +103,21 @@ export function ReferenceCaseWorkbench({
       input: Record<string, unknown>,
       actor: ReferenceReceipt["actor"],
       signal?: AbortSignal,
-    ): Promise<unknown> => {
+    ): Promise<ReferenceToolResult> => {
       if (signal?.aborted) throw abortError();
+      const validation = validateReferenceToolInput(toolName, input);
+      if (validation) return validation;
       if (toolName === "get_reference_case") {
         recordReceipt(actor, toolName, `Read ${dossier.id}`);
-        return {
+        return referenceSuccess({
           caseId: dossier.id,
           title: dossier.title,
           observedImpact: dossier.observedImpact,
           tier1: dossier.tier1,
           availableQueryIds: dossier.queries.map((query) => query.id),
           synthetic: true,
-        };
+          persistence: "session_local",
+        });
       }
       if (
         toolName === "inspect_reference_entity" ||
@@ -104,11 +126,16 @@ export function ReferenceCaseWorkbench({
         const entity = dossier.entities.find(
           (candidate) => candidate.id === input.entityId,
         );
-        if (!entity) throw new Error("entityId is not part of this dossier.");
+        if (!entity) {
+          return referenceFailure(
+            "INVALID_ENTITY_ID",
+            "entityId is not part of this evidence brief.",
+          );
+        }
         setSelectedEntityId(entity.id);
         setSelectedJoinId(null);
         recordReceipt(actor, toolName, `Focused ${entity.label}`);
-        return {
+        return referenceSuccess({
           entity,
           eventIds: dossier.events
             .filter((event) => event.entityIds.includes(entity.id))
@@ -120,38 +147,57 @@ export function ReferenceCaseWorkbench({
                 join.toEntityId === entity.id,
             )
             .map((join) => join.id),
-        };
+        });
       }
       if (toolName === "inspect_reference_event") {
         const event = dossier.events.find(
           (candidate) => candidate.id === input.eventId,
         );
-        if (!event) throw new Error("eventId is not part of this dossier.");
+        if (!event) {
+          return referenceFailure(
+            "INVALID_EVENT_ID",
+            "eventId is not part of this evidence brief.",
+          );
+        }
         const focus = event.entityIds.at(-1);
         if (focus) setSelectedEntityId(focus);
         setSelectedJoinId(null);
         recordReceipt(actor, toolName, `Inspected ${event.id}`);
-        return { event };
+        return referenceSuccess({ event });
       }
       if (toolName === "inspect_reference_relationship") {
         const relationship = dossier.joins.find(
           (candidate) => candidate.id === input.relationshipId,
         );
         if (!relationship) {
-          throw new Error("relationshipId is not part of this dossier.");
+          return referenceFailure(
+            "INVALID_RELATIONSHIP_ID",
+            "relationshipId is not part of this evidence brief.",
+          );
         }
         setSelectedJoinId(relationship.id);
         setSelectedEntityId(relationship.toEntityId);
         recordReceipt(actor, toolName, `Inspected ${relationship.label}`);
-        return { relationship };
+        return referenceSuccess({ relationship });
       }
       if (toolName === "run_reference_query") {
         const query = dossier.queries.find(
           (candidate) => candidate.id === input.queryId,
         );
-        if (!query) throw new Error("queryId is not part of this dossier.");
+        if (!query) {
+          return referenceFailure(
+            "INVALID_QUERY_ID",
+            "queryId is not part of this evidence brief.",
+          );
+        }
         const execution = getReferenceQueryExecution(query.id);
-        if (!execution) throw new Error("Query evidence is unavailable.");
+        if (!execution) {
+          return referenceFailure(
+            "EVIDENCE_UNAVAILABLE",
+            "The bounded query evidence is unavailable.",
+            true,
+          );
+        }
         setActivity({
           status: "running",
           actor,
@@ -175,7 +221,7 @@ export function ReferenceCaseWorkbench({
           toolName,
           `${query.title} · ${query.dominantMetric}`,
         );
-        return {
+        return referenceSuccess({
           queryId: query.id,
           language: execution.language,
           queryText: execution.text,
@@ -183,7 +229,8 @@ export function ReferenceCaseWorkbench({
           returnedRecords: execution.records,
           result: query.result,
           synthetic: true,
-        };
+          persistence: "session_local",
+        });
       }
       if (toolName === "run_reference_investigation_plan") {
         setActivity({
@@ -210,7 +257,7 @@ export function ReferenceCaseWorkbench({
           toolName,
           `${dossier.queries.length} results added from ${dossier.sources.length} evidence systems`,
         );
-        return {
+        return referenceSuccess({
           queryResults: dossier.queries,
           aggregate: {
             evidenceAttached: dossier.queries.length,
@@ -220,9 +267,13 @@ export function ReferenceCaseWorkbench({
             ),
           },
           synthetic: true,
-        };
+          persistence: "session_local",
+        });
       }
-      throw new Error("Reference tool is not implemented.");
+      return referenceFailure(
+        "TOOL_NOT_IMPLEMENTED",
+        "This reference operation is not implemented.",
+      );
     },
     [dossier, recordReceipt],
   );
@@ -236,26 +287,25 @@ export function ReferenceCaseWorkbench({
     let active = true;
     const controller = new AbortController();
     async function register() {
-      if (!document.modelContext?.registerTool) {
-        if (active) setAgentStatus({ state: "unavailable", count: 0 });
-        return;
-      }
-      let registered = 0;
-      for (const definition of definitions) {
-        try {
-          await document.modelContext.registerTool(definition, {
-            signal: controller.signal,
-          });
-          registered += 1;
-        } catch {
-          if (controller.signal.aborted) break;
-        }
-      }
+      const result = await registerCaseTools(
+        definitions,
+        controller,
+        document.modelContext,
+      );
       if (!active) return;
-      setAgentStatus({
-        state: registered === definitions.length ? "available" : "partial",
-        count: registered,
-      });
+      if (!result.supported) {
+        setAgentStatus({ state: "unavailable", count: 0 });
+      } else {
+        setAgentStatus({
+          state:
+            result.readiness.ready && result.registered === definitions.length
+              ? "available"
+              : "partial",
+          count: result.registered,
+          total: definitions.length,
+        });
+      }
+      setRegistrationOutcomes(result.outcomes);
     }
     void register();
     return () => {
@@ -296,6 +346,7 @@ export function ReferenceCaseWorkbench({
             <span className="severity severity-high">High</span>
             <span>Tier 1 evidence brief</span>
             <strong>{dossier.title}</strong>
+            <h1 className="visually-hidden">{dossier.title}</h1>
           </div>
           <p>{dossier.observedImpact}</p>
           <small>
@@ -303,13 +354,21 @@ export function ReferenceCaseWorkbench({
           </small>
         </header>
 
-        <section className="reference-workbench">
+        <section
+          aria-labelledby="reference-evidence-path-title"
+          className="reference-workbench"
+        >
           <header className="reference-map-toolbar">
             <div>
               <span>Evidence path</span>
-              <strong>{dossier.primaryQuestion}</strong>
+              <strong id="reference-evidence-path-title">
+                {dossier.primaryQuestion}
+              </strong>
             </div>
             <div
+              aria-atomic="true"
+              aria-live="polite"
+              role="status"
               className={`reference-agent-now reference-agent-${activity.status}`}
             >
               <span>
@@ -367,10 +426,10 @@ export function ReferenceCaseWorkbench({
 
           <section
             className="reference-query-field"
-            aria-label="Query insights"
+            aria-labelledby="reference-query-insights-title"
           >
             <header>
-              <span>Query insights</span>
+              <span id="reference-query-insights-title">Query insights</span>
               <strong>
                 {attachedQueryIds.length} finding
                 {attachedQueryIds.length === 1 ? "" : "s"} attached
@@ -463,23 +522,27 @@ export function ReferenceCaseWorkbench({
         </section>
 
         <footer className="reference-boundary">
-          Evidence brief · bounded case snapshot · no response workflow or
-          external control
+          Session-local evidence brief · bounded case snapshot · results reset
+          when this page is reopened · no shared response workflow or external
+          control
         </footer>
       </div>
 
       {capabilitiesOpen ? (
         <ReferenceCapabilityDrawer
+          dialogRef={capabilitiesDialogRef}
           definitions={definitions}
           dossier={dossier}
-          onClose={() => setCapabilitiesOpen(false)}
+          onClose={closeCapabilities}
+          outcomes={registrationOutcomes}
           receipts={receipts}
         />
       ) : null}
       {assessmentOpen ? (
         <ReferenceAssessment
+          dialogRef={assessmentDialogRef}
           dossier={dossier}
-          onClose={() => setAssessmentOpen(false)}
+          onClose={closeAssessment}
         />
       ) : null}
     </PlatformShell>
@@ -726,24 +789,32 @@ function ReferenceQueryEvidence({
 function ReferenceCapabilityDrawer({
   dossier,
   definitions,
+  dialogRef,
+  outcomes,
   receipts,
   onClose,
 }: {
   dossier: ReferenceCase;
   definitions: WebMcpToolDefinition[];
+  dialogRef: RefObject<HTMLElement | null>;
+  outcomes: readonly ToolRegistrationOutcome[];
   receipts: readonly ReferenceReceipt[];
   onClose: () => void;
 }) {
   return (
     <div className="drawer-backdrop" onMouseDown={onClose}>
       <aside
+        aria-labelledby="reference-capability-title"
+        aria-modal="true"
         className="agent-drawer reference-capability-drawer"
         onMouseDown={(event) => event.stopPropagation()}
+        ref={dialogRef}
+        role="dialog"
       >
         <header className="drawer-header">
           <div>
             <p className="eyebrow">Evidence brief tools</p>
-            <h2>TRACE tool surface</h2>
+            <h2 id="reference-capability-title">TRACE tool surface</h2>
           </div>
           <button
             aria-label="Close capabilities"
@@ -777,17 +848,25 @@ function ReferenceCapabilityDrawer({
           </article>
         </div>
         <div className="reference-tool-list">
-          {definitions.map((definition) => (
-            <article key={definition.name}>
-              <span>Registered</span>
-              <strong>{definition.title}</strong>
-              <code>{definition.name}</code>
-              <small>{definition.description}</small>
-            </article>
-          ))}
+          {definitions.map((definition) => {
+            const outcome = outcomes.find(
+              (candidate) => candidate.name === definition.name,
+            );
+            return (
+              <article key={definition.name}>
+                <span>{outcome?.status ?? "checking"}</span>
+                <strong>{definition.title}</strong>
+                <code>{definition.name}</code>
+                <small>{definition.description}</small>
+                {outcome?.error ? (
+                  <small className="capability-error">{outcome.error}</small>
+                ) : null}
+              </article>
+            );
+          })}
         </div>
         <footer>
-          {receipts.length} shared operations · 0 external controls
+          {receipts.length} session-local operations · 0 external controls
         </footer>
       </aside>
     </div>
@@ -796,16 +875,22 @@ function ReferenceCapabilityDrawer({
 
 function ReferenceAssessment({
   dossier,
+  dialogRef,
   onClose,
 }: {
   dossier: ReferenceCase;
+  dialogRef: RefObject<HTMLElement | null>;
   onClose: () => void;
 }) {
   return (
     <div className="drawer-backdrop" onMouseDown={onClose}>
       <aside
+        aria-labelledby="reference-assessment-title"
+        aria-modal="true"
         className="reference-assessment"
         onMouseDown={(event) => event.stopPropagation()}
+        ref={dialogRef}
+        role="dialog"
       >
         <header>
           <span>Evidence assessment</span>
@@ -813,7 +898,9 @@ function ReferenceAssessment({
             ×
           </button>
         </header>
-        <h2>{dossier.assessment.disposition}</h2>
+        <h2 id="reference-assessment-title">
+          {dossier.assessment.disposition}
+        </h2>
         <p>{dossier.assessment.conclusion}</p>
         <section>
           <span>Confirmed</span>
@@ -849,14 +936,14 @@ function ReferenceAssessment({
   );
 }
 
-function createReferenceToolDefinitions(
+export function legacyCreateReferenceToolDefinitions(
   dossier: ReferenceCase,
   execute: (
     toolName: ReferenceToolName,
     input: Record<string, unknown>,
     actor: "agent",
     signal?: AbortSignal,
-  ) => Promise<unknown>,
+  ) => Promise<ReferenceToolResult>,
 ): WebMcpToolDefinition[] {
   const create = (
     name: ReferenceToolName,
@@ -875,9 +962,12 @@ function createReferenceToolDefinitions(
       required,
       additionalProperties: false,
     },
-    annotations: { readOnlyHint: readOnly, untrustedContentHint: false },
-    execute: async (input, context) =>
-      execute(name, input, "agent", context?.signal),
+    annotations: { readOnlyHint: readOnly, untrustedContentHint: true },
+    execute: async (input, context) => {
+      const validation = validateReferenceToolInput(name, input);
+      if (validation) return validation;
+      return execute(name, input, "agent", context?.signal);
+    },
   });
   return [
     create(
@@ -962,6 +1052,49 @@ function createReferenceToolDefinitions(
       false,
     ),
   ];
+}
+
+function referenceSuccess(data: Record<string, unknown>): ReferenceToolSuccess {
+  return { ok: true, data };
+}
+
+function referenceFailure(
+  code: string,
+  message: string,
+  retryable = false,
+): ReferenceToolFailure {
+  return { ok: false, error: { code, message, retryable } };
+}
+
+function validateReferenceToolInput(
+  toolName: ReferenceToolName,
+  input: Record<string, unknown>,
+): ReferenceToolFailure | null {
+  const expectedField =
+    toolName === "inspect_reference_entity" ||
+    toolName === "focus_reference_entity"
+      ? "entityId"
+      : toolName === "inspect_reference_event"
+        ? "eventId"
+        : toolName === "inspect_reference_relationship"
+          ? "relationshipId"
+          : toolName === "run_reference_query"
+            ? "queryId"
+            : null;
+  const fields = Object.keys(input);
+  if (
+    (expectedField === null && fields.length > 0) ||
+    (expectedField !== null &&
+      (fields.length !== 1 || typeof input[expectedField] !== "string"))
+  ) {
+    return referenceFailure(
+      "INVALID_INPUT",
+      expectedField
+        ? `${toolName} requires exactly one string field: ${expectedField}.`
+        : `${toolName} does not accept input fields.`,
+    );
+  }
+  return null;
 }
 
 function referencePath(from: ReferenceEntity, to: ReferenceEntity): string {

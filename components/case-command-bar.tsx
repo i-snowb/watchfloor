@@ -40,6 +40,7 @@ interface CaseCommandBarProps {
   showInvestigationControls: boolean;
   investigationActivity: InvestigationActivity;
   onOpenReportReview: () => void;
+  onReviewCompletedResult: () => void;
 }
 
 type CommandOwner = "agent" | "analyst" | "evidence" | "complete";
@@ -56,9 +57,26 @@ export function CaseCommandBar({
   showInvestigationControls,
   investigationActivity,
   onOpenReportReview,
+  onReviewCompletedResult,
 }: CaseCommandBarProps) {
   const nextStep = getDerivedNextStep(fixture, state);
   const nextAgentAction = getNextAgentAction(fixture, state);
+  const pendingObservation =
+    state.observationRequest?.status === "pending"
+      ? state.observationRequest
+      : null;
+  const pendingObservationStage = pendingObservation
+    ? (fixture.stream.stages.find(
+        (stage) => stage.id === pendingObservation.stageId,
+      ) ?? null)
+    : null;
+  const pendingObservationTargets = pendingObservation
+    ? pendingObservation.targetEntityIds.map(
+        (entityId) =>
+          getAllEntities(fixture).find((entity) => entity.id === entityId)
+            ?.label ?? entityId,
+      )
+    : [];
   const releasedStageCount = state.releasedStreamStageIds.length;
   const nextStage = fixture.stream.stages[releasedStageCount] ?? null;
   const streamScope =
@@ -106,8 +124,28 @@ export function CaseCommandBar({
   const pendingQueries = availableQueries.filter(
     (query) => !state.attachedEnrichmentIds.includes(query.resultArtifactId),
   );
+  const deeperForensics = fixture.decision.deeperForensics;
+  const evidenceHold =
+    deeperForensics !== undefined &&
+    state.decision.status === deeperForensics.holdDecision;
+  const deeperForensicsQueries = deeperForensics
+    ? deeperForensics.queryIds
+        .map((queryId) =>
+          fixture.investigationQueries.find((query) => query.id === queryId),
+        )
+        .filter(
+          (query): query is CaseFixture["investigationQueries"][number] =>
+            query !== undefined,
+        )
+    : [];
+  const pendingDeeperForensicsQueries = deeperForensicsQueries.filter(
+    (query) => !state.attachedEnrichmentIds.includes(query.resultArtifactId),
+  );
+  const deeperForensicsComplete =
+    evidenceHold && pendingDeeperForensicsQueries.length === 0;
   const investigationOpen =
-    state.decision.status === "pending" && !decisionReady;
+    (state.decision.status === "pending" && !decisionReady) ||
+    (evidenceHold && !deeperForensicsComplete);
   const [preferredQueryId, setPreferredQueryId] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [reviewedResultKey, setReviewedResultKey] = useState<string | null>(
@@ -181,11 +219,16 @@ export function CaseCommandBar({
             null)
         : null;
   const queryCandidates =
-    resultReviewPending && activityQuery ? [activityQuery] : pendingQueries;
+    resultReviewPending && activityQuery
+      ? [activityQuery]
+      : evidenceHold
+        ? deeperForensicsQueries
+        : pendingQueries;
   const commandOwner = getCommandOwner(
     state,
     decisionReady,
     activeActionState,
+    pendingObservationStage,
     nextStage,
     nextStep.recommendedTool,
     alternateDisposition,
@@ -248,28 +291,53 @@ export function CaseCommandBar({
   }
 
   if (dismissed) {
+    const restoreTitle = commandTitle(
+      fixture,
+      state,
+      nextStep.objective,
+      nextStep.recommendedTool,
+      activeAction,
+      pendingObservationStage,
+    );
     return (
       <button
+        aria-label={`Show current operation controls: ${restoreTitle}`}
         className="case-command-restore"
         onClick={() => setDismissed(false)}
         type="button"
       >
         <span>{commandSequenceLabel(fixture, state)}</span>
-        <strong>
-          {commandTitle(
-            fixture,
-            state,
-            nextStep.objective,
-            nextStep.recommendedTool,
-            activeAction,
-          )}
-        </strong>
-        <em>Open</em>
+        <strong>{restoreTitle}</strong>
+        <em>Show controls</em>
       </button>
     );
   }
 
-  if (nextQuery) {
+  const needsForensicsSelection =
+    evidenceHold &&
+    !deeperForensicsComplete &&
+    state.preparedQuery === null &&
+    preferredQuery === null &&
+    investigationActivity.status === "idle";
+
+  if (!pendingObservationStage && needsForensicsSelection) {
+    return (
+      <DeeperForensicsBranch
+        busy={busy}
+        candidateActions={nextAgentAction?.candidateActions ?? []}
+        completedQueries={
+          deeperForensicsQueries.length - pendingDeeperForensicsQueries.length
+        }
+        onChoose={(query) => {
+          setPreferredQueryId(query.id);
+        }}
+        pendingQueries={pendingDeeperForensicsQueries}
+        totalQueries={deeperForensicsQueries.length}
+      />
+    );
+  }
+
+  if (!pendingObservationStage && nextQuery) {
     const nextResultAction = resultReviewPending
       ? getResultContinuation(nextAgentAction)
       : null;
@@ -293,6 +361,8 @@ export function CaseCommandBar({
                   );
                 }
                 setReviewedResultKey(completedResultKey);
+                setDismissed(false);
+                onReviewCompletedResult();
                 return Promise.resolve();
               },
             }
@@ -300,6 +370,7 @@ export function CaseCommandBar({
         onPrepare={(input) => onExecute("prepare_investigation_query", input)}
         onExecute={(input) => onExecute("run_investigation_query", input)}
         onSelect={onSelect}
+        openInitially={evidenceHold}
         query={nextQuery}
         state={state}
       />
@@ -318,26 +389,41 @@ export function CaseCommandBar({
         </div>
         <div className="case-command-copy">
           <h2 id="case-command-heading">
-            {commandTitle(
-              fixture,
-              state,
-              nextStep.objective,
-              nextStep.recommendedTool,
-              activeAction,
-            )}
+            {pendingObservationStage
+              ? `Release requested telemetry: ${pendingObservationStage.title}`
+              : deeperForensicsComplete
+                ? "Do the deeper-forensics records support a final containment decision?"
+                : commandTitle(
+                    fixture,
+                    state,
+                    nextStep.objective,
+                    nextStep.recommendedTool,
+                    activeAction,
+                    pendingObservationStage,
+                  )}
           </h2>
-          <p>
-            {commandDetail(
-              fixture,
-              state,
-              agentStatus,
-              requiredContextCount,
-              activeAction,
-              nextStage,
-              commandOwner,
-              nextStep.recommendedTool,
-            )}
-          </p>
+          {pendingObservationStage && pendingObservation ? (
+            <TelemetryReleaseDetail
+              rationale={pendingObservation.rationale}
+              stageTitle={pendingObservationStage.title}
+              targetLabels={pendingObservationTargets}
+            />
+          ) : (
+            <p>
+              {deeperForensicsComplete
+                ? "All analyst-requested records are attached. Record a final disposition; the evidence-hold decision is no longer available."
+                : commandDetail(
+                    fixture,
+                    state,
+                    agentStatus,
+                    requiredContextCount,
+                    activeAction,
+                    nextStage,
+                    commandOwner,
+                    nextStep.recommendedTool,
+                  )}
+            </p>
+          )}
         </div>
         <div className="case-command-control">
           <CommandControls
@@ -348,6 +434,7 @@ export function CaseCommandBar({
             fixture={fixture}
             nextStage={nextStage}
             nextAgentAction={nextAgentAction}
+            pendingObservationStage={pendingObservationStage}
             nextTool={nextStep.recommendedTool}
             onExecute={onExecute}
             onReset={onReset}
@@ -355,6 +442,7 @@ export function CaseCommandBar({
             selection={selection}
             state={state}
             targetEntityId={nextStep.targetEntityId}
+            reDecisionAllowed={deeperForensicsComplete}
           />
         </div>
         <button
@@ -395,6 +483,103 @@ export function CaseCommandBar({
   );
 }
 
+function TelemetryReleaseDetail({
+  rationale,
+  stageTitle,
+  targetLabels,
+}: {
+  rationale: string;
+  stageTitle: string;
+  targetLabels: string[];
+}) {
+  return (
+    <div className="case-command-telemetry-details">
+      <p>{rationale}</p>
+      <dl>
+        <div>
+          <dt>Requested stage</dt>
+          <dd>{stageTitle}</dd>
+        </div>
+        <div>
+          <dt>Target entities</dt>
+          <dd>{targetLabels.join(" · ") || "No entity targets recorded"}</dd>
+        </div>
+      </dl>
+      <small>
+        Analyst release records synthetic telemetry only. No external system is
+        contacted.
+      </small>
+    </div>
+  );
+}
+
+function DeeperForensicsBranch({
+  busy,
+  candidateActions,
+  completedQueries,
+  onChoose,
+  pendingQueries,
+  totalQueries,
+}: {
+  busy: boolean;
+  candidateActions: NonNullable<NextAgentAction["candidateActions"]>;
+  completedQueries: number;
+  onChoose: (query: CaseFixture["investigationQueries"][number]) => void;
+  pendingQueries: readonly CaseFixture["investigationQueries"][number][];
+  totalQueries: number;
+}) {
+  return (
+    <section
+      aria-labelledby="deeper-forensics-heading"
+      className="case-command-bar command-owner-evidence deeper-forensics-branch"
+    >
+      <div className="case-command-next">
+        <div className="case-command-label">
+          <span>Evidence held</span>
+          <small>
+            {completedQueries}/{totalQueries} bounded pivots attached
+          </small>
+        </div>
+        <div className="case-command-copy">
+          <h2 id="deeper-forensics-heading">
+            Choose the next deeper-forensics skill
+          </h2>
+          <p>
+            The analyst paused disposition pending additional case-scoped
+            evidence. Each option exposes its exact approved KQL before it can
+            run.
+          </p>
+        </div>
+      </div>
+      <div className="deeper-forensics-options" role="list">
+        {pendingQueries.map((query) => {
+          const candidate = candidateActions.find(
+            (action) => action.input.queryId === query.id,
+          );
+          return (
+            <article key={query.id} role="listitem">
+              <span>Approved pivot</span>
+              <h3>{candidate?.question ?? query.question}</h3>
+              <p>{candidate?.selectionRationale ?? query.objective}</p>
+              <button
+                disabled={busy}
+                onClick={() => onChoose(query)}
+                type="button"
+              >
+                Review approved query
+              </button>
+            </article>
+          );
+        })}
+      </div>
+      <p className="deeper-forensics-boundary">
+        Manual continuation is allowed only through these listed skills. The
+        final evidence gate reopens after all requested records attach.
+      </p>
+    </section>
+  );
+}
+
 function CommandControls({
   fixture,
   state,
@@ -404,11 +589,13 @@ function CommandControls({
   targetEntityId,
   nextStage,
   nextAgentAction,
+  pendingObservationStage,
   activeAction,
   activeActionState,
   onExecute,
   onReset,
   onSelect,
+  reDecisionAllowed,
   selection,
 }: {
   fixture: CaseFixture;
@@ -419,11 +606,13 @@ function CommandControls({
   targetEntityId: string | null;
   nextStage: CaseFixture["stream"]["stages"][number] | null;
   nextAgentAction: NextAgentAction | null;
+  pendingObservationStage: CaseFixture["stream"]["stages"][number] | null;
   activeAction: ResponseActionDefinition | null;
   activeActionState: ResponseActionState | undefined;
   onExecute: CaseCommandBarProps["onExecute"];
   onReset: () => void;
   onSelect: (selection: TraceSelection) => void;
+  reDecisionAllowed: boolean;
   selection: TraceSelection;
 }) {
   if (state.lifecycle === "closed_in_demo") {
@@ -443,9 +632,27 @@ function CommandControls({
     );
   }
 
+  if (pendingObservationStage) {
+    return (
+      <button
+        className="case-command-primary"
+        disabled={busy}
+        onClick={() =>
+          void onExecute("release_next_synthetic_signal", {
+            expectedRevision: state.revision,
+          })
+        }
+        type="button"
+      >
+        Release requested telemetry
+      </button>
+    );
+  }
+
   if (
     state.decision.status !== "pending" &&
-    state.decision.status !== fixture.conclusion.requiredDecision
+    state.decision.status !== fixture.conclusion.requiredDecision &&
+    !reDecisionAllowed
   ) {
     return (
       <button
@@ -510,30 +717,39 @@ function CommandControls({
     );
   }
 
-  if (state.decision.status === "pending" && decisionReady) {
+  if (
+    (state.decision.status === "pending" || reDecisionAllowed) &&
+    decisionReady
+  ) {
     return (
       <div className="case-command-decision-actions">
-        {fixture.decision.options.map((option) => (
-          <button
-            className={
-              option.id === fixture.conclusion.requiredDecision
-                ? "case-command-primary"
-                : "case-command-secondary"
-            }
-            disabled={busy}
-            key={option.id}
-            onClick={() =>
-              void onExecute("record_evidence_decision", {
-                expectedRevision: state.revision,
-                decision: option.id,
-                rationale: option.rationale,
-              })
-            }
-            type="button"
-          >
-            {option.label}
-          </button>
-        ))}
+        {fixture.decision.options
+          .filter(
+            (option) =>
+              !reDecisionAllowed ||
+              option.id !== fixture.decision.deeperForensics?.holdDecision,
+          )
+          .map((option) => (
+            <button
+              className={
+                option.id === fixture.conclusion.requiredDecision
+                  ? "case-command-primary"
+                  : "case-command-secondary"
+              }
+              disabled={busy}
+              key={option.id}
+              onClick={() =>
+                void onExecute("record_evidence_decision", {
+                  expectedRevision: state.revision,
+                  decision: option.id,
+                  rationale: option.rationale,
+                })
+              }
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
       </div>
     );
   }
@@ -639,10 +855,10 @@ function CommandControls({
     if (nextTool === "request_next_observation" && nextStage) {
       return (
         <div className="case-command-agent-handoff">
-          <span>Evidence required</span>
+          <span>TRACE action ready</span>
           <strong>{nextStage.title}</strong>
           <small>
-            Run the outstanding approved skill to verify this scope.
+            Request analyst-controlled release of the next bounded telemetry.
           </small>
         </div>
       );
@@ -779,18 +995,24 @@ function readActionQueryId(action: NextAgentAction | null): string | null {
   return typeof action.input.queryId === "string" ? action.input.queryId : null;
 }
 
-function getResultContinuation(action: NextAgentAction | null): {
+export function getResultContinuation(action: NextAgentAction | null): {
   label: string;
   owner: string;
+  kind: "execute" | "analyst_gate" | "next_operation";
   execute?: NextAgentAction;
 } {
   if (!action) {
-    return { label: "Review analyst decision", owner: "Analyst decision" };
+    return {
+      label: "Review analyst decision",
+      owner: "Analyst decision",
+      kind: "analyst_gate",
+    };
   }
   if (action.toolName === "attach_discovery_stage") {
     return {
       label: "Add to case graph",
       owner: "Analyst control",
+      kind: "execute",
       execute: action,
     };
   }
@@ -798,9 +1020,17 @@ function getResultContinuation(action: NextAgentAction | null): {
     action.toolName === "prepare_investigation_query" ||
     action.toolName === "run_investigation_query"
   ) {
-    return { label: "Open next approved skill", owner: "Next operation" };
+    return {
+      label: "Open next approved skill",
+      owner: "Next operation",
+      kind: "next_operation",
+    };
   }
-  return { label: "Review next operation", owner: "Next operation" };
+  return {
+    label: "Review next operation",
+    owner: "Next operation",
+    kind: "next_operation",
+  };
 }
 
 function ResponsePlan({
@@ -851,11 +1081,13 @@ function getCommandOwner(
   state: CaseState,
   decisionReady: boolean,
   activeActionState: ResponseActionState | undefined,
+  pendingObservationStage: CaseFixture["stream"]["stages"][number] | null,
   nextStage: CaseFixture["stream"]["stages"][number] | null,
   nextTool: CaseToolName | null,
   alternateDisposition: boolean,
 ): CommandOwner {
   if (state.lifecycle === "closed_in_demo") return "complete";
+  if (pendingObservationStage) return "analyst";
   if (alternateDisposition) return "analyst";
   if (state.report.status === "drafted") return "analyst";
   if (activeActionState?.status === "simulated") return "analyst";
@@ -871,6 +1103,7 @@ function commandTitle(
   derivedObjective: string,
   recommendedTool: CaseToolName | null,
   activeAction: ResponseActionDefinition | null,
+  pendingObservationStage: CaseFixture["stream"]["stages"][number] | null,
 ): string {
   if (state.lifecycle === "closed_in_demo") return "Case closed";
   if (
@@ -883,6 +1116,9 @@ function commandTitle(
     return `Review required: ${disposition?.label ?? state.decision.status}`;
   }
   if (state.report.status === "drafted") return "Review the evidence report";
+  if (pendingObservationStage) {
+    return `Release requested telemetry: ${pendingObservationStage.title}`;
+  }
   if (state.responseBundle) {
     return `Authorize ${state.responseBundle.bundleId} package`;
   }
@@ -924,8 +1160,8 @@ function commandTitle(
   }
   if (recommendedTool === "request_next_observation") {
     return nextStage
-      ? `Discovery available: ${nextStage.title}.`
-      : "Verified discoveries are available when supporting evidence is attached.";
+      ? `Request telemetry release: ${nextStage.title}.`
+      : "The next bounded telemetry release requires analyst control.";
   }
   if (recommendedTool === "prepare_response_bundle") {
     return derivedObjective;

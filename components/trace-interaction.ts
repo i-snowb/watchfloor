@@ -9,9 +9,11 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
+  blocksTraceCameraBand,
   clampTraceCamera,
   fitTraceCamera,
   fitTraceCameraToBounds,
+  TRACE_ACTIVE_EVIDENCE_FIT_SCALE,
   zoomTraceCameraAt,
   type TraceCamera,
   type TraceBounds,
@@ -25,6 +27,15 @@ export type TraceSelection =
   | { kind: "join"; id: string }
   | { kind: "entity"; id: string }
   | { kind: "model"; id: string };
+
+export type EvidenceProvenanceTargetType =
+  "entity" | "join" | "event" | "report_finding";
+
+export interface EvidenceProvenanceRequest {
+  requestId: number;
+  targetId: string;
+  targetType: EvidenceProvenanceTargetType;
+}
 
 export function selectionContainsEntity(
   fixture: CaseFixture,
@@ -98,6 +109,8 @@ export function useTraceCamera(
     world: TraceSize;
   } | null>(null);
   const previousViewportRef = useRef<TraceSize | null>(null);
+  const overlayActiveRef = useRef(false);
+  const overlayGeometryRef = useRef<string | null>(null);
   const initializedRef = useRef(false);
   const worldRevisionRef = useRef(worldRevision);
   const selectionWorldRevisionRef = useRef(worldRevision);
@@ -198,17 +211,13 @@ export function useTraceCamera(
     cancelInertia();
     const sizes = sizesRef.current ?? measureSizes();
     if (!sizes) return;
-    const activeBounds = measureActiveTraceBounds(planeRef.current);
     transitionCamera(
-      activeBounds
-        ? fitTraceCameraToBounds(
-            sizes.viewport,
-            sizes.world,
-            activeBounds,
-            undefined,
-            minimumReadableScale,
-          )
-        : fitTraceCamera(sizes.viewport, sizes.world),
+      fitTraceCameraForVisibleMap(
+        viewportRef.current,
+        planeRef.current,
+        sizes,
+        minimumReadableScale,
+      ),
     );
   }, [cancelInertia, measureSizes, minimumReadableScale, transitionCamera]);
 
@@ -531,32 +540,27 @@ export function useTraceCamera(
       wheelGeometryRef.current = null;
       const worldChanged = worldRevisionRef.current !== worldRevision;
       worldRevisionRef.current = worldRevision;
+      const overlayActive = Boolean(queryConsoleOverlayReservation(viewport));
+      const overlayChanged = overlayActive !== overlayActiveRef.current;
+      overlayActiveRef.current = overlayActive;
       if (!initializedRef.current) {
         initializedRef.current = true;
-        const activeBounds = measureActiveTraceBounds(plane);
         commitCamera(
-          activeBounds
-            ? fitTraceCameraToBounds(
-                sizes.viewport,
-                sizes.world,
-                activeBounds,
-                undefined,
-                minimumReadableScale,
-              )
-            : fitTraceCamera(sizes.viewport, sizes.world),
+          fitTraceCameraForVisibleMap(
+            viewport,
+            plane,
+            sizes,
+            minimumReadableScale,
+          ),
         );
-      } else if (worldChanged || viewportChanged) {
-        const activeBounds = measureActiveTraceBounds(plane);
+      } else if (worldChanged || viewportChanged || overlayChanged) {
         transitionCamera(
-          activeBounds
-            ? fitTraceCameraToBounds(
-                sizes.viewport,
-                sizes.world,
-                activeBounds,
-                undefined,
-                minimumReadableScale,
-              )
-            : fitTraceCamera(sizes.viewport, sizes.world),
+          fitTraceCameraForVisibleMap(
+            viewport,
+            plane,
+            sizes,
+            minimumReadableScale,
+          ),
         );
       } else {
         commitCamera(
@@ -574,6 +578,82 @@ export function useTraceCamera(
     };
   }, [
     commitCamera,
+    measureSizes,
+    minimumReadableScale,
+    transitionCamera,
+    worldRevision,
+  ]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    const stage = viewport?.closest<HTMLElement>(".evidence-stage-frame");
+    const dock = stage?.querySelector<HTMLElement>(".map-command-dock");
+    if (!viewport || !stage || !dock) return;
+    overlayGeometryRef.current = null;
+    let frame: number | null = null;
+    let settleTimer: number | null = null;
+    const reframeForOverlay = (force = false) => {
+      if (!initializedRef.current) return;
+      const geometry = queryConsoleOverlayGeometry(viewport);
+      if (!force && geometry === overlayGeometryRef.current) return;
+      overlayGeometryRef.current = geometry;
+      overlayActiveRef.current = geometry !== "closed";
+      const sizes = sizesRef.current ?? measureSizes();
+      if (!sizes) return;
+      cancelInertia();
+      transitionCamera(
+        fitTraceCameraForVisibleMap(
+          viewport,
+          planeRef.current,
+          sizes,
+          minimumReadableScale,
+        ),
+      );
+    };
+    const scheduleReframe = (force = false) => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = window.requestAnimationFrame(() => {
+          frame = null;
+          reframeForOverlay(force);
+        });
+      });
+    };
+    const observer = new MutationObserver(() => {
+      scheduleReframe();
+    });
+    observer.observe(stage, {
+      attributes: true,
+      attributeFilter: ["open"],
+      subtree: true,
+    });
+    const resizeObserver = new ResizeObserver(() => {
+      scheduleReframe();
+    });
+    resizeObserver.observe(dock);
+    const handleToggle = (event: Event) => {
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.matches(".query-console")
+      ) {
+        scheduleReframe(true);
+      }
+    };
+    stage.addEventListener("toggle", handleToggle, true);
+    scheduleReframe(true);
+    settleTimer = window.setTimeout(() => {
+      settleTimer = null;
+      reframeForOverlay(true);
+    }, 180);
+    return () => {
+      observer.disconnect();
+      resizeObserver.disconnect();
+      stage.removeEventListener("toggle", handleToggle, true);
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      if (settleTimer !== null) window.clearTimeout(settleTimer);
+    };
+  }, [
+    cancelInertia,
     measureSizes,
     minimumReadableScale,
     transitionCamera,
@@ -625,10 +705,28 @@ export function useTraceCamera(
       const targetBounds = target.getBoundingClientRect();
       const horizontalMargin = Math.min(48, viewportBounds.width * 0.08);
       const verticalMargin = Math.min(36, viewportBounds.height * 0.08);
-      const safeLeft = viewportBounds.left + horizontalMargin;
-      const safeRight = viewportBounds.right - horizontalMargin;
+      let safeLeft = viewportBounds.left + horizontalMargin;
+      let safeRight = viewportBounds.right - horizontalMargin;
       const safeTop = viewportBounds.top + verticalMargin;
       const safeBottom = viewportBounds.bottom - verticalMargin;
+      const overlayBounds = queryConsoleOverlayReservation(viewport);
+      if (
+        overlayBounds &&
+        targetBounds.bottom > overlayBounds.top &&
+        targetBounds.top < overlayBounds.bottom
+      ) {
+        if (
+          overlayBounds.left >=
+          viewportBounds.left + viewportBounds.width / 2
+        ) {
+          safeRight = Math.min(
+            safeRight,
+            overlayBounds.left - horizontalMargin,
+          );
+        } else {
+          safeLeft = Math.max(safeLeft, overlayBounds.right + horizontalMargin);
+        }
+      }
       const deltaX =
         targetBounds.left < safeLeft
           ? safeLeft - targetBounds.left
@@ -720,6 +818,102 @@ function measureActiveTraceBounds(
     width: Math.max(1, maxX - minX),
     height: Math.max(1, maxY - minY),
   };
+}
+
+function queryConsoleOverlay(viewport: HTMLElement | null): DOMRect | null {
+  const stage = viewport?.closest<HTMLElement>(".evidence-stage-frame");
+  const query = stage?.querySelector<HTMLElement>(".query-console[open]");
+  const overlay = query?.closest<HTMLElement>(".map-command-dock");
+  if (!viewport || !overlay) return null;
+  const bounds = overlay.getBoundingClientRect();
+  const viewportBounds = viewport.getBoundingClientRect();
+  const overlapsViewport =
+    bounds.width > 0 &&
+    bounds.height > 0 &&
+    bounds.right > viewportBounds.left &&
+    bounds.left < viewportBounds.right &&
+    bounds.bottom > viewportBounds.top &&
+    bounds.top < viewportBounds.bottom;
+
+  return overlapsViewport ? bounds : null;
+}
+
+function queryConsoleOverlayGeometry(viewport: HTMLElement | null): string {
+  const bounds = queryConsoleOverlayReservation(viewport);
+  if (!bounds) return "closed";
+  return [bounds.left, bounds.top, bounds.width, bounds.height]
+    .map((value) => Math.round(value))
+    .join(":");
+}
+
+function queryConsoleOverlayReservation(
+  viewport: HTMLElement | null,
+): DOMRect | null {
+  const overlay = queryConsoleOverlay(viewport);
+  if (!overlay || !viewport) return null;
+  const viewportBounds = viewport.getBoundingClientRect();
+  return blocksTraceCameraBand(
+    { width: viewportBounds.width, height: viewportBounds.height },
+    {
+      x: overlay.left - viewportBounds.left,
+      y: overlay.top - viewportBounds.top,
+      width: overlay.width,
+      height: overlay.height,
+    },
+  )
+    ? overlay
+    : null;
+}
+
+function fitTraceCameraForVisibleMap(
+  viewport: HTMLElement | null,
+  plane: HTMLElement | null,
+  sizes: { viewport: TraceSize; world: TraceSize },
+  minimumReadableScale: number,
+): TraceCamera {
+  const activeBounds = measureActiveTraceBounds(plane);
+  const overlay = queryConsoleOverlayReservation(viewport);
+  if (!overlay || !viewport) {
+    return activeBounds
+      ? fitTraceCameraToBounds(
+          sizes.viewport,
+          sizes.world,
+          activeBounds,
+          undefined,
+          minimumReadableScale,
+          true,
+          TRACE_ACTIVE_EVIDENCE_FIT_SCALE,
+        )
+      : fitTraceCamera(sizes.viewport, sizes.world);
+  }
+
+  const viewportBounds = viewport.getBoundingClientRect();
+  const edgeMargin = 56;
+  const overlayOnRight =
+    overlay.left >= viewportBounds.left + viewportBounds.width / 2;
+  const safeLeft = overlayOnRight
+    ? 0
+    : Math.max(0, overlay.right - viewportBounds.left + edgeMargin);
+  const safeWidth = Math.max(
+    1,
+    overlayOnRight
+      ? overlay.left - viewportBounds.left - edgeMargin
+      : viewportBounds.right - overlay.right - edgeMargin,
+  );
+  const safeViewport = { ...sizes.viewport, width: safeWidth };
+  const fitted = activeBounds
+    ? fitTraceCameraToBounds(
+        safeViewport,
+        sizes.world,
+        activeBounds,
+        undefined,
+        minimumReadableScale,
+        true,
+        TRACE_ACTIVE_EVIDENCE_FIT_SCALE,
+      )
+    : fitTraceCamera(safeViewport, sizes.world);
+
+  return { ...fitted, x: fitted.x + safeLeft };
 }
 
 function findTraceTarget(

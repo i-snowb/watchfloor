@@ -528,10 +528,12 @@ function isValidObservationRequest(
   const stage = fixture.stream.stages.find(
     (candidate) => candidate.id === value.stageId,
   );
-  if (!stage) return false;
+  if (!stage || stage.releaseAuthority !== "analyst") return false;
   const released = state.releasedStreamStageIds.includes(stage.id);
   if (value.status === "pending") {
-    return !released && value.releasedAt === null;
+    const nextStage =
+      fixture.stream.stages[state.releasedStreamStageIds.length];
+    return !released && value.releasedAt === null && nextStage?.id === stage.id;
   }
   return released && typeof value.releasedAt === "string";
 }

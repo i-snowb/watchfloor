@@ -9,9 +9,14 @@ import { getReferenceCase } from "@/domain/reference-cases";
 import type { CaseFixture, CaseQueueItem, CaseSnapshot } from "@/domain/types";
 import { loadCase, resetCase } from "@/lib/client-api";
 import { formatUtcTime } from "@/lib/format";
-import type { ToolRegistrationOutcome } from "@/webmcp/tools";
+import {
+  registerCaseTools,
+  type ToolRegistrationOutcome,
+} from "@/webmcp/tools";
 import styles from "./alert-workspace.module.css";
 import { PlatformShell, type AgentStatus } from "./platform-shell";
+import { createAlertToolDefinitions } from "./queue-webmcp";
+import { queueHandoffPrompt } from "./queue-handoff-prompt";
 import { useModalDialog } from "./use-modal-dialog";
 
 type QueueFilter = "all" | "critical" | "high";
@@ -46,6 +51,7 @@ export function AlertWorkspace({
     count: 0,
   });
   const [agentPanelOpen, setAgentPanelOpen] = useState(false);
+  const [queueTaskCopied, setQueueTaskCopied] = useState(false);
   const [registrationOutcomes, setRegistrationOutcomes] = useState<
     ToolRegistrationOutcome[]
   >([]);
@@ -69,7 +75,16 @@ export function AlertWorkspace({
   );
   useEffect(() => {
     let active = true;
+    let syncing = false;
+    let initialSyncPending = true;
     async function syncQueue() {
+      if (
+        syncing ||
+        (!initialSyncPending && document.visibilityState === "hidden")
+      ) {
+        return;
+      }
+      syncing = true;
       try {
         const responses = await Promise.all(
           fixtures.map(async (caseFixture) => ({
@@ -99,13 +114,21 @@ export function AlertWorkspace({
       } catch {
         if (!active) return;
         setQueueSyncState("stale");
+      } finally {
+        syncing = false;
+        initialSyncPending = false;
       }
     }
     void syncQueue();
-    const interval = window.setInterval(() => void syncQueue(), 2_000);
+    const interval = window.setInterval(() => void syncQueue(), 15_000);
+    const resume = () => {
+      if (document.visibilityState === "visible") void syncQueue();
+    };
+    document.addEventListener("visibilitychange", resume);
     return () => {
       active = false;
       window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", resume);
     };
   }, [fixtures]);
 
@@ -118,55 +141,25 @@ export function AlertWorkspace({
     let active = true;
     const controller = new AbortController();
     async function register() {
-      if (
-        !document.modelContext ||
-        typeof document.modelContext.registerTool !== "function"
-      ) {
-        if (active) {
-          setAgentStatus({ state: "unavailable", count: 0 });
-          setRegistrationOutcomes(
-            definitions.map((tool) => ({
-              name: tool.name,
-              status: "unavailable",
-              error: null,
-            })),
-          );
-        }
-        return;
-      }
-      let registered = 0;
-      const outcomes: ToolRegistrationOutcome[] = [];
-      for (const definition of definitions) {
-        if (controller.signal.aborted) break;
-        try {
-          await document.modelContext.registerTool(definition, {
-            signal: controller.signal,
-          });
-          if (controller.signal.aborted) break;
-          registered += 1;
-          outcomes.push({
-            name: definition.name,
-            status: "registered",
-            error: null,
-          });
-        } catch (registrationError) {
-          if (controller.signal.aborted) break;
-          outcomes.push({
-            name: definition.name,
-            status: "failed",
-            error:
-              registrationError instanceof Error
-                ? registrationError.message.replace(/\s+/g, " ").slice(0, 160)
-                : "Tool registration failed.",
-          });
-        }
-      }
+      const result = await registerCaseTools(
+        definitions,
+        controller,
+        document.modelContext,
+      );
       if (!active) return;
-      setRegistrationOutcomes(outcomes);
-      setAgentStatus({
-        state: registered === definitions.length ? "available" : "partial",
-        count: registered,
-      });
+      setRegistrationOutcomes(result.outcomes);
+      if (!result.supported) {
+        setAgentStatus({ state: "unavailable", count: 0 });
+      } else {
+        setAgentStatus({
+          state:
+            result.readiness.ready && result.registered === definitions.length
+              ? "available"
+              : "partial",
+          count: result.registered,
+          total: definitions.length,
+        });
+      }
     }
     void register();
     return () => {
@@ -175,25 +168,31 @@ export function AlertWorkspace({
     };
   }, [definitions]);
 
-  const resetQueueCase = useCallback(async (caseFixture: CaseFixture) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await resetCase(caseFixture.id);
-      setSnapshots((current) => ({
-        ...current,
-        [caseFixture.id]: response.snapshot,
-      }));
-    } catch (resetError) {
-      setError(
-        resetError instanceof Error
-          ? resetError.message
-          : "The case could not be reset.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }, []);
+  const resetQueueCase = useCallback(
+    async (caseFixture: CaseFixture) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const response = await resetCase(
+          caseFixture.id,
+          snapshots[caseFixture.id]?.state.revision ?? 1,
+        );
+        setSnapshots((current) => ({
+          ...current,
+          [caseFixture.id]: response.snapshot,
+        }));
+      } catch (resetError) {
+        setError(
+          resetError instanceof Error
+            ? resetError.message
+            : "The case could not be reset.",
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [snapshots],
+  );
 
   const openFreshEndpointInvestigation = useCallback(async () => {
     const endpointFixture = fixtures.find(
@@ -206,7 +205,10 @@ export function AlertWorkspace({
     setBusy(true);
     setError(null);
     try {
-      const response = await resetCase(endpointFixture.id);
+      const response = await resetCase(
+        endpointFixture.id,
+        snapshots[endpointFixture.id]?.state.revision ?? 1,
+      );
       setSnapshots((current) => ({
         ...current,
         [endpointFixture.id]: response.snapshot,
@@ -221,7 +223,7 @@ export function AlertWorkspace({
     } finally {
       setBusy(false);
     }
-  }, [fixtures, router]);
+  }, [fixtures, router, snapshots]);
 
   const filteredItems = queueItems.filter((item) => {
     if (filter === "critical") return item.severity === "critical";
@@ -241,6 +243,18 @@ export function AlertWorkspace({
       item.status !== "closed_in_demo",
   ).length;
   const queueSyncCopy = formatQueueSyncState(queueSyncState);
+  const queueAgentReady =
+    agentStatus.state === "available" && definitions.length === 2;
+
+  const copyQueueTask = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(queueHandoffPrompt);
+      setQueueTaskCopied(true);
+      window.setTimeout(() => setQueueTaskCopied(false), 2_000);
+    } catch {
+      setQueueTaskCopied(false);
+    }
+  }, []);
 
   return (
     <PlatformShell
@@ -259,6 +273,9 @@ export function AlertWorkspace({
           </div>
           <div
             className={`ledger-sync-state ledger-sync-state-${queueSyncState}`}
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
           >
             <span aria-hidden="true" />
             <div>
@@ -267,6 +284,13 @@ export function AlertWorkspace({
             </div>
           </div>
         </header>
+
+        {queueSyncState === "checking" ? (
+          <p className="visually-hidden" role="status">
+            Synchronizing live case revisions. The case catalog remains
+            available while the first update arrives.
+          </p>
+        ) : null}
 
         <section
           className={styles.featuredPath}
@@ -297,6 +321,10 @@ export function AlertWorkspace({
                 {busy ? "Preparing investigation" : "Open fresh investigation"}
                 <span aria-hidden="true">→</span>
               </button>
+              <p className={styles.featuredGuidance}>
+                Open the evidence plan, investigate directly, or hand the next
+                bounded step to your agent.
+              </p>
             </div>
           </div>
         </section>
@@ -499,15 +527,28 @@ export function AlertWorkspace({
                 ×
               </button>
             </div>
-            <p className="drawer-intro">
-              {agentStatus.state === "available"
-                ? "These semantic queue operations are registered."
-                : agentStatus.state === "partial"
-                  ? "Some queue operations registered. Failed operations remain unavailable."
-                  : agentStatus.state === "checking"
-                    ? "Checking declared queue operations."
-                    : "These declared operations require a WebMCP-capable browser."}
-            </p>
+            <div className="drawer-intro">
+              {queueAgentReady ? (
+                <>
+                  <strong>TRACE ready — waiting for a queue task</strong>
+                  <p>
+                    Ask your agent to review and prioritize the queue, then open
+                    a case for bounded investigation work.
+                  </p>
+                  <button onClick={() => void copyQueueTask()} type="button">
+                    {queueTaskCopied ? "Copied" : "Copy queue task"}
+                  </button>
+                </>
+              ) : (
+                <p>
+                  {agentStatus.state === "partial"
+                    ? "Some queue operations registered. Failed operations remain unavailable."
+                    : agentStatus.state === "checking"
+                      ? "Checking declared queue operations."
+                      : "Queue review remains available to the analyst in this browser."}
+                </p>
+              )}
+            </div>
             <div className="capability-list">
               {definitions.map((tool) => {
                 const outcome = registrationOutcomes.find(
@@ -875,7 +916,7 @@ function formatQueueSyncState(state: QueueSyncState): {
   detail: string;
 } {
   if (state === "ready") {
-    return { title: "Queue current", detail: "Refreshes every 2 seconds" };
+    return { title: "Queue current", detail: "Refreshes every 15 seconds" };
   }
   if (state === "stale") {
     return {
@@ -893,75 +934,4 @@ function formatQueueStatus(status: CaseQueueItem["status"]): string {
   if (status === "response_pending") return "Response pending";
   if (status === "contained_in_demo") return "Containment recorded";
   return "Closed";
-}
-
-function createAlertToolDefinitions(
-  fixtures: readonly CaseFixture[],
-  openCase: (caseId: string) => void,
-): WebMcpToolDefinition[] {
-  const routableCaseIds = getCaseQueueItems(
-    fixtures.map((fixture) => ({
-      fixture,
-      state: createInitialCaseState(fixture),
-    })),
-  ).flatMap((item) => (item.caseId ? [item.caseId] : []));
-  return [
-    {
-      name: "list_case_queue",
-      title: "List security case queue",
-      description:
-        "Return the current case queue and Tier 1 investigation states.",
-      inputSchema: {
-        type: "object",
-        properties: {},
-        required: [],
-        additionalProperties: false,
-      },
-      annotations: { readOnlyHint: true, untrustedContentHint: false },
-      execute: async (_input, context) => {
-        const signal = context?.signal ?? new AbortController().signal;
-        const responses = await Promise.all(
-          fixtures.map(async (fixture) => ({
-            fixture,
-            state: (await loadCase(fixture.id, signal)).snapshot.state,
-          })),
-        );
-        const cases = getCaseQueueItems(responses);
-        return { cases, count: cases.length };
-      },
-    },
-    {
-      name: "open_case",
-      title: "Open escalated case",
-      description:
-        "Open the selected Tier 1 escalation in the shared investigation workbench.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          caseId: { type: "string", enum: routableCaseIds },
-        },
-        required: ["caseId"],
-        additionalProperties: false,
-      },
-      annotations: { readOnlyHint: false, untrustedContentHint: false },
-      execute: async (input, context) => {
-        const signal = context?.signal ?? new AbortController().signal;
-        if (signal.aborted) throw createAbortError();
-        const caseId = input.caseId;
-        if (typeof caseId !== "string" || !routableCaseIds.includes(caseId)) {
-          throw new Error("caseId is not an openable case.");
-        }
-        queueMicrotask(() => {
-          if (!signal.aborted) openCase(caseId);
-        });
-        return { caseId, route: `/cases/${caseId}` };
-      },
-    },
-  ];
-}
-
-function createAbortError(): Error {
-  const error = new Error("Tool invocation aborted.");
-  error.name = "AbortError";
-  return error;
 }

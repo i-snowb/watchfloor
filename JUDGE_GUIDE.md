@@ -1,108 +1,78 @@
-# WATCH//FLOOR Optional Recording Guide
+# WATCH//FLOOR Evaluator Guide
 
-This guide is for optional competition recording and hands-on evaluation. It is not part of the default WATCH//FLOOR product workflow or workspace framing.
+Start at the [case queue](https://watchfloor-sandbox.watchfloor-webmcp.workers.dev/alerts). No sign-in is required for the public sandbox. `/alerts` is the normal product entry; `/start` is optional evaluator access, not a guided product path. The [endpoint case](https://watchfloor-sandbox.watchfloor-webmcp.workers.dev/cases/case-endpoint-0448) is the primary investigation after queue review.
 
-## Fast hands-on path
+## Authoritative evaluation flow
 
-This path takes about 90 seconds and demonstrates the WebMCP difference without completing the full response lifecycle.
+1. The analyst prompts TRACE; TRACE does not self-start. From `/alerts`, it first calls `list_case_queue`. The analyst opens the endpoint case. TRACE waits for the case route to report its ready tool surface, then inspects the registered case tools and calls `get_case_context`.
+2. Follow only `nextAgentAction` and its returned input. Do not invent identifiers or revisions.
+3. For each query, ensure TRACE prepares the canonical KQL in the shared workspace, then executes the exact prepared text and exposes returned records.
+4. Select a released event, entity, relationship, attached discovery, or report finding and use `trace_evidence_lineage` to inspect the exact supporting provenance.
+5. Let TRACE advance only when the returned handoff permits it.
+6. At an `analystGate`, stop TRACE. The analyst records disposition, releases the later observation, authorizes response packages, and approves the final report.
+7. Confirm the final report retains evidence references, limitations, closure note, approval receipt, and recorded-only response semantics.
 
-1. Open the incident ledger and select **Execution with early lateral movement**.
-2. Open the compact escalation brief. Confirm that Tier 1 correlated evidence but withheld response.
-3. Ask the connected agent to call `get_case_context` and `list_investigation_skills`.
-4. Ask it to prepare `QRY-ENDPOINT-FILE-01`. The shared query workspace must show the canonical KQL before execution.
-5. Ask it to run the exact returned `queryText`.
-6. Open the returned records. Confirm the user-writable file creation, unsigned process start, process-bound TLS connections, and exact SHA-256.
-7. Ask it to prepare and run `QRY-ENDPOINT-HASH-10`.
-8. Confirm the archived intelligence verdict, high confidence, zero enterprise prevalence, and the explicit statement that no external provider was contacted.
-9. Select the result on the graph and confirm the activity timeline records the agent operation and revision.
+Use this connected-agent instruction:
 
-Expected result: the agent operates the same visible workbench as the analyst. It does not use hidden browser automation, and it cannot cross an analyst approval gate.
+> Wait for an analyst prompt; do not self-start. From `/alerts`, call `list_case_queue`. After the analyst opens this case, wait until the case route reports its tool surface ready. Then inspect the registered page tools and call `get_case_context`. Follow only the returned `nextAgentAction` and its supplied input. Stop at `analystGate`. Do not invent IDs or revisions. Keep observed evidence, modeled impact, simulated controls, and approvals distinct. Do not imply external execution.
 
-## Three-minute filming sequence
+## Three hero moments
 
-Build the recording around these three hero moments. Keep the intervening
-receipts short and visible; they establish depth but should not compete with
-the proof of shared human-agent work.
+1. **Bounded query and raw evidence.** Follow the first returned action to prepare `QRY-ENDPOINT-FILE-01`, show its canonical KQL, run only that exact text, and inspect its returned fixture records.
+2. **Evidence growth and analyst stop.** Continue the returned investigation actions through `QRY-ENDPOINT-IDENTITY-03`. Its bounded result makes the service identity visible and moves the graph from 3 entities / 4 events / 2 joins to 4 / 5 / 2. Attaching `STREAM-LAT-01` then expands the observed and prevented investigation to 7 / 11 / 7. When `analystGate.kind` becomes `evidence_disposition`, TRACE has no next action and must stop for the analyst.
+3. **Approved modeled control and signed report.** After the analyst confirms disposition, let TRACE calculate reachability, simulate the allowed controls, and prepare the recorded containment package. The analyst authorizes it; show the severed modeled paths and the explicit no-external-execution record. Complete the later analyst telemetry release and recovery package, draft the evidence report, add the closure note, and show analyst report approval.
 
-1. **Shared evidence, not click automation:** the connected agent prepares visible KQL,
-   runs the exact prepared query, and attaches inspectable records to the same
-   graph and timeline the analyst sees.
-2. **Human authority with bounded agent progress:** the connected agent adds only a
-   provenance-backed discovery after its required evidence exists, then stops
-   for the analyst's malicious disposition.
-3. **A defensible counterfactual:** the connected agent models the possible route and
-   simulates an allowlisted control; the analyst alone authorizes the recorded
-   recorded response, visibly severing the modeled path without external execution.
+## What to verify
 
-The full response and recovery lifecycle remains available for hands-on review.
-For the video, use the report final frame to show that the evidence, limits,
-response provenance, and analyst closure remain connected.
+- The endpoint case has 24 registered tools; the cloud case has 18. Tool
+  registration is case-scoped.
+- The connected agent operates the visible shared workbench; it is not browser-click automation.
+- The five analyst-only operations are absent from WebMCP and rejected on the callback route.
+- Prepared query text, raw records, discoveries, graph state, timeline, receipts,
+  and released evidence lineage remain revision-consistent.
+- `APP-SRV-021` is a prevented remote service-start attempt, not a compromised host. `billing-api` is modeled reach, not observed compromise.
+- Response approvals are recorded only; no external control is executed.
 
-| Time      | Screen action                                                                                            | Point to establish                                                                                                              |
-| --------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| 0:00–0:08 | Show the five-case incident ledger and open the critical endpoint case.                                  | Tier 1 escalated a cross-domain chain; this is not a raw alert feed.                                                            |
-| 0:08–0:18 | Open the escalation brief, close it, and select `invoice-sync-helper.exe`.                               | Tier 1 supplied observations and evidence gaps but withheld response.                                                           |
-| 0:18–0:38 | Agent calls `get_case_context`, lists skills, prepares `QRY-ENDPOINT-FILE-01`, and runs the visible KQL. | WebMCP exposes a semantic investigation operation, not a click macro.                                                           |
-| 0:38–0:48 | Open raw records and focus one record on the graph.                                                      | The result is auditable source data, not only an AI summary.                                                                    |
-| 0:48–1:05 | Agent prepares and runs `QRY-ENDPOINT-HASH-10`.                                                          | The exact hash receives an archived intelligence verdict without an external request.                                           |
-| 1:05–1:20 | Cut a rapid receipt montage of the host, identity, and destination checks attaching to the graph.        | Control readiness and scope evidence complete the analyst decision packet.                                                      |
-| 1:20–1:33 | Agent attaches the ready `STREAM-LAT-01` discovery, then runs `QRY-ENDPOINT-APP-05`.                     | WebMCP adds cited entities and observations; APP-SRV-021 blocked remote service start before payload execution.                 |
-| 1:33–1:41 | Analyst records **Confirm malicious · contain**.                                                         | The disposition remains a human decision.                                                                                       |
-| 1:41–1:51 | Agent calculates exposure and simulates the allowlisted control.                                         | Observed activity and modeled reach remain visibly different.                                                                   |
-| 1:51–2:08 | Agent prepares the containment package. Analyst reviews and approves it.                                 | Forensic triage, endpoint isolation, exact-IP blocking, and identity disablement are human-gated; no external control executes. |
-| 2:08–2:22 | Agent attaches the ready recovery discovery, then attaches credential and workload results.              | The agent extends the shared case after containment without inventing a deployment.                                             |
-| 2:22–2:36 | Agent prepares recovery. Analyst approves rotation and known-good redeploy records.                      | Recovery is dependency-ordered and auditable.                                                                                   |
-| 2:36–2:52 | Agent generates the evidence report.                                                                     | Show findings, response provenance, evidence references, limitations, and residual risk.                                        |
-| 2:52–3:00 | Analyst writes a closure note, signs off, and returns to the ledger.                                     | The note is persisted with the report; the agent cannot approve its own work.                                                   |
+## Endpoint evidence visibility
 
-Use this prompt at the start of the endpoint case:
+The endpoint graph grows only as evidence is attached or released. Counts are
+visible entities, observed events, and evidence joins.
 
-> Work this synthetic case to the next analyst gate through the registered page tools. Use `get_case_context`, then prepare and run one visible exact query at a time. Show raw returned records for the first file query and the exact-hash query. Keep observed evidence separate from modeled reach and simulated response. Stop before every analyst-only decision, telemetry release, response approval, and report approval. Do not claim external execution.
+| Investigation point                                     | Entities | Events | Joins |
+| ------------------------------------------------------- | -------: | -----: | ----: |
+| Fresh Tier 1 case                                       |        3 |      4 |     2 |
+| Identity evidence attached                              |        4 |      5 |     2 |
+| Stage 1 released                                        |        7 |     11 |     7 |
+| Final, after reachability and analyst telemetry release |        8 |     13 |     8 |
 
-## Query map
+Stage 1 reveals `APP-SRV-021`, the expected service host, and observed
+credential-read topology. `APP-SRV-021` remains prevented. `billing-api` is
+modeled-only until reachability is attached; it is not observed compromise.
+Approved query targets may be known but not visible. An approved query can
+attach its bounded identity evidence; it does not release stage-gated
+telemetry, entities, or relationships.
 
-The guide lists stable query IDs, not copied KQL. Every query must follow the same protocol: call `prepare_investigation_query`, wait for the canonical KQL to appear in the shared workspace, then execute that prepared query with `run_investigation_query` or the matching next step with `run_investigation_plan`. Both paths reject missing, mismatched, or stale preparation.
+## Public-sandbox limitation
 
-| Query ID                   | Purpose                                                            | Required               |
-| -------------------------- | ------------------------------------------------------------------ | ---------------------- |
-| `QRY-ENDPOINT-FILE-01`     | File execution, process lineage, repeated TLS, and prevalence      | Yes                    |
-| `QRY-ENDPOINT-HASH-10`     | Exact SHA-256 intelligence and enterprise prevalence               | Yes                    |
-| `QRY-ENDPOINT-HOST-02`     | FIN-WS-044 ownership, EDR health, and isolation readiness          | Yes                    |
-| `QRY-ENDPOINT-IDENTITY-03` | Service-identity scope and APP-SRV-021 history                     | Yes                    |
-| `QRY-ENDPOINT-EGRESS-04`   | Repeated destination and approved-egress comparison                | Yes                    |
-| `QRY-ENDPOINT-APP-05`      | Target-side authentication, service control, and prevention result | Yes, after discovery 1 |
-| `QRY-ENDPOINT-SECRET-06`   | Credential posture and downstream permission                       | Yes, after discovery 2 |
-| `QRY-ENDPOINT-WORKLOAD-07` | Current and known-good workload images                             | Yes, after discovery 2 |
-| `QRY-ENDPOINT-STATIC-08`   | Archived static metadata and API-reference summary                 | Optional               |
-| `QRY-ENDPOINT-SANDBOX-09`  | Archived sandbox behavior review                                   | Optional               |
+The anonymous visitor can use analyst controls in this sandbox. This demonstrates workflow separation from WebMCP, not authenticated analyst identity. Production use requires verified identity and authorization for the analyst-control channel.
 
-## Stop conditions
+## Source facts and hosted verification
 
-Do not record or submit the build if any condition occurs:
+The full endpoint lifecycle ends at `r29`. Current source verification passes
+**175 tests** across **8,569 test lines in 29 files**.
 
-- Native tools do not register on the hosted route.
-- `attach_discovery_stage` accepts a stage before its cited query evidence or accepts a stage other than the next ready discovery.
-- A prepared query is not visible before execution.
-- Modified query text executes successfully.
-- Raw returned records are unavailable.
-- The exact SHA-256 differs between the entity, query, result, and report evidence.
-- A later discovery appears before its fixture-defined query and evidence prerequisites.
-- An agent-added discovery is not backed by its fixture-defined query records.
-- APP-SRV-021 is described as compromised or executing a payload.
-- The workload is described as malicious or deployed through the exposed credential.
-- A simulated control appears approved before the analyst action.
-- The connected agent can record a disposition, call the analyst-only replay release, authorize response, or approve the report.
-- Any receipt implies that an external endpoint, firewall, directory, secret store, deployment system, sandbox, or intelligence provider was contacted.
-- The hosted case cannot complete twice from revision 1 without stale state, clipped controls, duplicate receipts, or lost tools.
+Historical hosted verification on 2026-09-01 passed the native lifecycle,
+hosted smoke, lineage checks, gate-bypass denials, and browser checks. That run
+does not attest to later source changes. Treat the current deployment as final
+only when [`/api/release`](https://watchfloor-sandbox.watchfloor-webmcp.workers.dev/api/release)
+identifies the reviewed public commit and the hosted smoke and native WebMCP
+checks have been repeated against that deployment. The public repository and
+video remain submission artifacts until their verified URLs are recorded in
+[SUBMISSION.md](./SUBMISSION.md).
 
-## Submission format
+For local verification:
 
-- Publish a narrated video shorter than three minutes. The video must stand on
-  its own: show the working page, the visible WebMCP effects, and the human
-  authority boundary.
-- Provide a live URL that judges can access during judging. Do not describe the
-  current hosted build as publicly verified until judge access is configured and
-  tested.
-- Publish the source repository with the application source, the actual
-  `document.modelContext.registerTool(...)` implementation, setup instructions,
-  and a visible open-source license.
+```bash
+npm run check
+npm run smoke
+```

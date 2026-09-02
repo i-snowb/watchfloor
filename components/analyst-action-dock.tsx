@@ -84,13 +84,14 @@ export function AnalystActionDock({
     );
   }
 
-  if (pendingStage) {
+  if (observation?.status === "pending" && pendingStage) {
     return (
       <DockFrame
         eyebrow="Analyst telemetry control"
         title="Release requested telemetry"
       >
-        <p>{pendingStage.summary}</p>
+        <p>{observation.rationale}</p>
+        <small>Requested scope: {pendingStage.title}</small>
         <button
           disabled={busy || streamPlaying}
           onClick={onReleaseSignal}

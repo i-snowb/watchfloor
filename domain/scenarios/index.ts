@@ -56,7 +56,11 @@ export function validateCaseFixture(fixture: CaseFixture): void {
 
   const stageIds = new Set<string>();
   for (const [index, stage] of fixture.stream.stages.entries()) {
-    if (stageIds.has(stage.id) || stage.ordinal !== index + 1) {
+    if (
+      stageIds.has(stage.id) ||
+      stage.ordinal !== index + 1 ||
+      !["agent", "analyst"].includes(stage.releaseAuthority)
+    ) {
       throw new Error(`${fixture.id} has an invalid stream stage order.`);
     }
     stageIds.add(stage.id);
@@ -473,7 +477,17 @@ export function validateCaseFixture(fixture: CaseFixture): void {
     ) ||
     !fixture.conclusion.requiredActionIds.every((id) =>
       responseActionIds.has(id),
-    )
+    ) ||
+    (fixture.decision.deeperForensics !== undefined &&
+      (!decisionOptionIds.has(fixture.decision.deeperForensics.holdDecision) ||
+        fixture.decision.deeperForensics.queryIds.length === 0 ||
+        new Set(fixture.decision.deeperForensics.queryIds).size !==
+          fixture.decision.deeperForensics.queryIds.length ||
+        !fixture.decision.deeperForensics.queryIds.every((queryId) =>
+          fixture.investigationQueries.some(
+            (query) => query.id === queryId && query.requiresStageId === null,
+          ),
+        )))
   ) {
     throw new Error(`${fixture.id} has an invalid conclusion gate.`);
   }

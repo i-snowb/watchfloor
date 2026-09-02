@@ -6,8 +6,10 @@ import "./causal-field.css";
 import "./demo-path.css";
 import "./graph-readability.css";
 
+const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 const metadataBase = new URL(
-  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  configuredSiteUrl ??
+    "https://watchfloor-sandbox.watchfloor-webmcp.workers.dev",
 );
 
 export const metadata: Metadata = {
@@ -22,7 +24,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/og.png",
+        url: "/og.jpg",
         width: 1200,
         height: 630,
         alt: "WATCH//FLOOR evidence and impact map for a security investigation",
@@ -34,7 +36,7 @@ export const metadata: Metadata = {
     title: "WATCH//FLOOR",
     description:
       "TRACE investigates bounded evidence. Analysts review, authorize, and close the case.",
-    images: ["/og.png"],
+    images: ["/og.jpg"],
   },
 };
 

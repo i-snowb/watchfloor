@@ -8,15 +8,16 @@ const localSessionCookie = "watchfloor_session";
 
 export interface DemoSession {
   cookieName: string;
+  cookieValue: string;
   id: string;
   isNew: boolean;
+  maxAgeSeconds: number;
 }
 
 export async function resolveDemoSession(
   request: Request,
   principal: RequestPrincipal,
 ): Promise<DemoSession> {
-  const id = await principalSessionId(principal);
   const cookieName =
     new URL(request.url).protocol === "https:"
       ? secureSessionCookie
@@ -28,7 +29,50 @@ export async function resolveDemoSession(
     .find((part) => part.startsWith(`${cookieName}=`))
     ?.slice(cookieName.length + 1);
 
-  return { cookieName, id, isNew: current !== id };
+  if (principal.assurance === "anonymous_sandbox") {
+    const cookieValue = isAnonymousSessionToken(current)
+      ? current
+      : createAnonymousSessionToken();
+    return {
+      cookieName,
+      cookieValue,
+      id: await anonymousSessionId(cookieValue),
+      isNew: current !== cookieValue,
+      maxAgeSeconds: 86_400,
+    };
+  }
+
+  const id = await principalSessionId(principal);
+  return {
+    cookieName,
+    cookieValue: id,
+    id,
+    isNew: current !== id,
+    maxAgeSeconds: 28_800,
+  };
+}
+
+/**
+ * Issue a new anonymous sandbox identity without deleting the previous
+ * session. This is intentionally unavailable to authenticated deployments,
+ * whose session identity is derived from the verified principal.
+ */
+export async function createFreshAnonymousSession(
+  request: Request,
+  principal: RequestPrincipal,
+): Promise<DemoSession | null> {
+  if (principal.assurance !== "anonymous_sandbox") return null;
+  const cookieValue = createAnonymousSessionToken();
+  return {
+    cookieName:
+      new URL(request.url).protocol === "https:"
+        ? secureSessionCookie
+        : localSessionCookie,
+    cookieValue,
+    id: await anonymousSessionId(cookieValue),
+    isNew: true,
+    maxAgeSeconds: 86_400,
+  };
 }
 
 export function jsonResponse(
@@ -41,20 +85,51 @@ export function jsonResponse(
     "cache-control": "no-store",
     "content-type": "application/json; charset=utf-8",
     "content-security-policy": "frame-ancestors 'none'",
+    "cross-origin-opener-policy": "same-origin",
+    "cross-origin-resource-policy": "same-origin",
+    "origin-agent-cluster": "?1",
     "permissions-policy":
       "camera=(), geolocation=(), microphone=(), payment=(), usb=()",
     "referrer-policy": "no-referrer",
+    "strict-transport-security": "max-age=31536000",
     "x-content-type-options": "nosniff",
     "x-frame-options": "DENY",
+    "x-permitted-cross-domain-policies": "none",
   });
   if (session?.isNew) {
     const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
     headers.append(
       "set-cookie",
-      `${session.cookieName}=${session.id}; Path=/; Max-Age=28800; HttpOnly; SameSite=Strict${secure}`,
+      `${session.cookieName}=${session.cookieValue}; Path=/; Max-Age=${session.maxAgeSeconds}; HttpOnly; SameSite=Strict${secure}`,
     );
   }
   return new Response(JSON.stringify(data), { headers, status });
+}
+
+function createAnonymousSessionToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function isAnonymousSessionToken(value: string | undefined): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{43}$/.test(value);
+}
+
+async function anonymousSessionId(token: string): Promise<string> {
+  const material = new TextEncoder().encode(
+    `watchfloor-anonymous-session-v1\u0000${token}`,
+  );
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", material),
+  );
+  return `anon_${[...digest]
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("")}`;
 }
 
 export async function readJsonObject(

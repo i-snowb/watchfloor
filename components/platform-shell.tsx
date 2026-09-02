@@ -19,6 +19,7 @@ interface PlatformShellProps {
   agentStatus: AgentStatus;
   onOpenAgent?: () => void;
   onReset?: () => void;
+  onStartFreshSession?: () => void;
   mainRef?: Ref<HTMLElement>;
   queueCount?: number;
   queueSummary?: string;
@@ -31,6 +32,7 @@ export function PlatformShell({
   agentStatus,
   onOpenAgent,
   onReset,
+  onStartFreshSession,
   mainRef,
   queueCount,
   queueSummary,
@@ -39,7 +41,7 @@ export function PlatformShell({
   return (
     <div className={`platform-shell platform-shell-${activeView}`}>
       <header className="platform-header">
-        <Link className="brand" href="/alerts" aria-label="WATCH FLOOR alerts">
+        <Link className="brand" href="/alerts" aria-label="WATCH//FLOOR alerts">
           <span className="brand-word">WATCH</span>
           <span className="brand-slashes">{"//"}</span>
           <span className="brand-word">FLOOR</span>
@@ -71,23 +73,43 @@ export function PlatformShell({
             <span className="agent-chip-label">
               {agentStatusShortLabel(agentStatus)}
             </span>
+            <span aria-hidden="true" className="agent-chip-compact-label">
+              {agentStatusCompactLabel(agentStatus)}
+            </span>
           </button>
-          {activeView === "case" ? <AgentHandoff caseId={fixture.id} /> : null}
-          {onReset ? (
+          {activeView === "case" ? (
+            <AgentHandoff agentStatus={agentStatus} caseId={fixture.id} />
+          ) : null}
+          {onReset || onStartFreshSession ? (
             <details className="header-overflow">
               <summary aria-label="Open case menu">•••</summary>
               <div>
-                <button
-                  onClick={(event) => {
-                    event.currentTarget
-                      .closest("details")
-                      ?.removeAttribute("open");
-                    onReset();
-                  }}
-                  type="button"
-                >
-                  Reset case
-                </button>
+                {onReset ? (
+                  <button
+                    onClick={(event) => {
+                      event.currentTarget
+                        .closest("details")
+                        ?.removeAttribute("open");
+                      onReset();
+                    }}
+                    type="button"
+                  >
+                    Reset case
+                  </button>
+                ) : null}
+                {onStartFreshSession ? (
+                  <button
+                    onClick={(event) => {
+                      event.currentTarget
+                        .closest("details")
+                        ?.removeAttribute("open");
+                      onStartFreshSession();
+                    }}
+                    type="button"
+                  >
+                    Start fresh session
+                  </button>
+                ) : null}
               </div>
             </details>
           ) : null}
@@ -113,7 +135,7 @@ function agentStatusLabel(status: AgentStatus): string {
     return "TRACE unavailable in this browser";
   }
   if (status.state === "available") {
-    return `TRACE connected · ${status.count} tools ready`;
+    return `TRACE ready · ${status.count} tools available`;
   }
   const criticalMissing = status.missingCriticalToolNames?.length ?? 0;
   return criticalMissing > 0
@@ -125,9 +147,16 @@ function agentStatusShortLabel(status: AgentStatus): string {
   if (status.state === "checking") return "Connecting TRACE";
   if (status.state === "unavailable") return "TRACE unavailable";
   if (status.state === "available") {
-    return `TRACE connected · ${status.count} tools`;
+    return `TRACE ready · ${status.count} tools`;
   }
   return status.missingCriticalToolNames?.length
     ? "TRACE blocked"
     : "TRACE limited";
+}
+
+function agentStatusCompactLabel(status: AgentStatus): string {
+  if (status.state === "available") return `TRACE · ${status.count}`;
+  if (status.state === "partial") return `TRACE · ${status.count}`;
+  if (status.state === "checking") return "TRACE";
+  return "TRACE";
 }

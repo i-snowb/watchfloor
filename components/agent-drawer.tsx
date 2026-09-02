@@ -3,9 +3,12 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import type { OperationReceipt } from "@/domain/types";
 import type { ToolRegistrationOutcome } from "@/webmcp/tools";
+import { buildAgentHandoffPrompt } from "./agent-handoff-prompt";
 import { useModalDialog } from "./use-modal-dialog";
 
 interface AgentDrawerProps {
+  agentReady: boolean;
+  caseId: string;
   open: boolean;
   definitions: WebMcpToolDefinition[];
   outcomes: ToolRegistrationOutcome[];
@@ -14,6 +17,8 @@ interface AgentDrawerProps {
 }
 
 export function AgentDrawer({
+  agentReady,
+  caseId,
   open,
   definitions,
   outcomes,
@@ -21,6 +26,7 @@ export function AgentDrawer({
   onClose,
 }: AgentDrawerProps) {
   const [tab, setTab] = useState<"activity" | "capabilities">("activity");
+  const [copied, setCopied] = useState(false);
   const dialogRef = useModalDialog(open, onClose);
   const activityTabRef = useRef<HTMLButtonElement>(null);
   const capabilitiesTabRef = useRef<HTMLButtonElement>(null);
@@ -40,6 +46,15 @@ export function AgentDrawer({
       receipt.toolName === "authorize_response_action" ||
       receipt.toolName === "authorize_response_bundle",
   ).length;
+  const copyAgentTask = async () => {
+    try {
+      await navigator.clipboard.writeText(buildAgentHandoffPrompt(caseId));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2_000);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   return (
     <div className="drawer-backdrop" onMouseDown={onClose}>
@@ -109,8 +124,8 @@ export function AgentDrawer({
           </button>
         </div>
         <p className="attribution-note">
-          Every TRACE operation creates a revisioned record in the shared case
-          history.
+          State-changing TRACE operations create revisioned records in the
+          shared case history.
         </p>
         <div className="agent-execution-summary">
           <span>
@@ -130,11 +145,21 @@ export function AgentDrawer({
           >
             {receipts.length === 0 ? (
               <div className="drawer-empty-state">
-                <strong>No TRACE operations recorded</strong>
+                <strong>
+                  {agentReady
+                    ? "TRACE ready — waiting for an analyst task"
+                    : "Analyst review mode"}
+                </strong>
                 <p>
-                  Analyst controls and TRACE WebMCP callbacks write receipts to
-                  this shared case.
+                  {agentReady
+                    ? "Hand off this case to start its next approved evidence step. TRACE records its work in the shared case history and stops at analyst decisions."
+                    : "The workbench remains usable for analyst review. Agent tasks are unavailable until the required tool surface is registered."}
                 </p>
+                {agentReady ? (
+                  <button onClick={() => void copyAgentTask()} type="button">
+                    {copied ? "Copied" : "Copy agent task"}
+                  </button>
+                ) : null}
               </div>
             ) : (
               [...receipts].reverse().map((receipt) => (
@@ -175,7 +200,8 @@ export function AgentDrawer({
                       <div>
                         <dt>Attribution</dt>
                         <dd>
-                          Surface reported · authority verified server-side
+                          {receiptActorLabel(receipt)} · channel assigned by
+                          server
                         </dd>
                       </div>
                       <div>
@@ -274,9 +300,25 @@ function receiptSurfaceLabel(receipt: OperationReceipt): string {
   if (receipt.toolName === "release_next_synthetic_signal") {
     return "Telemetry update";
   }
-  return receipt.reportedSurface === "webmcp_callback"
-    ? "WebMCP callback"
+  if (receipt.reportedSurface === "webmcp_callback") return "WebMCP callback";
+  return receipt.actorAssurance === "anonymous_sandbox"
+    ? "Anonymous operator"
     : "Analyst control";
+}
+
+function receiptActorLabel(receipt: OperationReceipt): string {
+  switch (receipt.actorAssurance) {
+    case "anonymous_sandbox":
+      return "Anonymous operator";
+    case "cloudflare_access_verified":
+      return "Cloudflare Access analyst";
+    case "openai_sites_authenticated":
+      return "Sites-authenticated analyst";
+    case "local_development":
+      return "Local development analyst";
+    default:
+      return "Legacy record";
+  }
 }
 
 function handleTabKey(

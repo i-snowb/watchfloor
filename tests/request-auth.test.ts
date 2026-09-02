@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveDemoSession } from "../server/http";
+import {
+  createFreshAnonymousSession,
+  resolveDemoSession,
+} from "../server/http";
 import {
   authenticateRequest,
   principalSessionId,
@@ -55,6 +58,38 @@ test("loopback development is explicit and produces a stable server session", as
   assert.equal(returning.isNew, false);
 });
 
+test("anonymous session recovery rotates only the browser session identity", async () => {
+  const request = new Request("https://public.example/api/session/new");
+  const authentication = await authenticateRequest(request, {
+    WATCHFLOOR_AUTH_MODE: "anonymous_sandbox",
+  });
+  assert.equal(authentication.ok, true);
+  if (!authentication.ok) return;
+
+  const initial = await resolveDemoSession(request, authentication.principal);
+  const fresh = await createFreshAnonymousSession(
+    request,
+    authentication.principal,
+  );
+  assert.ok(fresh);
+  assert.equal(fresh.cookieName, "__Host-watchfloor_session");
+  assert.equal(fresh.isNew, true);
+  assert.equal(fresh.maxAgeSeconds, 86_400);
+  assert.notEqual(fresh.cookieValue, initial.cookieValue);
+  assert.notEqual(fresh.id, initial.id);
+
+  const localAuthentication = await authenticateRequest(
+    new Request("http://localhost:3000/api/session/new"),
+    { WATCHFLOOR_AUTH_MODE: "local" },
+  );
+  assert.equal(localAuthentication.ok, true);
+  if (!localAuthentication.ok) return;
+  assert.equal(
+    await createFreshAnonymousSession(request, localAuthentication.principal),
+    null,
+  );
+});
+
 test("local mode still rejects a non-loopback request and HTTPS host spoof", async () => {
   const bindings: AccessBindings = { WATCHFLOOR_AUTH_MODE: "local" };
   const remote = await authenticateRequest(
@@ -97,6 +132,52 @@ test("OpenAI Sites mode requires the dispatcher identity headers", async () => {
   assert.equal(result.principal.subject, "site-user-123");
   assert.equal(result.principal.email, "analyst@example.com");
   assert.equal(result.principal.assurance, "openai_sites_authenticated");
+});
+
+test("anonymous sandbox issues opaque isolated browser sessions", async () => {
+  const request = new Request("https://public.example/api/cases/example");
+  const result = await authenticateRequest(request, {
+    WATCHFLOOR_AUTH_MODE: "anonymous_sandbox",
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.principal.role, "sandbox_analyst");
+  assert.equal(result.principal.assurance, "anonymous_sandbox");
+
+  const first = await resolveDemoSession(request, result.principal);
+  const second = await resolveDemoSession(request, result.principal);
+  assert.match(first.cookieValue, /^[A-Za-z0-9_-]{43}$/);
+  assert.match(first.id, /^anon_[0-9a-f]{64}$/);
+  assert.notEqual(first.cookieValue, first.id);
+  assert.notEqual(first.id, second.id);
+  assert.equal(first.maxAgeSeconds, 86_400);
+
+  const returning = await resolveDemoSession(
+    new Request(request.url, {
+      headers: { cookie: `${first.cookieName}=${first.cookieValue}` },
+    }),
+    result.principal,
+  );
+  assert.equal(returning.id, first.id);
+  assert.equal(returning.isNew, false);
+
+  const rotated = await resolveDemoSession(
+    new Request(request.url, {
+      headers: { cookie: `${first.cookieName}=caller-selected-session` },
+    }),
+    result.principal,
+  );
+  assert.notEqual(rotated.id, first.id);
+  assert.equal(rotated.isNew, true);
+});
+
+test("anonymous sandbox is HTTPS-only", async () => {
+  const result = await authenticateRequest(
+    new Request("http://public.example/api/cases/example"),
+    { WATCHFLOOR_AUTH_MODE: "anonymous_sandbox" },
+  );
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.status, 503);
 });
 
 test("remote requests fail closed when Cloudflare Access is not configured", async () => {

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   buildCausalPhasePlanes,
@@ -9,10 +10,30 @@ import {
   findReplayStepForEntity,
   getCausalVisualState,
   getReplayEntityIds,
+  initialEvidenceReplayCursor,
+  shouldCatchUpEvidenceReplay,
 } from "../components/evidence-visualization";
 import { cloudIdentityScenario } from "../domain/scenarios/cloud-identity";
 import { endpointLateralScenario } from "../domain/scenarios/endpoint-lateral";
-import { TRACE_NODE_HEIGHT, TRACE_NODE_WIDTH } from "../lib/trace-geometry";
+import { layoutTraceResultPackets } from "../lib/trace-result-layout";
+import {
+  IMPACT_EDGE_LABEL_HEIGHT,
+  IMPACT_EDGE_LABEL_WIDTH,
+  layoutImpactEdgeLabels,
+} from "../lib/impact-edge-label-layout";
+import {
+  TRACE_EDGE_LABEL_HEIGHT,
+  TRACE_EDGE_LABEL_WIDTH,
+  layoutTraceEdgeLabels,
+  traceLabelRectangle,
+  traceLabelRectanglesIntersect,
+} from "../lib/trace-edge-label-layout";
+import {
+  TRACE_NODE_HEIGHT,
+  TRACE_NODE_WIDTH,
+  TRACE_RESULT_PACKET_HEIGHT,
+  TRACE_RESULT_PACKET_WIDTH,
+} from "../lib/trace-geometry";
 
 test("evidence replay follows deterministic join order", () => {
   const fixture = endpointLateralScenario;
@@ -49,6 +70,76 @@ test("evidence replay follows deterministic join order", () => {
       fixture.entities.map(({ id }) => id),
     ).size,
     fixture.entities.length,
+  );
+});
+
+test("a reopened case restores its complete evidence graph", () => {
+  assert.equal(
+    initialEvidenceReplayCursor({
+      joinCount: 8,
+      reducedMotion: false,
+      revision: 28,
+    }),
+    8,
+  );
+  assert.equal(
+    initialEvidenceReplayCursor({
+      joinCount: 8,
+      reducedMotion: true,
+      revision: 1,
+    }),
+    8,
+  );
+});
+
+test("a brand-new case retains only its short opening replay", () => {
+  assert.equal(
+    initialEvidenceReplayCursor({
+      joinCount: 8,
+      reducedMotion: false,
+      revision: 1,
+    }),
+    2,
+  );
+  assert.equal(
+    initialEvidenceReplayCursor({
+      joinCount: 0,
+      reducedMotion: false,
+      revision: 1,
+    }),
+    0,
+  );
+});
+
+test("hydrated worked evidence catches up immediately while the document is hidden", () => {
+  assert.equal(
+    shouldCatchUpEvidenceReplay({ hydrated: true, revision: 18 }),
+    true,
+  );
+  assert.equal(
+    initialEvidenceReplayCursor({
+      joinCount: 8,
+      reducedMotion: false,
+      revision: 18,
+    }),
+    8,
+  );
+});
+
+test("visibility recovery catches up an asynchronously hydrated worked case", () => {
+  const openingCursor = initialEvidenceReplayCursor({
+    joinCount: 8,
+    reducedMotion: false,
+    revision: 1,
+  });
+  assert.equal(openingCursor, 2);
+  assert.equal(
+    shouldCatchUpEvidenceReplay({ hydrated: false, revision: 18 }),
+    false,
+  );
+  assert.equal(
+    shouldCatchUpEvidenceReplay({ hydrated: true, revision: 18 }),
+    true,
   );
 });
 
@@ -96,6 +187,270 @@ test("impact layout retains released discovery graph lanes", () => {
   assert.equal(
     layout.positions.get("endpoint:fin-reports-srv-010")?.lane,
     "lateral",
+  );
+});
+
+test("endpoint revision 18 impact layout keeps cards and evidence packets separate", () => {
+  const fixture = endpointLateralScenario;
+  const entities = [
+    ...fixture.entities,
+    ...fixture.stream.stages.flatMap((stage) => stage.entities),
+  ];
+  const graphNodes = [
+    ...fixture.presentation.nodes,
+    ...fixture.stream.stages.flatMap((stage) => stage.graphNodes),
+  ];
+  const layout = buildImpactLayout(
+    fixture,
+    entities,
+    TRACE_NODE_WIDTH,
+    TRACE_NODE_HEIGHT,
+    graphNodes,
+  );
+  const positions = [...layout.positions.values()];
+
+  for (const [index, node] of positions.entries()) {
+    for (const candidate of positions.slice(index + 1)) {
+      assert.equal(
+        rectanglesOverlap(node, TRACE_NODE_WIDTH, TRACE_NODE_HEIGHT, candidate),
+        false,
+        `${node.entityId} overlaps ${candidate.entityId} in the complete impact layout`,
+      );
+    }
+  }
+
+  const targetEntityIds = [
+    ...new Set(
+      fixture.investigationQueries.map((query) => query.targetEntityId),
+    ),
+  ];
+  const placements = layoutTraceResultPackets(
+    targetEntityIds,
+    positions,
+    new Set(positions.map((position) => position.entityId)),
+    fixture.presentation.graphWidth,
+    fixture.presentation.graphHeight,
+  );
+  for (const [targetEntityId, packet] of placements) {
+    for (const node of positions) {
+      if (node.entityId === targetEntityId) continue;
+      assert.equal(
+        rectanglesOverlap(
+          packet,
+          TRACE_RESULT_PACKET_WIDTH,
+          TRACE_RESULT_PACKET_HEIGHT,
+          node,
+        ),
+        false,
+        `${targetEntityId} evidence packet overlaps ${node.entityId} in the complete impact layout`,
+      );
+    }
+  }
+
+  const edges = fixture.reachability.paths.flatMap((path) =>
+    path.entityIds.slice(0, -1).flatMap((fromEntityId, index) => {
+      const toEntityId = path.entityIds[index + 1];
+      return toEntityId
+        ? [{ id: `${path.id}:${index}`, fromEntityId, toEntityId }]
+        : [];
+    }),
+  );
+  const edgeLabels = layoutImpactEdgeLabels(
+    edges,
+    positions,
+    fixture.presentation.graphWidth,
+    fixture.presentation.graphHeight,
+  );
+  for (const [edgeId, label] of edgeLabels) {
+    for (const node of positions) {
+      assert.equal(
+        rectanglesOverlap(
+          label,
+          IMPACT_EDGE_LABEL_WIDTH,
+          IMPACT_EDGE_LABEL_HEIGHT,
+          node,
+        ),
+        false,
+        `${edgeId} route label overlaps ${node.entityId} in the complete impact layout`,
+      );
+    }
+    for (const [otherEdgeId, otherLabel] of edgeLabels) {
+      if (otherEdgeId <= edgeId) continue;
+      assert.equal(
+        rectanglesOverlap(
+          label,
+          IMPACT_EDGE_LABEL_WIDTH,
+          IMPACT_EDGE_LABEL_HEIGHT,
+          otherLabel,
+          IMPACT_EDGE_LABEL_WIDTH,
+          IMPACT_EDGE_LABEL_HEIGHT,
+        ),
+        false,
+        `${edgeId} route label overlaps ${otherEdgeId} in the complete impact layout`,
+      );
+    }
+  }
+});
+
+test("endpoint opening trace labels avoid their cards at the 1280 recording geometry", () => {
+  const fixture = endpointLateralScenario;
+  const openingEdges = fixture.joins.slice(0, 2);
+  const openingNodeIds = new Set(
+    openingEdges.flatMap((edge) => [edge.fromEntityId, edge.toEntityId]),
+  );
+  const openingNodes = fixture.presentation.nodes.filter((node) =>
+    openingNodeIds.has(node.entityId),
+  );
+  // The 1280x720 recording layout renders a 460px trace plane at r1.
+  const labels = layoutTraceEdgeLabels(
+    openingEdges,
+    openingNodes,
+    fixture.presentation.graphWidth,
+    460,
+  );
+
+  assert.equal(labels.size, openingEdges.length);
+  assertTraceLabelsClearCardsAndEachOther(
+    labels,
+    openingNodes,
+    fixture.presentation.graphWidth,
+    460,
+  );
+});
+
+test("endpoint opening trace labels remain contained at the narrower supported viewport", () => {
+  const fixture = endpointLateralScenario;
+  const openingEdges = fixture.joins.slice(0, 2);
+  const openingNodeIds = new Set(
+    openingEdges.flatMap((edge) => [edge.fromEntityId, edge.toEntityId]),
+  );
+  const openingNodes = fixture.presentation.nodes.filter((node) =>
+    openingNodeIds.has(node.entityId),
+  );
+  // At 1024px the camera pans the same 1450px graph field; label world
+  // coordinates must stay deterministic and contained rather than reflowing.
+  const recordingViewport = layoutTraceEdgeLabels(
+    openingEdges,
+    openingNodes,
+    fixture.presentation.graphWidth,
+    460,
+  );
+  const narrowViewport = layoutTraceEdgeLabels(
+    openingEdges,
+    openingNodes,
+    fixture.presentation.graphWidth,
+    460,
+  );
+
+  assert.deepEqual([...narrowViewport], [...recordingViewport]);
+  assertTraceLabelsClearCardsAndEachOther(
+    narrowViewport,
+    openingNodes,
+    fixture.presentation.graphWidth,
+    460,
+  );
+});
+
+test("expanded endpoint trace labels remain deterministic and collision-free", () => {
+  const fixture = endpointLateralScenario;
+  const edges = [
+    ...fixture.joins,
+    ...fixture.stream.stages.flatMap((stage) => stage.joins),
+  ];
+  const nodes: { entityId: string; x: number; y: number }[] = [];
+
+  for (const node of fixture.presentation.nodes) {
+    nodes.push({ entityId: node.entityId, x: node.x, y: node.y });
+  }
+
+  for (const stage of fixture.stream.stages) {
+    for (const node of stage.graphNodes) {
+      nodes.push({ entityId: node.entityId, x: node.x, y: node.y });
+    }
+  }
+  const first = layoutTraceEdgeLabels(
+    edges,
+    nodes,
+    fixture.presentation.graphWidth,
+    fixture.presentation.graphHeight,
+  );
+  const second = layoutTraceEdgeLabels(
+    edges,
+    nodes,
+    fixture.presentation.graphWidth,
+    fixture.presentation.graphHeight,
+  );
+
+  assert.equal(first.size, edges.length);
+  assert.deepEqual([...first], [...second]);
+  assertTraceLabelsClearCardsAndEachOther(
+    first,
+    nodes,
+    fixture.presentation.graphWidth,
+    fixture.presentation.graphHeight,
+  );
+});
+
+test("expanded cloud trace labels remain deterministic and collision-free", () => {
+  const fixture = cloudIdentityScenario;
+  const edges = [
+    ...fixture.joins,
+    ...fixture.stream.stages.flatMap((stage) => stage.joins),
+  ];
+  const nodes: { entityId: string; x: number; y: number }[] = [];
+
+  for (const node of fixture.presentation.nodes) {
+    nodes.push({ entityId: node.entityId, x: node.x, y: node.y });
+  }
+
+  for (const stage of fixture.stream.stages) {
+    for (const node of stage.graphNodes) {
+      nodes.push({ entityId: node.entityId, x: node.x, y: node.y });
+    }
+  }
+  const labels = layoutTraceEdgeLabels(
+    edges,
+    nodes,
+    fixture.presentation.graphWidth,
+    fixture.presentation.graphHeight,
+  );
+
+  assert.equal(labels.size, edges.length);
+  assertTraceLabelsClearCardsAndEachOther(
+    labels,
+    nodes,
+    fixture.presentation.graphWidth,
+    fixture.presentation.graphHeight,
+  );
+});
+
+test("trace labels retain a deterministic safe subset when a dense graph cannot fit every label", () => {
+  const nodes = [
+    { entityId: "source", x: 0, y: 0 },
+    { entityId: "target", x: 240, y: 80 },
+  ];
+  const edges = [
+    { id: "first", fromEntityId: "source", toEntityId: "target" },
+    { id: "second", fromEntityId: "source", toEntityId: "target" },
+  ];
+
+  const first = layoutTraceEdgeLabels(edges, nodes, 560, 260);
+  const second = layoutTraceEdgeLabels(edges, nodes, 560, 260);
+
+  assert.equal(first.size, 1);
+  assert.deepEqual([...first], [...second]);
+  assertTraceLabelsClearCardsAndEachOther(first, nodes, 560, 260);
+});
+
+test("trace label placement excludes modeled segments that have no join", async () => {
+  const source = await readFile(
+    new URL("../components/evidence-map.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /view === "trace"[\s\S]*?layoutTraceEdgeLabels\([\s\S]*?edge\.join !== null/,
   );
 });
 
@@ -219,3 +574,69 @@ test("priority route state follows exact analyst-approved path severance", () =>
   assert.ok(controlled);
   assert.equal(controlled.priorityRoute.state, "controlled");
 });
+
+function rectanglesOverlap(
+  first: { x: number; y: number },
+  firstWidth: number,
+  firstHeight: number,
+  second: { x: number; y: number },
+  secondWidth = TRACE_NODE_WIDTH,
+  secondHeight = TRACE_NODE_HEIGHT,
+): boolean {
+  return (
+    first.x < second.x + secondWidth &&
+    first.x + firstWidth > second.x &&
+    first.y < second.y + secondHeight &&
+    first.y + firstHeight > second.y
+  );
+}
+
+function assertTraceLabelsClearCardsAndEachOther(
+  labels: ReadonlyMap<string, { x: number; y: number }>,
+  nodes: readonly { entityId: string; x: number; y: number }[],
+  graphWidth: number,
+  graphHeight: number,
+) {
+  for (const [edgeId, label] of labels) {
+    const rectangle = traceLabelRectangle(label);
+    for (const node of nodes) {
+      assert.equal(
+        traceLabelRectanglesIntersect(rectangle, {
+          left: node.x,
+          top: node.y,
+          right: node.x + TRACE_NODE_WIDTH,
+          bottom: node.y + TRACE_NODE_HEIGHT,
+        }),
+        false,
+        `${edgeId} trace label overlaps ${node.entityId}`,
+      );
+    }
+    assert.ok(rectangle.left >= 0, `${edgeId} trace label exits left boundary`);
+    assert.ok(rectangle.top >= 0, `${edgeId} trace label exits top boundary`);
+    assert.ok(
+      rectangle.right <= graphWidth,
+      `${edgeId} trace label exits right boundary`,
+    );
+    assert.ok(
+      rectangle.bottom <= graphHeight,
+      `${edgeId} trace label exits bottom boundary`,
+    );
+  }
+
+  const entries = [...labels.entries()];
+  for (const [index, [edgeId, label]] of entries.entries()) {
+    for (const [otherEdgeId, otherLabel] of entries.slice(index + 1)) {
+      assert.equal(
+        traceLabelRectanglesIntersect(
+          traceLabelRectangle(label),
+          traceLabelRectangle(otherLabel),
+        ),
+        false,
+        `${edgeId} trace label overlaps ${otherEdgeId}`,
+      );
+    }
+  }
+
+  assert.ok(TRACE_EDGE_LABEL_WIDTH > 0);
+  assert.ok(TRACE_EDGE_LABEL_HEIGHT > 0);
+}

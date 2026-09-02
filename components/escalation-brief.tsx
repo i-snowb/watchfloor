@@ -8,7 +8,7 @@ export function EscalationBrief({ fixture }: { fixture: CaseFixture }) {
         <strong>{fixture.tier1Escalation.escalationReason}</strong>
         <small>
           {fixture.tier1Escalation.observations.length} observed relationships ·
-          no response authorized
+          response withheld at Tier 1
         </small>
       </summary>
       <div>

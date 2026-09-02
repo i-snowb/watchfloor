@@ -20,6 +20,8 @@ export const TRACE_MIN_SCALE = 0.58;
 export const TRACE_MAX_SCALE = 1.7;
 export const TRACE_CAMERA_MARGIN = 32;
 export const TRACE_CASE_READABLE_SCALE = 0.8;
+export const TRACE_ACTIVE_EVIDENCE_FIT_SCALE = 1.35;
+export const TRACE_QUERY_OVERLAY_MIN_BLOCKING_HEIGHT = 120;
 
 export function clampTraceScale(scale: number): number {
   return Math.min(TRACE_MAX_SCALE, Math.max(TRACE_MIN_SCALE, scale));
@@ -71,6 +73,8 @@ export function fitTraceCameraToBounds(
   bounds: TraceBounds,
   margin = TRACE_CAMERA_MARGIN,
   minimumReadableScale = 1,
+  fitWithinViewport = false,
+  maximumFitScale = minimumReadableScale,
 ): TraceCamera {
   if (bounds.width <= 0 || bounds.height <= 0) {
     return fitTraceCamera(viewport, world, margin);
@@ -78,11 +82,18 @@ export function fitTraceCameraToBounds(
   const availableWidth = Math.max(1, viewport.width - margin * 2);
   const availableHeight = Math.max(1, viewport.height - margin * 2);
   const naturalScale = Math.min(
-    1,
+    maximumFitScale,
     availableWidth / bounds.width,
     availableHeight / bounds.height,
   );
-  const scale = clampTraceScale(Math.max(minimumReadableScale, naturalScale));
+  // A normal fit favors the requested readable scale. The interactive case
+  // map opts into full containment so a short fixed-height workspace does not
+  // crop active evidence; its global floor still prevents unusably tiny cards.
+  const scale = clampTraceScale(
+    fitWithinViewport
+      ? Math.max(TRACE_MIN_SCALE, naturalScale)
+      : Math.max(minimumReadableScale, naturalScale),
+  );
   const scaledBoundsHeight = bounds.height * scale;
   const y =
     scaledBoundsHeight > availableHeight
@@ -99,6 +110,28 @@ export function fitTraceCameraToBounds(
     world,
     margin,
   );
+}
+
+/**
+ * A compact query summary can overlap the map without hiding enough evidence
+ * to justify shrinking its working width. Reserve a side band only when an
+ * overlay covers a material vertical span of the graph viewport.
+ */
+export function blocksTraceCameraBand(
+  viewport: TraceSize,
+  overlay: TraceBounds,
+): boolean {
+  if (overlay.width <= 0 || overlay.height <= 0) return false;
+  const overlapHeight = Math.max(
+    0,
+    Math.min(viewport.height, overlay.y + overlay.height) -
+      Math.max(0, overlay.y),
+  );
+  const requiredHeight = Math.min(
+    TRACE_QUERY_OVERLAY_MIN_BLOCKING_HEIGHT,
+    viewport.height * 0.34,
+  );
+  return overlapHeight >= requiredHeight;
 }
 
 export function zoomTraceCameraAt(

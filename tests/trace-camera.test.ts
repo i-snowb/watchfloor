@@ -1,12 +1,37 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  blocksTraceCameraBand,
   clampTraceCamera,
   fitTraceCamera,
   fitTraceCameraToBounds,
+  TRACE_ACTIVE_EVIDENCE_FIT_SCALE,
   TRACE_CASE_READABLE_SCALE,
   zoomTraceCameraAt,
 } from "../lib/trace-camera";
+
+test("a compact query summary does not reserve the graph side band", () => {
+  const viewport = { width: 1020, height: 333 };
+
+  assert.equal(
+    blocksTraceCameraBand(viewport, {
+      x: 600,
+      y: 0,
+      width: 420,
+      height: 48,
+    }),
+    false,
+  );
+  assert.equal(
+    blocksTraceCameraBand(viewport, {
+      x: 600,
+      y: 0,
+      width: 420,
+      height: 180,
+    }),
+    true,
+  );
+});
 
 test("trace camera gives a small world a bounded physical working range", () => {
   assert.deepEqual(
@@ -105,6 +130,30 @@ test("active evidence fit uses natural scale when the evidence fits", () => {
   );
 });
 
+test("small active evidence can fit above one without exceeding camera bounds", () => {
+  const viewport = { width: 1200, height: 800 };
+  const bounds = { x: 420, y: 220, width: 480, height: 300 };
+  const camera = fitTraceCameraToBounds(
+    viewport,
+    { width: 1600, height: 980 },
+    bounds,
+    undefined,
+    TRACE_CASE_READABLE_SCALE,
+    true,
+    TRACE_ACTIVE_EVIDENCE_FIT_SCALE,
+  );
+
+  assert.equal(camera.scale, TRACE_ACTIVE_EVIDENCE_FIT_SCALE);
+  assert.ok(camera.x + bounds.x * camera.scale >= 0);
+  assert.ok(
+    camera.x + (bounds.x + bounds.width) * camera.scale <= viewport.width,
+  );
+  assert.ok(camera.y + bounds.y * camera.scale >= 0);
+  assert.ok(
+    camera.y + (bounds.y + bounds.height) * camera.scale <= viewport.height,
+  );
+});
+
 test("case fit keeps room for graph expansion at the 1280 recording viewport", () => {
   const bounds = { x: 60, y: 10, width: 1240, height: 392 };
   const camera = fitTraceCameraToBounds(
@@ -141,6 +190,30 @@ test("case fit holds a readable scale with bounded panning at 1024", () => {
   assert.ok(camera.x + (bounds.x + bounds.width) * camera.scale > 764);
   assert.ok(camera.y + bounds.y * camera.scale >= 32);
   assert.ok(camera.y + (bounds.y + bounds.height) * camera.scale < 346);
+});
+
+test("case fit prioritizes visible evidence when a short workspace cannot hold the readable target", () => {
+  const viewport = { width: 1280, height: 385 };
+  const bounds = { x: 60, y: 35, width: 1380, height: 553 };
+  const camera = fitTraceCameraToBounds(
+    viewport,
+    { width: 1450, height: 652 },
+    bounds,
+    undefined,
+    TRACE_CASE_READABLE_SCALE,
+    true,
+  );
+
+  assert.ok(camera.scale < TRACE_CASE_READABLE_SCALE);
+  assert.ok(camera.scale >= 0.58);
+  assert.ok(camera.x + bounds.x * camera.scale >= 0);
+  assert.ok(
+    camera.x + (bounds.x + bounds.width) * camera.scale <= viewport.width,
+  );
+  assert.ok(camera.y + bounds.y * camera.scale >= 0);
+  assert.ok(
+    camera.y + (bounds.y + bounds.height) * camera.scale <= viewport.height,
+  );
 });
 
 test("active evidence fit falls back for invalid bounds", () => {

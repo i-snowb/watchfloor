@@ -15,7 +15,19 @@ test("JSON responses include the shared security headers", () => {
   );
   assert.equal(response.headers.get("x-frame-options"), "DENY");
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(
+    response.headers.get("cross-origin-opener-policy"),
+    "same-origin",
+  );
+  assert.equal(
+    response.headers.get("cross-origin-resource-policy"),
+    "same-origin",
+  );
   assert.equal(response.headers.get("referrer-policy"), "no-referrer");
+  assert.equal(
+    response.headers.get("strict-transport-security"),
+    "max-age=31536000",
+  );
   assert.match(response.headers.get("permissions-policy") ?? "", /camera=\(\)/);
 });
 

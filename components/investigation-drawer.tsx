@@ -1,13 +1,15 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   getAllEntities,
   getVisibleEnrichments,
 } from "@/domain/incident-stream";
+import { traceEvidenceLineage } from "@/domain/evidence-lineage";
 import { getCollaborationHandoff } from "@/domain/operations";
 import type {
   CaseFixture,
   CaseState,
   EnrichmentArtifact,
+  EvidenceLineageTargetType,
   InvestigationQueryDefinition,
   OperationReceipt,
   AnalystReportSignoff,
@@ -15,7 +17,11 @@ import type {
 import { formatUtcTime, humanizeEntityKind } from "@/lib/format";
 import { CaseReportPanel } from "./case-report-panel";
 import { QueryReturnedRecords } from "./query-returned-records";
-import type { TraceSelection } from "./trace-interaction";
+import type {
+  EvidenceProvenanceRequest,
+  EvidenceProvenanceTargetType,
+  TraceSelection,
+} from "./trace-interaction";
 
 interface InvestigationDrawerProps {
   busy: boolean;
@@ -24,7 +30,12 @@ interface InvestigationDrawerProps {
   onApproveReport: (signoff: AnalystReportSignoff) => Promise<void>;
   onSelect: (selection: TraceSelection) => void;
   onOpenChange: (open: boolean) => void;
+  onViewProvenance: (target: {
+    targetId: string;
+    targetType: EvidenceProvenanceTargetType;
+  }) => void;
   open: boolean;
+  provenanceRequest?: EvidenceProvenanceRequest | null;
   reportReviewId: string;
   receipts: readonly OperationReceipt[];
   selectionDetails?: ReactNode;
@@ -38,12 +49,18 @@ export function InvestigationDrawer({
   onApproveReport,
   onSelect,
   onOpenChange,
+  onViewProvenance,
   open,
+  provenanceRequest = null,
   reportReviewId,
   receipts,
   selectionDetails,
   state,
 }: InvestigationDrawerProps) {
+  const openerRef = useRef<HTMLElement | null>(null);
+  const provenanceSummaryRef = useRef<HTMLElement | null>(null);
+  const [provenanceOpen, setProvenanceOpen] = useState(false);
+  const provenanceRequestId = provenanceRequest?.requestId ?? null;
   const entities = getAllEntities(fixture);
   const entityById = new Map(entities.map((entity) => [entity.id, entity]));
   const enrichments = getVisibleEnrichments(fixture, state);
@@ -125,10 +142,44 @@ export function InvestigationDrawer({
           receipt.toolName === "approve_case_report",
       ) ?? null;
 
+  useEffect(() => {
+    if (!open || provenanceRequestId === null) return;
+    let innerFrame: number | null = null;
+    const outerFrame = window.requestAnimationFrame(() => {
+      setProvenanceOpen(true);
+      innerFrame = window.requestAnimationFrame(() => {
+        provenanceSummaryRef.current?.focus({ preventScroll: true });
+        provenanceSummaryRef.current?.scrollIntoView({
+          behavior: "auto",
+          block: "nearest",
+        });
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(outerFrame);
+      if (innerFrame !== null) window.cancelAnimationFrame(innerFrame);
+    };
+  }, [open, provenanceRequestId]);
+
   return (
     <details
       className="case-investigation-drawer"
-      onToggle={(event) => onOpenChange(event.currentTarget.open)}
+      onToggle={(event) => {
+        const nextOpen = event.currentTarget.open;
+        if (nextOpen) {
+          const activeElement = document.activeElement;
+          openerRef.current =
+            activeElement instanceof HTMLElement ? activeElement : null;
+        } else if (
+          openerRef.current &&
+          event.currentTarget.contains(document.activeElement)
+        ) {
+          window.requestAnimationFrame(() => {
+            openerRef.current?.focus({ preventScroll: true });
+          });
+        }
+        onOpenChange(nextOpen);
+      }}
       open={open}
     >
       <summary
@@ -209,6 +260,28 @@ export function InvestigationDrawer({
           )}
         </section>
 
+        {provenanceRequest ? (
+          <details
+            className="findings-context-disclosure provenance-disclosure"
+            onToggle={(event) => setProvenanceOpen(event.currentTarget.open)}
+            open={provenanceOpen}
+          >
+            <summary ref={provenanceSummaryRef}>
+              <span>Evidence lineage</span>
+              <strong>View provenance</strong>
+              <em aria-hidden="true" />
+            </summary>
+            <div className="provenance-disclosure-body">
+              <ProvenanceDetails
+                fixture={fixture}
+                receipts={receipts}
+                request={provenanceRequest}
+                state={state}
+              />
+            </div>
+          </details>
+        ) : null}
+
         <section className="drawer-section report-readiness-section">
           <header className="drawer-section-heading">
             <div>
@@ -244,6 +317,7 @@ export function InvestigationDrawer({
               findingsSectionId={findingsSectionId}
               key={state.report.report?.id ?? "case-report"}
               onApprove={onApproveReport}
+              onViewProvenance={onViewProvenance}
               reportId={reportReviewId}
               state={state}
             />
@@ -473,6 +547,214 @@ function FindingRow({
       </article>
     </li>
   );
+}
+
+function ProvenanceDetails({
+  fixture,
+  receipts,
+  request,
+  state,
+}: {
+  fixture: CaseFixture;
+  receipts: readonly OperationReceipt[];
+  request: EvidenceProvenanceRequest;
+  state: CaseState;
+}) {
+  const lineage = traceEvidenceLineage(fixture, state, receipts, {
+    targetId: request.targetId,
+    targetType: toLineageTargetType(request.targetType),
+  });
+
+  if (!lineage) {
+    return (
+      <p className="provenance-empty-state">
+        Provenance is unavailable for this item in the current case revision.
+      </p>
+    );
+  }
+
+  return (
+    <article className="provenance-record">
+      <header>
+        <span>{lineage.target.type.replaceAll("_", " ")}</span>
+        <h3>{lineage.target.label}</h3>
+      </header>
+
+      <section aria-label="Evidence identity">
+        <h4>Evidence identity</h4>
+        <dl>
+          <ProvenanceField label="Reference" value={lineage.target.id} />
+          <ProvenanceField
+            label="Case revision"
+            value={`r${lineage.currentRevision}`}
+          />
+          <ProvenanceField
+            label="Availability"
+            value={
+              lineage.availability.releaseStageId
+                ? `${lineage.availability.kind} · ${lineage.availability.releaseStageId}`
+                : lineage.availability.kind
+            }
+          />
+          <ProvenanceField
+            label="Source"
+            value={
+              lineage.target.sourceLabel && lineage.target.sourceCategory
+                ? `${lineage.target.sourceLabel} · ${lineage.target.sourceCategory.replaceAll("_", " ")}`
+                : (lineage.target.sourceLabel ?? "Case-scoped evidence")
+            }
+          />
+          {lineage.target.timestamp ? (
+            <ProvenanceField
+              label="Recorded"
+              value={formatUtcTime(lineage.target.timestamp)}
+            />
+          ) : null}
+          {lineage.target.status ? (
+            <ProvenanceField label="Status" value={lineage.target.status} />
+          ) : null}
+        </dl>
+      </section>
+
+      {lineage.skills.length > 0 ? (
+        <section aria-label="Approved investigation skills">
+          <h4>Approved investigation skills</h4>
+          <ul>
+            {lineage.skills.map((skill) => (
+              <li key={skill.id}>
+                <code>{skill.id}</code> · v{skill.version} · {skill.title} ·{" "}
+                {skill.objective}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {lineage.queries.length > 0 ? (
+        <section aria-label="Bounded query contracts">
+          <h4>Bounded query contracts</h4>
+          {lineage.queries.map(({ definition, queryText }) => {
+            const searched = definition.sourceScopes.reduce(
+              (total, scope) => total + scope.syntheticRecordCount,
+              0,
+            );
+            return (
+              <details
+                className="provenance-query-contract"
+                key={definition.id}
+              >
+                <summary>
+                  {definition.title} · {formatCount(searched)} searched ·{" "}
+                  {definition.matchedRecordCount} matched ·{" "}
+                  {definition.returnedRecordCount} returned
+                </summary>
+                <dl>
+                  <ProvenanceField label="Query ID" value={definition.id} />
+                  <ProvenanceField
+                    label="Sources"
+                    value={definition.sourceScopes
+                      .map((scope) => scope.sourceLabel)
+                      .join(" · ")}
+                  />
+                </dl>
+                <code>{queryText}</code>
+              </details>
+            );
+          })}
+        </section>
+      ) : null}
+
+      {lineage.records.length > 0 ? (
+        <section aria-label="Returned source records">
+          <h4>Returned source records · {lineage.records.length}</h4>
+          <ul>
+            {lineage.records.map((record) => (
+              <li key={record.id}>
+                <code>{record.id}</code> · {record.sourceLabel} ·{" "}
+                {record.recordType} · {formatUtcTime(record.timestamp)}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {lineage.relationships.length > 0 ? (
+        <section aria-label="Relationship matches">
+          <h4>Relationship matches · {lineage.relationships.length}</h4>
+          <ul>
+            {lineage.relationships.map((relationship) => (
+              <li key={relationship.id}>
+                <code>{relationship.id}</code> · {relationship.relation} ·{" "}
+                {relationship.matchField} = {relationship.matchValue}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {lineage.receipts.length > 0 ? (
+        <section aria-label="Recorded operation receipts">
+          <h4>Recorded operation receipts</h4>
+          <ul>
+            {lineage.receipts.map((receipt) => (
+              <li className="provenance-receipt" key={receipt.id}>
+                <code>{receipt.id}</code> · request{" "}
+                <code>{receipt.requestId}</code> ·
+                <code>{receipt.toolName}</code> · r{receipt.baseRevision}→r
+                {receipt.resultRevision} · {formatUtcTime(receipt.occurredAt)}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {lineage.reportConsumers.length > 0 ? (
+        <section aria-label="Report consumers">
+          <h4>Report consumers</h4>
+          <ul>
+            {lineage.reportConsumers.map((consumer) => (
+              <li key={`${consumer.reportId}:${consumer.evidenceId}`}>
+                <code>{consumer.reportId}</code> · {consumer.version} ·{" "}
+                {consumer.status} · evidence {consumer.evidenceId}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {lineage.limitations.length > 0 ? (
+        <section aria-label="Known limitations">
+          <h4>Known limitations</h4>
+          <ul>
+            {lineage.limitations.map((limitation) => (
+              <li key={`${limitation.source}:${limitation.referenceId}`}>
+                {limitation.text}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <p className="provenance-execution-boundary">
+        Read-only case lineage · no external execution
+      </p>
+    </article>
+  );
+}
+
+function ProvenanceField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+function toLineageTargetType(
+  type: EvidenceProvenanceTargetType,
+): EvidenceLineageTargetType {
+  return type === "join" ? "relationship" : type;
 }
 
 function formatCount(value: number): string {

@@ -1,42 +1,19 @@
 # WATCH//FLOOR
 
-WATCH//FLOOR is a deterministic WebMCP incident-response workbench for escalated Tier 2/3 operations. TRACE investigates bounded case evidence through registered page tools. Analysts review the evidence, authorize recorded response, and close the signed report.
+WATCH//FLOOR is an analyst-first incident-response workbench. TRACE uses registered WebMCP page tools to inspect bounded case evidence, trace released evidence lineage, prepare and run approved queries, attach provenance-backed discoveries, model impact, prepare recorded response packages, and draft a report. The analyst owns disposition, later-observation release, response approval, and final report approval.
 
-The reference build runs on ChatGPT Sites. It does not connect to live security products, execute malware, submit hashes to external services, or change external controls.
+The public deployment is an anonymous sandbox with deterministic fixtures. It does not contact security products, execute malware, retrieve live intelligence, or execute external controls. Recorded response actions always state `externalExecution: false`.
 
-Incoming implementation and test agents should read [HANDOFF.md](./HANDOFF.md) for the current state and [DEMO_TEST_HANDOVER.md](./DEMO_TEST_HANDOVER.md) for the repeatable endpoint rehearsal.
+## Start and verify
 
-## What analysts can inspect
-
-- Five Tier 1 escalations in the incident ledger.
-- Two complete investigations and three evidence briefs.
-- A primary endpoint case with observed execution, repeated egress, service-identity use, blocked remote service control, and a deployment-credential read.
-- A visible KQL workspace. A connected agent prepares the canonical query through WebMCP, the page shows the query before execution, and exact returned records remain inspectable.
-- Exact SHA-256 intelligence, enterprise prevalence, endpoint posture, Windows authentication, network, target-host prevention, cloud audit, and recovery inventory fixtures.
-- An exposure model that keeps observed, correlated, modeled, simulated, prevented, and analyst-approved states distinct.
-- Human-gated forensic collection, endpoint isolation, exact-IP blocking, identity disablement, credential rotation, and known-good image redeploy records.
-- A deterministic evidence report with findings, limitations, residual risk, evidence references, response provenance, and a persisted analyst closure note.
-
-The operation layer contains 35 case operations. The state-aware WebMCP surface registers 21 tools on the cloud case, 27 tools on the endpoint case, and two queue tools. The page never exposes the five analyst-only gates through WebMCP:
-
-- `record_evidence_decision`
-- `release_next_synthetic_signal`
-- `authorize_response_action`
-- `authorize_response_bundle`
-- `approve_case_report`
-
-## Run locally
-
-Requirements: Node.js 22.13 or later and npm 11 or later.
+Requirements: Node.js 22.13+ and npm with lockfile v3 support. The current release checks use npm 11.
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Open `http://localhost:3000/alerts`.
-
-Release checks:
+Open `http://localhost:3000/alerts`. `/alerts` is the default product entry; `/start` is optional evaluator access.
 
 ```bash
 npm run check
@@ -48,82 +25,133 @@ With the local server running in another terminal:
 npm run smoke
 ```
 
-`npm run check` verifies formatting, lint, strict TypeScript, unit tests, the fixture-scoped WebMCP tool matrix, and the production build. `npm run smoke` executes both complete HTTP lifecycles, validates idempotency and stale-state rejection, confirms agent and analyst boundaries, checks exact report closure, and resets its authenticated local-development session.
+`npm run check` runs formatting, lint, strict TypeScript, tests, WebMCP matrix checks, and the production build. `npm run smoke` exercises the two complete HTTP lifecycles and boundary, idempotency, stale-state, and report-closure checks.
 
-The HTTP smoke test does not prove native browser registration. Before submission, run the primary case twice from revision 1 in the signed-in ChatGPT Sites browser.
+## Evaluator flow
 
-## Approved Investigation Skills
+Use the endpoint case at `/cases/case-endpoint-0448`.
 
-`list_investigation_skills` returns the case-scoped catalog of approved, versioned investigation playbooks. Each skill maps to one immutable bounded query contract and cannot be redirected to arbitrary telemetry, SQL, URLs, hosts, credentials, or external systems.
+1. The analyst prompts TRACE; it does not self-start. From `/alerts`, TRACE calls `list_case_queue`. After the analyst opens the endpoint case, TRACE waits for the case tool surface to report ready, then inspects registered tools and calls `get_case_context`.
+2. Follow only each returned `nextAgentAction` and its supplied input.
+3. Inspect visible canonical KQL and returned records before proceeding.
+4. Stop at each `analystGate`; the analyst performs the required decision, release, approval, or report sign-off.
+5. Keep observed evidence, modeled impact, simulated controls, and recorded approvals distinct. Do not imply external execution.
 
-Use the following model for every skill:
+The authoritative evaluator procedure is [JUDGE_GUIDE.md](./JUDGE_GUIDE.md). The canonical connected-agent prompt is [public/agent-handoff.md](./public/agent-handoff.md).
 
-1. List approved skills or read the skill catalog in `get_case_context`.
-2. Select one available skill ID.
-3. Call `prepare_investigation_query` with the corresponding `queryId`. The page loads the immutable KQL into the visible shared console, but does not retrieve evidence.
-4. Inspect the displayed KQL and call `run_investigation_query` with the exact returned `queryText`.
-5. Review the bounded raw records and attached finding before selecting the next skill.
+## WebMCP and authority boundary
 
-Skill availability follows case state. A blocked skill remains unavailable until its prerequisite discovery or telemetry is present. Preparation is revision-safe; missing, changed, or stale query text fails closed. Skills prepare and run evidence collection only. They do not authorize analyst decisions, telemetry release, response, or report approval.
+WebMCP registration is case-scoped: the endpoint case registers 24 tools and
+the cloud case registers 18. Five analyst-only operations are never registered
+as WebMCP tools and are rejected on the callback surface:
 
-## Connected-agent operating prompt
+- `record_evidence_decision`
+- `release_next_synthetic_signal`
+- `authorize_response_action`
+- `authorize_response_bundle`
+- `approve_case_report`
 
-Open `case-endpoint-0448`, then give the connected agent this instruction:
+The public sandbox intentionally lets the visitor use analyst controls. That is a workflow boundary, not authenticated-human proof. A private deployment must protect the analyst-control channel with verified identity and authorization.
 
-> Investigate this case through the page's registered tools. Start with `get_case_context`, then call `list_investigation_skills`. Prepare one available skill at a time, wait for its KQL to appear in the shared query workspace, then run the exact returned `queryText` and inspect the raw records. Continue one revision-changing tool call at a time. Stop before every analyst-only decision, telemetry release, response approval, and report approval. Never imply that a modeled or simulated action executed externally.
+## Endpoint evidence visibility
 
-Do not paste full KQL into this README. `prepare_investigation_query` returns the versioned canonical text and loads it into the shared workspace. This keeps documentation, execution validation, and the filmed query identical.
+The endpoint graph is evidence-released, not pre-expanded. Counts below cover
+visible entities, observed events, and evidence joins; modeled reach remains
+separate from observed and prevented activity.
 
-For optional competition recording guidance, see [JUDGE_GUIDE.md](./JUDGE_GUIDE.md). The product does not present a guided demo path in the default workspace.
+| Investigation point                                     | Entities | Events | Joins |
+| ------------------------------------------------------- | -------: | -----: | ----: |
+| Fresh Tier 1 case                                       |        3 |      4 |     2 |
+| Identity evidence attached                              |        4 |      5 |     2 |
+| Stage 1 released                                        |        7 |     11 |     7 |
+| Final, after reachability and analyst telemetry release |        8 |     13 |     8 |
 
-## Primary investigation contract
+Stage 1 reveals `APP-SRV-021`, the expected service host, and the observed
+credential-read topology. `APP-SRV-021` is prevented, not compromised.
+`billing-api` is modeled-only and remains hidden until reachability is attached;
+it is not observed compromise. Approved query targets can be known before they
+are visible. An approved query can attach its bounded identity evidence; it
+does not release stage-gated telemetry, entities, or relationships.
 
-The endpoint case uses this sequence:
+## Public release
 
-1. Open the compact escalation brief if Tier 1 context is needed.
-2. Prepare a bounded query through the analyst control or WebMCP. This creates a shared case-state transition and loads its exact text and sources.
-3. Run that exact prepared query. Direct execution and plan execution both reject missing, mismatched, or stale preparation; modified or unknown query text also fails closed.
-4. Inspect returned source records. The result attaches to the map and activity timeline.
-5. After its cited query evidence is attached, let the connected agent call `attach_discovery_stage` to add only the next provenance-backed entities and observations. The analyst replay control remains an alternate path and is not exposed through WebMCP.
-6. Record the analyst disposition.
-7. Let the connected agent calculate exposure and simulate the allowlisted control.
-8. Let the connected agent prepare response packages. The analyst approves them.
-9. Let the connected agent draft the evidence report. The analyst reviews its cited findings and response record, writes a closure note, and signs off. The agent cannot approve its own report.
+- Live URL: [watchfloor-sandbox.watchfloor-webmcp.workers.dev](https://watchfloor-sandbox.watchfloor-webmcp.workers.dev)
+- Release identity: read the live
+  [`/api/release`](https://watchfloor-sandbox.watchfloor-webmcp.workers.dev/api/release)
+  endpoint. A final release must identify the reviewed public commit
+- Endpoint lifecycle: revision `r29`
+- Current source verification passes **175 tests** across **8,569 test lines in
+  29 files**.
 
-The exact file hash is `65fb21f3b3b11f7a7d45f31965dad35935e6d9c860ca6f618999510db74260b9` everywhere it appears. Its intelligence result is an archived deterministic fixture, not live OSINT. `QRY-ENDPOINT-STATIC-08` and `QRY-ENDPOINT-SANDBOX-09` are optional supporting pivots. The latter reviews an archived sandbox behavior record; it does not detonate a sample.
+Historical hosted verification on 2026-09-01 passed from `r14` through analyst
+telemetry release, recovery authorization, and analyst-approved report closure
+at `r29`. Direct attach before analyst release was rejected at `r19` with
+`TELEMETRY_RELEASE_REQUIRED` and no revision change; a repeated pending-gate
+bypass was rejected at `r20` with no revision change. Hosted smoke passed, and
+`/alerts`, `/start`, and the cloud route had zero browser errors; cloud
+`get_case_context` passed.
 
-## Architecture and trust boundary
+In that historical hosted check, public `npm run smoke` passed its HTTP
+evidence-lineage and trusted-receipt assertions, then reset the case.
+Separately, the in-app browser at 1280×720 showed the then-current
+`TRACE ready · 29 tools` label, native registration including
+`trace_evidence_lineage`, and initial entity lineage in the existing
+scroll-contained drawer. It was left at `r1` with no selection and the drawer
+closed. These checks distinguish hosted HTTP operation coverage from native
+page registration and UI coverage.
 
-The stack is intentionally narrow: React, Vinext, Vite, Cloudflare Workers, and D1.
+Those historical checks do not attest to later source changes. Before
+submission, `/api/release` must identify the reviewed public commit and hosted
+smoke plus native WebMCP verification must be repeated against that exact
+deployment.
 
-- [`domain/scenarios`](./domain/scenarios) contains immutable versioned fixtures and build-time validation.
-- [`domain/query-console.ts`](./domain/query-console.ts) owns canonical query text.
-- [`domain/operations.ts`](./domain/operations.ts) owns validation, state gates, deterministic results, and revision policy.
-- [`domain/case-state.ts`](./domain/case-state.ts) validates persisted state and report provenance.
-- [`server/case-store.ts`](./server/case-store.ts) owns D1 state, optimistic updates, idempotency, receipts, and reset.
-- [`webmcp/tools.ts`](./webmcp/tools.ts) defines and registers the semantic WebMCP surface.
-- [`components/evidence-map.tsx`](./components/evidence-map.tsx) renders the shared incident path and exposure map.
+### Final public release procedure
 
-The current Sites deployment is owner-only behind ChatGPT sign-in. Sites supplies the stable authenticated user ID to the server. A future direct Cloudflare Worker deployment instead requires a verified Cloudflare Access JWT and an explicit analyst email allowlist. Local development is a separate explicit mode, and the development server binds only to loopback.
+Do this only after the reviewed source is committed and pushed to its public
+GitHub, GitLab, or Bitbucket repository. The deploy command refuses a dirty
+tree, a nonmatching `HEAD`, a missing remote, a remote that does not match the
+declared public repository, or a `HEAD` absent from that remote's tracking
+branches. The values are public release metadata, not secrets; do not put them
+in `wrangler.public.json`.
 
-The server derives the D1 session ID from the verified principal. It does not accept a caller-selected session. HTTPS responses use an `HttpOnly`, `Secure`, `SameSite=Strict`, `__Host-` cookie as a continuity marker. The operation envelope still records the client-reported interaction surface for provenance, but that label does not grant authority. The five analyst-only operations require the server-authenticated analyst role.
+`wrangler.public.json` identifies the live sandbox's D1 database and rate-limit
+namespaces. Those identifiers are public configuration, not credentials, but
+they are account-specific. A fork must provision its own resources and replace
+those identifiers before deploying; local `npm run dev` and `npm run check` do
+not use the live resources.
 
-All JSON, page, and Cloudflare static-asset responses declare anti-framing, MIME-sniffing, referrer, and browser-feature restrictions. Request bodies are streamed through a 16 KiB limit. Read-only case requests do not allocate D1 state. WebMCP output is labeled as untrusted model content because it can include persisted analyst text.
+```bash
+export WATCHFLOOR_SOURCE_REPOSITORY="https://github.com/OWNER/REPOSITORY"
+export WATCHFLOOR_RELEASE_ID="watchfloor-$(git rev-parse --short=12 HEAD)"
+npm run cloudflare:deploy-public
+```
 
-## Private hosting posture
+The deploy derives the commit from `HEAD`, rejects a supplied mismatch, and
+passes those values plus `WATCHFLOOR_AUTH_MODE=anonymous_sandbox` as explicit
+Wrangler `--var` bindings with `--strict`. Verify
+the exact source-to-deployment identity after the command completes:
 
-Keep pre-release review on the owner-only Sites deployment. Before every private Sites release, verify that its access mode is `custom`, the owner is the only allowed account, and there are no external visitors or workspace or tenant groups.
+```bash
+curl --fail --silent --show-error \
+  https://watchfloor-sandbox.watchfloor-webmcp.workers.dev/api/release
+```
 
-The separate Cloudflare profile in `wrangler.deploy.json` is intentionally non-routable. It disables `workers.dev` and preview URLs, defines no route or custom domain, uses a separate D1 database, and selects fail-closed Cloudflare Access authentication. `npm run cloudflare:check-private` validates those invariants. `npm run cloudflare:upload-private` uploads a version only after the complete release check; it does not attach a public route. Do not add a route or domain until Cloudflare Access protects the complete application and its signing-key issuer, audience, and analyst allowlist are configured.
+The returned `sourceCommit`, `sourceRepository`, and `releaseId` must equal
+the current `git rev-parse HEAD`, the exported repository URL, and the
+exported release ID. Then run the hosted smoke test against the same URL.
+Finally, in a signed-out private browser window, load `/alerts` and the
+primary case URL to confirm that public evaluation access works without a
+pre-existing session or identity.
 
-All inputs are allowlisted and bounded. Writes require the current revision and an idempotent request ID. The operation surface does not accept SQL, URLs, shell commands, credentials, secret values, source code, or arbitrary external targets. Every response approval records `externalExecution: false`.
+The public deployment has no remote source identity, public repository URL, or
+public video yet. These are deliberate release blanks; see
+[SUBMISSION.md](./SUBMISSION.md). Do not bind production data, credentials, or
+integrations to the public Worker.
 
-## Optional recording and submission gates
+## Repository map
 
-Before filming or sharing:
-
-1. Deploy the exact commit that passed `npm run check` and `npm run smoke`.
-2. Verify native tool registration and one read plus one write callback on the hosted endpoint case.
-3. Rehearse the complete hosted endpoint path twice from revision 1.
-4. Verify public judge access from a signed-out browser or add the exact judge viewers.
-5. Reset the presentation session and record from the canonical initial state.
+- `domain/`: fixtures, state transitions, query contracts, and operation validation.
+- `webmcp/tools.ts`: route-scoped tool definitions and browser registration.
+- `server/`: request authentication, surface enforcement, limits, D1 persistence, idempotency, and receipts.
+- `components/`: shared analyst and TRACE workbench UI.
+- `tests/`: unit, lifecycle, security, and deployment-contract coverage.

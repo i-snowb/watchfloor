@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ToolApiResponse } from "@/domain/api";
 import {
   createInitialCaseState,
@@ -14,7 +15,12 @@ import type {
   AnalystReportSignoff,
 } from "@/domain/types";
 import { getAllEntities } from "@/domain/incident-stream";
-import { executeTool, loadCase, resetCase } from "@/lib/client-api";
+import {
+  executeTool,
+  loadCase,
+  resetCase,
+  startFreshSandboxSession,
+} from "@/lib/client-api";
 import {
   createCaseToolDefinitions,
   registerCaseTools,
@@ -22,6 +28,7 @@ import {
   type WebMcpHandler,
 } from "@/webmcp/tools";
 import { AgentDrawer } from "./agent-drawer";
+import { CaseAuthorityHandoff } from "./case-authority-handoff";
 import {
   createInvestigationReceiptView,
   isInvestigationTool,
@@ -29,10 +36,16 @@ import {
   type InvestigationResultView,
 } from "./investigation-activity";
 import { CaseCommandBar } from "./case-command-bar";
-import type { TraceSelection } from "./trace-interaction";
+import type {
+  EvidenceProvenanceTargetType,
+  TraceSelection,
+} from "./trace-interaction";
 import { CaseInspector } from "./case-inspector";
 import { EvidenceMap } from "./evidence-map";
 import { PlatformShell, type AgentStatus } from "./platform-shell";
+import { shouldClearOperationError } from "./operation-error";
+import { useModalDialog } from "./use-modal-dialog";
+import { isVisibleEntity } from "./visible-selection";
 
 interface AgentToolDispatcher {
   run: WebMcpHandler;
@@ -60,6 +73,7 @@ function createAgentToolDispatcher(): AgentToolDispatcher {
 }
 
 export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
+  const router = useRouter();
   const initialSelection = useMemo(
     () => getInitialSelection(fixture),
     [fixture],
@@ -69,7 +83,13 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     receipts: [],
   });
   const snapshotRef = useRef(snapshot);
+  const errorRevisionRef = useRef<number | null>(null);
   const [selection, setSelection] = useState<TraceSelection>(initialSelection);
+  const [provenanceRequest, setProvenanceRequest] = useState<{
+    requestId: number;
+    targetId: string;
+    targetType: EvidenceProvenanceTargetType;
+  } | null>(null);
   const [analystSelectionActive, setAnalystSelectionActive] = useState(false);
   const selectionRef = useRef(selection);
   const [agentToolDispatcher] = useState(createAgentToolDispatcher);
@@ -83,6 +103,9 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     ToolRegistrationOutcome[]
   >([]);
   const [agentDrawerOpen, setAgentDrawerOpen] = useState(false);
+  const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
+  const [freshSessionConfirmationOpen, setFreshSessionConfirmationOpen] =
+    useState(false);
   const [backendReady, setBackendReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +121,36 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     CaseSnapshot["receipts"][number] | null
   >(null);
   const agentRunSequence = useRef(0);
+  const clearOperationError = useCallback(() => {
+    errorRevisionRef.current = null;
+    setError(null);
+  }, []);
+  const reportOperationError = useCallback(
+    (
+      message: string,
+      revision: number | null = snapshotRef.current.state.revision,
+    ) => {
+      errorRevisionRef.current = revision;
+      setError(message);
+    },
+    [],
+  );
+  const closeResetConfirmation = useCallback(
+    () => setResetConfirmationOpen(false),
+    [],
+  );
+  const resetConfirmationRef = useModalDialog(
+    resetConfirmationOpen,
+    closeResetConfirmation,
+  );
+  const closeFreshSessionConfirmation = useCallback(
+    () => setFreshSessionConfirmationOpen(false),
+    [],
+  );
+  const freshSessionConfirmationRef = useModalDialog(
+    freshSessionConfirmationOpen,
+    closeFreshSessionConfirmation,
+  );
   const preparedFocusRevision = useRef<number | null>(null);
   const runningStartedAt =
     investigationActivity.status === "running"
@@ -112,6 +165,17 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     snapshotRef.current = snapshot;
     selectionRef.current = selection;
   }, [selection, snapshot]);
+
+  useEffect(() => {
+    if (
+      shouldClearOperationError(
+        errorRevisionRef.current,
+        snapshot.state.revision,
+      )
+    ) {
+      clearOperationError();
+    }
+  }, [clearOperationError, snapshot.state.revision]);
 
   useEffect(() => {
     if (runningStartedAt === null || runningDurationMs === null) return;
@@ -153,10 +217,11 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         setBackendReady(true);
       } catch (loadError) {
         if (!active) return;
-        setError(
+        reportOperationError(
           loadError instanceof Error
             ? loadError.message
             : "Case state is unavailable.",
+          null,
         );
       }
     }
@@ -164,13 +229,15 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     return () => {
       active = false;
     };
-  }, [fixture, initialSelection]);
+  }, [fixture, initialSelection, reportOperationError]);
 
   useEffect(() => {
     if (!backendReady) return;
     let active = true;
+    let syncing = false;
     const interval = window.setInterval(() => {
-      if (document.visibilityState === "hidden") return;
+      if (document.visibilityState === "hidden" || syncing) return;
+      syncing = true;
       void loadCase(fixture.id)
         .then((response) => {
           if (!active) return;
@@ -181,8 +248,11 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
               : current,
           );
         })
-        .catch(() => undefined);
-    }, 2_000);
+        .catch(() => undefined)
+        .finally(() => {
+          syncing = false;
+        });
+    }, 10_000);
     return () => {
       active = false;
       window.clearInterval(interval);
@@ -197,12 +267,17 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     }
     if (preparedFocusRevision.current === prepared.preparedAtRevision) return;
     preparedFocusRevision.current = prepared.preparedAtRevision;
-    setAgentFocusEntityId(
-      prepared.actor === "agent" ? prepared.targetEntityId : null,
-    );
-    setAnalystSelectionActive(prepared.actor === "analyst");
-    setSelection({ kind: "entity", id: prepared.targetEntityId });
-  }, [snapshot.state.preparedQuery]);
+    const frame = window.requestAnimationFrame(() => {
+      setAgentFocusEntityId(
+        prepared.actor === "agent" ? prepared.targetEntityId : null,
+      );
+      setAnalystSelectionActive(prepared.actor === "analyst");
+      if (isVisibleEntity(fixture, snapshot.state, prepared.targetEntityId)) {
+        setSelection({ kind: "entity", id: prepared.targetEntityId });
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [fixture, snapshot.state, snapshot.state.preparedQuery]);
 
   const runAgentTool = useCallback(
     async (
@@ -244,7 +319,15 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       if (requestedFocusEntityId) {
         setAgentFocusEntityId(requestedFocusEntityId);
         setAnalystSelectionActive(false);
-        setSelection({ kind: "entity", id: requestedFocusEntityId });
+        if (
+          isVisibleEntity(
+            fixture,
+            snapshotRef.current.state,
+            requestedFocusEntityId,
+          )
+        ) {
+          setSelection({ kind: "entity", id: requestedFocusEntityId });
+        }
       }
       try {
         const startedAt = performance.now();
@@ -266,7 +349,14 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         );
         setBackendReady(true);
         if (agentRunSequence.current === runSequence) {
-          setError(response.result.ok ? null : response.result.error.message);
+          if (response.result.ok) {
+            clearOperationError();
+          } else {
+            reportOperationError(
+              response.result.error.message,
+              response.snapshot.state.revision,
+            );
+          }
         }
         const receipt = response.snapshot.receipts.at(-1);
         if (
@@ -334,7 +424,11 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         if (focusEntityId && agentRunSequence.current === runSequence) {
           setAgentFocusEntityId(focusEntityId);
           setAnalystSelectionActive(false);
-          setSelection({ kind: "entity", id: focusEntityId });
+          if (
+            isVisibleEntity(fixture, response.snapshot.state, focusEntityId)
+          ) {
+            setSelection({ kind: "entity", id: focusEntityId });
+          }
         }
         return withSharedViewContext(
           toolName,
@@ -356,7 +450,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
             ? toolError.message
             : "TRACE investigation failed.";
         if (agentRunSequence.current === runSequence) {
-          setError(message);
+          reportOperationError(message, baseRevision);
           setInvestigationActivity({
             status: "rejected",
             actor: "agent",
@@ -375,7 +469,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         };
       }
     },
-    [fixture],
+    [clearOperationError, fixture, reportOperationError],
   );
 
   useEffect(() => {
@@ -427,6 +521,8 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
   const runManualTool = useCallback(
     async (toolName: CaseToolName, input: Record<string, unknown>) => {
       const investigation = isInvestigationTool(toolName);
+      const presentationOperation =
+        investigation || toolName === "release_next_synthetic_signal";
       const requestedExecution = resolveInvestigationExecution(
         fixture,
         snapshotRef.current.state,
@@ -444,8 +540,8 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
           ? input.expectedRevision
           : snapshotRef.current.state.revision;
       setBusy(true);
-      setError(null);
-      if (investigation) {
+      clearOperationError();
+      if (presentationOperation) {
         setInvestigationActivity({
           status: "running",
           actor: "analyst",
@@ -460,12 +556,20 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         });
         if (requestedFocusEntityId) {
           setAgentFocusEntityId(null);
-          setSelection({ kind: "entity", id: requestedFocusEntityId });
+          if (
+            isVisibleEntity(
+              fixture,
+              snapshotRef.current.state,
+              requestedFocusEntityId,
+            )
+          ) {
+            setSelection({ kind: "entity", id: requestedFocusEntityId });
+          }
         }
       }
       try {
         const startedAt = performance.now();
-        if (investigation) {
+        if (presentationOperation) {
           await waitForOperation(toolName);
         }
         const response = await executeTool(
@@ -479,8 +583,13 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         if (response.result.ok && receipt?.status === "completed") {
           setLiveReceipt(receipt);
         }
-        if (!response.result.ok) setError(operationErrorMessage(response));
-        if (investigation) {
+        if (!response.result.ok) {
+          reportOperationError(
+            operationErrorMessage(response),
+            response.snapshot.state.revision,
+          );
+        }
+        if (presentationOperation) {
           const completedExecution =
             readResponseInvestigationExecution(response) ?? requestedExecution;
           const summary =
@@ -532,8 +641,8 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       } catch (toolError) {
         const message =
           toolError instanceof Error ? toolError.message : "Operation failed.";
-        setError(message);
-        if (investigation) {
+        reportOperationError(message, baseRevision);
+        if (presentationOperation) {
           setInvestigationActivity({
             status: "rejected",
             actor: "analyst",
@@ -550,19 +659,22 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         setBusy(false);
       }
     },
-    [fixture],
+    [clearOperationError, fixture, reportOperationError],
   );
 
   const handleReset = useCallback(async () => {
     setBusy(true);
-    setError(null);
+    clearOperationError();
     setInvestigationActivity({ status: "idle" });
     setInvestigationResult(null);
     setLiveReceipt(null);
     setAgentDrawerOpen(false);
     setAnalystSelectionActive(false);
     try {
-      const response = await resetCase(fixture.id);
+      const response = await resetCase(
+        fixture.id,
+        snapshotRef.current.state.revision,
+      );
       setSnapshot(response.snapshot);
       setSelection(initialSelection);
       setAgentFocusEntityId(null);
@@ -572,7 +684,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
         mainRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
       });
     } catch (resetError) {
-      setError(
+      reportOperationError(
         resetError instanceof Error
           ? resetError.message
           : "The case could not be reset.",
@@ -580,13 +692,65 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
     } finally {
       setBusy(false);
     }
-  }, [fixture.id, initialSelection]);
+  }, [clearOperationError, fixture.id, initialSelection, reportOperationError]);
 
-  const selectAsAnalyst = useCallback((next: TraceSelection) => {
-    setAgentFocusEntityId(null);
-    setAnalystSelectionActive(true);
-    setSelection(next);
-  }, []);
+  const requestReset = useCallback(() => {
+    if (!busy) setResetConfirmationOpen(true);
+  }, [busy]);
+
+  const requestFreshSandboxSession = useCallback(() => {
+    if (!busy) setFreshSessionConfirmationOpen(true);
+  }, [busy]);
+
+  const startFreshSession = useCallback(async () => {
+    setBusy(true);
+    clearOperationError();
+    try {
+      await startFreshSandboxSession();
+      router.replace("/alerts");
+      router.refresh();
+    } catch (sessionError) {
+      reportOperationError(
+        sessionError instanceof Error
+          ? sessionError.message
+          : "A fresh isolated session could not be started.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }, [clearOperationError, reportOperationError, router]);
+
+  const selectAsAnalyst = useCallback(
+    (next: TraceSelection) => {
+      if (
+        next.kind === "entity" &&
+        !isVisibleEntity(fixture, snapshotRef.current.state, next.id)
+      ) {
+        return;
+      }
+      setAgentFocusEntityId(null);
+      setAnalystSelectionActive(true);
+      setProvenanceRequest(null);
+      setSelection(next);
+    },
+    [fixture],
+  );
+  const openProvenance = useCallback(
+    ({
+      targetId,
+      targetType,
+    }: {
+      targetId: string;
+      targetType: EvidenceProvenanceTargetType;
+    }) => {
+      setProvenanceRequest((current) => ({
+        requestId: (current?.requestId ?? 0) + 1,
+        targetId,
+        targetType,
+      }));
+    },
+    [],
+  );
 
   const latestReceipt = snapshot.receipts.at(-1) ?? null;
   const latestAuthorizationReceipt =
@@ -612,8 +776,25 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       fixture={fixture}
       mainRef={mainRef}
       onOpenAgent={() => setAgentDrawerOpen(true)}
-      onReset={() => void handleReset()}
+      onReset={requestReset}
+      onStartFreshSession={requestFreshSandboxSession}
     >
+      {agentStatus.state === "unavailable" ? (
+        <aside className="webmcp-first-contact" role="status">
+          <div>
+            <span>TRACE tools are unavailable in this browser</span>
+            <strong>This case is still fully reviewable by an analyst.</strong>
+            <p>
+              Open this URL in ChatGPT’s browser to connect TRACE, or continue
+              with the approved investigation skills below. TRACE never
+              authorizes analyst gates.
+            </p>
+          </div>
+          <button onClick={() => setAgentDrawerOpen(true)} type="button">
+            Review agent access
+          </button>
+        </aside>
+      ) : null}
       {agentStatus.state === "partial" &&
       (agentStatus.missingCriticalToolNames?.length ?? 0) > 0 ? (
         <aside className="webmcp-readiness-block" role="alert">
@@ -628,6 +809,22 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       <div className="case-view">
         <div className="investigation-cockpit">
           <div className="workbench-grid">
+            <CaseAuthorityHandoff
+              agentStatus={agentStatus}
+              fixture={fixture}
+              state={snapshot.state}
+            />
+            {error ? (
+              <aside className="workbench-operation-alert" role="alert">
+                <div>
+                  <span>Operation needs attention</span>
+                  <strong>{error}</strong>
+                </div>
+                <button onClick={clearOperationError} type="button">
+                  Dismiss
+                </button>
+              </aside>
+            ) : null}
             <EvidenceMap
               busy={operationBusy}
               hydrated={backendReady}
@@ -637,13 +834,16 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
                   busy={operationBusy}
                   fixture={fixture}
                   onExecute={runManualTool}
-                  onReset={() => void handleReset()}
+                  onReset={requestReset}
                   onSelect={selectAsAnalyst}
                   selection={selection}
                   showInvestigationControls={analystSelectionActive}
                   investigationActivity={displayedInvestigationActivity}
                   onOpenReportReview={() =>
                     setReportReviewRequestToken((current) => current + 1)
+                  }
+                  onReviewCompletedResult={() =>
+                    setInvestigationActivity({ status: "idle" })
                   }
                   state={snapshot.state}
                 />
@@ -656,6 +856,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
               latestAuthorizationReceipt={latestAuthorizationReceipt}
               latestReceipt={liveReceipt}
               onSelect={selectAsAnalyst}
+              onViewProvenance={openProvenance}
               onApproveReport={(signoff: AnalystReportSignoff) =>
                 runManualTool("approve_case_report", {
                   expectedRevision: snapshotRef.current.state.revision,
@@ -669,6 +870,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
               showInvestigationActions={analystSelectionActive}
               state={snapshot.state}
               reportReviewRequestToken={reportReviewRequestToken}
+              provenanceRequest={provenanceRequest}
             >
               <CaseInspector
                 investigationActivity={displayedInvestigationActivity}
@@ -677,6 +879,7 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
                 fixture={fixture}
                 latestReceipt={latestReceipt}
                 onSelect={selectAsAnalyst}
+                onViewProvenance={openProvenance}
                 selection={selection}
                 state={snapshot.state}
               />
@@ -686,12 +889,89 @@ export function CaseWorkbench({ fixture }: { fixture: CaseFixture }) {
       </div>
 
       <AgentDrawer
+        agentReady={agentStatus.state === "available"}
+        caseId={fixture.id}
         definitions={caseDefinitions}
         onClose={() => setAgentDrawerOpen(false)}
         open={agentDrawerOpen}
         outcomes={registrationOutcomes}
         receipts={snapshot.receipts}
       />
+      {resetConfirmationOpen ? (
+        <div className="drawer-backdrop" onMouseDown={closeResetConfirmation}>
+          <section
+            aria-describedby="reset-case-description"
+            aria-labelledby="reset-case-title"
+            aria-modal="true"
+            className="case-reset-dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+            ref={resetConfirmationRef}
+            role="dialog"
+          >
+            <p>Reset shared investigation</p>
+            <h2 id="reset-case-title">Discard this case session?</h2>
+            <span id="reset-case-description">
+              This removes {snapshot.receipts.length} recorded receipt
+              {snapshot.receipts.length === 1 ? "" : "s"} and returns the case
+              to its initial evidence state.
+            </span>
+            <div>
+              <button onClick={closeResetConfirmation} type="button">
+                Keep investigation
+              </button>
+              <button
+                className="case-reset-confirm"
+                onClick={() => {
+                  closeResetConfirmation();
+                  void handleReset();
+                }}
+                type="button"
+              >
+                Reset case
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+      {freshSessionConfirmationOpen ? (
+        <div
+          className="drawer-backdrop"
+          onMouseDown={closeFreshSessionConfirmation}
+        >
+          <section
+            aria-describedby="fresh-session-description"
+            aria-labelledby="fresh-session-title"
+            aria-modal="true"
+            className="case-reset-dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+            ref={freshSessionConfirmationRef}
+            role="dialog"
+          >
+            <p>Session recovery</p>
+            <h2 id="fresh-session-title">Start a fresh isolated session?</h2>
+            <span id="fresh-session-description">
+              Your current session remains intact. This creates a new isolated
+              browser session and returns you to the case ledger.
+            </span>
+            <div>
+              <button onClick={closeFreshSessionConfirmation} type="button">
+                Keep current session
+              </button>
+              <button
+                className="case-reset-confirm"
+                disabled={busy}
+                onClick={() => {
+                  closeFreshSessionConfirmation();
+                  void startFreshSession();
+                }}
+                type="button"
+              >
+                Start fresh session
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </PlatformShell>
   );
 }

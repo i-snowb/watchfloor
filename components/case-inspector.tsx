@@ -21,7 +21,10 @@ import {
 } from "@/lib/format";
 import { EntityGlyph } from "./entity-glyph";
 import type { InvestigationActivity } from "./investigation-activity";
-import type { TraceSelection } from "./trace-interaction";
+import type {
+  EvidenceProvenanceTargetType,
+  TraceSelection,
+} from "./trace-interaction";
 
 interface CaseInspectorProps {
   fixture: CaseFixture;
@@ -32,6 +35,10 @@ interface CaseInspectorProps {
   latestReceipt: OperationReceipt | null;
   investigationActivity: InvestigationActivity;
   onSelect: (selection: TraceSelection) => void;
+  onViewProvenance: (target: {
+    targetId: string;
+    targetType: EvidenceProvenanceTargetType;
+  }) => void;
 }
 
 export function CaseInspector({
@@ -43,8 +50,30 @@ export function CaseInspector({
   latestReceipt,
   investigationActivity,
   onSelect,
+  onViewProvenance,
 }: CaseInspectorProps) {
   const content = getSelectionContent(fixture, state, selection);
+  if (!content) {
+    return (
+      <section
+        aria-label="Selected item and TRACE activity"
+        aria-live="polite"
+        className="trace-evidence-shelf"
+      >
+        <section className="evidence-shelf-identity">
+          <div className="inspector-heading">
+            <div>
+              <p className="eyebrow">Refreshing evidence focus</p>
+              <h2>Reconciling the current case revision</h2>
+            </div>
+          </div>
+          <p className="inspector-summary">
+            The selected record is not available in the current evidence view.
+          </p>
+        </section>
+      </section>
+    );
+  }
   const enrichment =
     content.entity &&
     getVisibleEnrichments(fixture, state).find(
@@ -148,6 +177,22 @@ export function CaseInspector({
             telemetry.
           </p>
         )}
+        {isProvenanceSelection(selection) ? (
+          <button
+            className="inspector-provenance-action"
+            onClick={() =>
+              onViewProvenance({
+                targetId: selection.id,
+                targetType: selection.kind,
+              })
+            }
+            type="button"
+          >
+            {selection.kind === "join"
+              ? "View relationship provenance"
+              : "View provenance"}
+          </button>
+        ) : null}
         {content.fields.length > 0 ? (
           <details className="inspector-technical-fields">
             <summary>Open technical record</summary>
@@ -284,6 +329,16 @@ export function CaseInspector({
   );
 }
 
+function isProvenanceSelection(
+  selection: TraceSelection,
+): selection is Extract<TraceSelection, { kind: "entity" | "join" | "event" }> {
+  return (
+    selection.kind === "entity" ||
+    selection.kind === "join" ||
+    selection.kind === "event"
+  );
+}
+
 export function getSelectionContent(
   fixture: CaseFixture,
   state: CaseState,
@@ -370,7 +425,7 @@ export function getSelectionContent(
     const path = fixture.reachability.paths.find(
       (candidate) => candidate.id === selection.id,
     );
-    if (!path) throw new Error(`Model record ${selection.id} is unavailable.`);
+    if (!path) return null;
     const relatedEntities = path.entityIds.flatMap((entityId) => {
       const related = allEntities.find((item) => item.id === entityId);
       return related ? [related] : [];
@@ -409,7 +464,7 @@ export function getSelectionContent(
   }
   if (selection.kind === "join") {
     const join = visibleJoins.find((item) => item.id === selection.id);
-    if (!join) throw new Error(`Join ${selection.id} is unavailable.`);
+    if (!join) return null;
     const from = visibleEntities.find(
       (entity) => entity.id === join.fromEntityId,
     );
@@ -435,7 +490,7 @@ export function getSelectionContent(
 
   if (selection.kind === "entity") {
     const entity = visibleEntities.find((item) => item.id === selection.id);
-    if (!entity) throw new Error(`Entity ${selection.id} is unavailable.`);
+    if (!entity) return null;
     return {
       eyebrow: `${humanizeEntityKind(entity.kind)} · ${entity.provider}`,
       title: entity.label,
@@ -449,7 +504,7 @@ export function getSelectionContent(
   }
 
   const event = visibleEvents.find((item) => item.id === selection.id);
-  if (!event) throw new Error(`Event ${selection.id} is unavailable.`);
+  if (!event) return null;
   const primaryEntityId = event.entityIds.at(-1) ?? event.entityIds[0];
   const entity = visibleEntities.find((item) => item.id === primaryEntityId);
   const relatedEntities = visibleEntities.filter(

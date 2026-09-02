@@ -4,6 +4,11 @@ export interface ApiError {
   code: string;
   message: string;
   retryable: boolean;
+  recovery?: {
+    toolName: string;
+    input: Record<string, unknown>;
+    validForRevision: number;
+  };
 }
 
 export type ToolApiResult =

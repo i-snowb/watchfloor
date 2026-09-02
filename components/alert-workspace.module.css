@@ -96,6 +96,13 @@
   background: #ffffff;
 }
 
+.featuredGuidance {
+  color: #8f9f93;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 10px 0 0;
+}
+
 .openCase:focus-visible {
   outline: 2px solid #ffffff;
   outline-offset: 3px;

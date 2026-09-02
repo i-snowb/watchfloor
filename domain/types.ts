@@ -7,6 +7,14 @@ export type TruthStatus =
   | "modeled"
   | "simulated";
 
+export type EvidenceLineageTargetType =
+  | "event"
+  | "entity"
+  | "relationship"
+  | "enrichment"
+  | "discovery"
+  | "report_finding";
+
 export type SourceCategory =
   | "identity_telemetry"
   | "cloud_audit"
@@ -43,11 +51,18 @@ export interface ArtifactBase {
   actor: ActorRef;
 }
 
+export interface PresentationVisibility {
+  requiresEnrichmentId?: string;
+  requiresStageId?: string;
+  requiresReachability?: boolean;
+}
+
 interface EntityBase {
   id: string;
   label: string;
   provider: string;
   summary: string;
+  presentationVisibility?: PresentationVisibility;
 }
 
 export interface IdentityEntity extends EntityBase {
@@ -284,6 +299,7 @@ export interface TelemetryEvent extends ArtifactBase {
   entityIds: readonly string[];
   summary: string;
   payload: TelemetryPayload;
+  presentationVisibility?: PresentationVisibility;
 }
 
 export interface EvidenceJoin extends ArtifactBase {
@@ -522,6 +538,14 @@ export interface DecisionDefinition extends ArtifactBase {
   question: string;
   options: readonly DecisionOption[];
   requiresEnrichmentIds: readonly string[];
+  /**
+   * A bounded analyst-requested follow-up path. It is deliberately part of
+   * the fixture contract, rather than an agent supplied query list.
+   */
+  deeperForensics?: {
+    holdDecision: DecisionOptionId;
+    queryIds: readonly string[];
+  };
   evidenceIds: readonly string[];
   effect: string;
 }
@@ -579,6 +603,7 @@ export interface DiscoveryAdmission {
 export interface IncidentStreamStage {
   id: string;
   ordinal: number;
+  releaseAuthority: "agent" | "analyst";
   title: string;
   summary: string;
   receivedAt: string;
@@ -859,7 +884,14 @@ export interface OperationReceipt {
   requestId: string;
   sequence: number;
   reportedSurface: OperationSurface;
-  attributionAssurance: "client_reported_unauthenticated";
+  attributionAssurance:
+    "client_reported_unauthenticated" | "server_channel_assigned";
+  actorAssurance:
+    | "anonymous_sandbox"
+    | "cloudflare_access_verified"
+    | "local_development"
+    | "openai_sites_authenticated"
+    | "legacy_unrecorded";
   toolName: string;
   title: string;
   target: string | null;
@@ -868,6 +900,23 @@ export interface OperationReceipt {
   baseRevision: number;
   resultRevision: number;
   occurredAt: string;
+  references?: ReceiptLineageReferences;
+}
+
+/**
+ * Canonical stable identifiers affected by an operation receipt. These are
+ * server-supplied references, not client-provided display labels.
+ */
+export interface ReceiptLineageReferences {
+  eventIds: readonly string[];
+  entityIds: readonly string[];
+  relationshipIds: readonly string[];
+  enrichmentIds: readonly string[];
+  queryIds: readonly string[];
+  recordIds: readonly string[];
+  discoveryIds: readonly string[];
+  reportIds: readonly string[];
+  actionIds: readonly string[];
 }
 
 export type OperationSurface = "webmcp_callback" | "analyst_control";

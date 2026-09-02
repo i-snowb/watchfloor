@@ -38,7 +38,7 @@
   color: #83a0a6;
   display: flex;
   flex-wrap: wrap;
-  font-size: 11.5px;
+  font-size: 12px;
   gap: 6px;
   line-height: 1.2;
   min-width: 0;
@@ -64,29 +64,26 @@
 
 .case-view .evidence-entity-copy strong {
   color: #dbe6e7;
-  display: -webkit-box;
+  display: block;
   font-size: 15.5px;
   line-height: 1.22;
   margin-top: 6px;
-  overflow: hidden;
+  overflow: visible;
   text-overflow: clip;
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
   word-break: normal;
   white-space: normal;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 
 .case-view .evidence-entity-copy > span {
   color: #91a4a8;
-  display: -webkit-box;
+  display: block;
   font-size: 13px;
-  line-height: 1.34;
-  margin-top: 5px;
-  overflow: hidden;
+  line-height: 1.28;
+  margin-top: 4px;
+  overflow: visible;
   text-overflow: clip;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  overflow-wrap: anywhere;
 }
 
 .case-view .evidence-entity-state {
@@ -121,6 +118,11 @@
   font: inherit;
 }
 
+.case-view .evidence-lanes span,
+.case-view .evidence-threat-rank {
+  font-size: 12px;
+}
+
 .case-view .causal-state-modeled .evidence-entity-state,
 .case-view .evidence-entity-modeled-only .evidence-entity-state {
   color: var(--instrument-model);
@@ -147,7 +149,7 @@
 
 .case-view .threat-priority-rail > summary span,
 .case-view .threat-priority-rail > summary strong {
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 1.2;
   white-space: nowrap;
 }
@@ -173,7 +175,7 @@
 .case-view .threat-priority-context > span {
   color: var(--field-green);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -191,7 +193,7 @@
 }
 
 .case-view .evidence-edge-label > span {
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1;
 }
 
@@ -212,6 +214,22 @@
   transform: translateX(-50%);
   white-space: normal;
   width: max-content;
+}
+
+.case-view .evidence-edge-label-impact {
+  box-sizing: border-box;
+  justify-content: center;
+  max-width: 176px;
+  min-height: 40px;
+  padding: 4px 8px;
+  text-align: center;
+  white-space: normal;
+  width: 176px;
+}
+
+.case-view .evidence-edge-label-impact > span {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .case-view .evidence-edge-label:hover,
@@ -241,16 +259,56 @@
 }
 
 .case-view .query-result-stack .query-result-packet strong {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  display: block;
+  overflow: visible;
+  overflow-wrap: anywhere;
 }
 
 .case-view .query-result-stack .query-result-packet small {
   overflow: visible;
   text-overflow: clip;
   white-space: normal;
+}
+
+/* Visual grammar: records, relationships, returned evidence, and controls
+ * remain distinct even when the map is dense or color perception is limited. */
+.case-view .evidence-entity {
+  box-shadow:
+    inset 3px 0 0 var(--map-correlation, #67c6d5),
+    0 12px 26px rgba(0, 0, 0, 0.2);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease,
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.case-view .evidence-entity-modeled-only {
+  box-shadow:
+    inset 3px 0 0 var(--map-model, #aa95e8),
+    0 12px 26px rgba(0, 0, 0, 0.2);
+}
+
+.case-view .evidence-entity-contained,
+.case-view .causal-state-contained {
+  box-shadow:
+    inset 3px 0 0 var(--map-severed, #72d3a3),
+    0 12px 26px rgba(0, 0, 0, 0.2);
+}
+
+.case-view .evidence-edge-label {
+  background: rgba(7, 16, 18, 0.96);
+  border: 1px solid rgba(121, 197, 207, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.24);
+}
+
+.case-view .query-result-stack .query-result-packet {
+  border-left: 3px solid var(--map-severed, #72d3a3);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.26);
+}
+
+.case-view .containment-action-callout {
+  border-left: 3px solid var(--map-severed, #72d3a3);
 }
 
 /* Timelines participate in document flow in every case. */
@@ -270,6 +328,8 @@
 }
 
 .case-view .evidence-stage-frame {
+  --context-row-height: 184px;
+  --timeline-row-height: 88px;
   align-items: stretch;
   block-size: auto !important;
   display: grid !important;
@@ -328,6 +388,159 @@
   top: auto !important;
   width: auto !important;
   z-index: auto;
+}
+
+/* Persistent state is kept to one compact analyst-facing row. */
+.case-view .case-authority-handoff {
+  align-items: stretch;
+  background: #071012;
+  border: 1px solid rgba(150, 178, 184, 0.25);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr);
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+.case-view .case-authority-summary,
+.case-view .case-handoff-line {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-height: 38px;
+  min-width: 0;
+  padding: 7px 12px;
+}
+
+.case-view .case-authority-summary {
+  color: #819397;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.case-view .case-authority-label,
+.case-view .case-handoff-line > span {
+  color: #6c858b;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.case-view .case-authority-summary > strong {
+  color: var(--instrument-agent);
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.case-view .case-authority-separator {
+  color: #43575c;
+}
+
+.case-view .case-authority-details {
+  margin-left: auto;
+  position: relative;
+}
+
+.case-view .case-authority-details > summary {
+  color: #8ca6ab;
+  cursor: pointer;
+  font-size: 10px;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.case-view .case-authority-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.case-view .case-authority-details > summary::after {
+  color: var(--instrument-correlation);
+  content: " +";
+}
+
+.case-view .case-authority-details[open] > summary::after {
+  content: " −";
+}
+
+.case-view .case-authority-details > div {
+  background: #0a1519;
+  border: 1px solid rgba(121, 197, 207, 0.42);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
+  color: #aebfc2;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  padding: 10px 12px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 290px;
+  z-index: 40;
+}
+
+.case-view .case-authority-details > div > strong {
+  color: #d6e1e2;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.case-view .case-authority-details ul {
+  color: #819397;
+  display: grid;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  gap: 4px;
+  list-style: "×  ";
+  margin: 8px 0 0 15px;
+  padding: 0;
+}
+
+.case-view .case-handoff-line {
+  border-left: 1px solid rgba(150, 178, 184, 0.25);
+  justify-content: flex-start;
+}
+
+.case-view .case-handoff-line > strong {
+  color: #d6e1e2;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.case-view .case-handoff-line-agent > span {
+  color: var(--instrument-agent);
+}
+
+.case-view .case-handoff-line-analyst > span {
+  color: var(--instrument-warning);
+}
+
+.case-view .case-handoff-line-complete > span {
+  color: var(--instrument-correlation);
+}
+
+@media (max-width: 700px) {
+  .case-view .case-authority-handoff {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .case-view .case-authority-summary {
+    flex-wrap: wrap;
+    row-gap: 5px;
+  }
+
+  .case-view .case-handoff-line {
+    border-left: 0;
+    border-top: 1px solid rgba(150, 178, 184, 0.25);
+  }
+
+  .case-view .case-handoff-line > strong {
+    white-space: normal;
+  }
 }
 
 .case-view .evidence-stage-frame > .evidence-map-viewport {
@@ -398,47 +611,95 @@
   grid-row: 3;
 }
 
-/* The query is an intentional bounded workspace, never a layout row. */
+/* Prepared KQL shares the graph row without covering evidence or the timeline. */
 .case-view
   .evidence-stage-frame:has(.query-console[open])
   .case-context-rail
   > .map-command-dock {
-  bottom: auto !important;
+  bottom: var(--timeline-row-height) !important;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.52);
   grid-column: auto !important;
   grid-row: auto !important;
+  height: auto !important;
   left: auto !important;
-  max-height: min(680px, calc(100dvh - 238px));
-  max-width: min(600px, calc(100% - 286px)) !important;
+  max-height: none;
+  max-width: min(540px, 44vw) !important;
   overflow: hidden;
   padding: 0;
   position: absolute !important;
-  right: 12px !important;
-  top: 12px !important;
-  width: clamp(440px, 48vw, 600px) !important;
+  right: 0 !important;
+  top: var(--context-row-height) !important;
+  width: clamp(420px, 42vw, 540px) !important;
   z-index: 30;
 }
 
+.case-view
+  .evidence-stage-frame:has(.query-console[open])
+  > .evidence-map-viewport {
+  justify-self: start;
+  width: calc(100% - clamp(420px, 42vw, 540px)) !important;
+}
+
 .case-view .evidence-stage-frame .query-console[open] {
-  display: grid;
-  grid-template-rows: auto minmax(0, auto);
-  max-height: min(680px, calc(100dvh - 238px));
+  display: block;
+  height: 100%;
+  max-height: none;
+  min-width: 0;
   overflow: hidden;
+  position: relative;
+}
+
+.case-view .evidence-stage-frame .query-console[open] > summary {
+  min-width: 0;
+}
+
+.case-view .evidence-stage-frame .query-console[open] > summary > small {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .case-view .evidence-stage-frame .query-console[open] .query-console-body {
-  max-height: min(590px, calc(100dvh - 292px));
+  bottom: 0;
+  height: auto;
+  left: 0;
+  max-height: none;
+  max-width: 100%;
+  min-width: 0;
   min-height: 0;
   overflow: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
+  position: absolute;
+  right: 0;
   scrollbar-gutter: stable;
+  top: 47px;
+}
+
+.case-view .evidence-stage-frame .query-console[open] .query-console-toolbar {
+  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.case-view
+  .evidence-stage-frame
+  .query-console[open]
+  .query-console-toolbar
+  dl {
+  flex-wrap: wrap;
+  justify-content: space-between;
 }
 
 /* Keep the prepared KQL visible and bounded inside the investigation drawer. */
 .case-view .evidence-stage-frame .query-console[open] .query-console-editor {
+  box-sizing: border-box;
   height: clamp(178px, 28dvh, 260px);
+  max-width: 100%;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
+  width: 100%;
 }
 
 .case-view
@@ -446,7 +707,10 @@
   .query-console[open]
   .query-console-editor
   textarea {
+  box-sizing: border-box;
   height: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 0;
   overflow: auto;
   resize: none;
@@ -463,7 +727,7 @@
 /* Results and report review open above their stable summary row. */
 .case-view .case-investigation-drawer {
   position: relative;
-  z-index: 40;
+  z-index: 60;
 }
 
 .case-view .case-investigation-drawer[open] > .investigation-drawer-body {
@@ -479,7 +743,7 @@
   scrollbar-gutter: stable;
   top: auto !important;
   width: auto;
-  z-index: 40;
+  z-index: 60;
 }
 
 .case-view .escalation-brief {
@@ -617,6 +881,12 @@
     grid-row: 2;
   }
 
+  .case-view
+    .evidence-stage-frame:has(.query-console[open])
+    > .evidence-map-viewport {
+    width: 100% !important;
+  }
+
   .case-view .evidence-stage-frame > .case-timeline-dock {
     grid-column: 1;
     grid-row: 4;
@@ -655,7 +925,13 @@
   }
 
   .case-view .evidence-stage-frame .query-console[open] .query-console-body {
+    bottom: auto;
+    height: auto;
+    left: auto;
     max-height: min(62dvh, 650px);
+    position: static;
+    right: auto;
+    top: auto;
   }
 
   .case-view .case-investigation-drawer[open] > .investigation-drawer-body {
@@ -673,5 +949,760 @@
   .case-view .evidence-entity-copy > span,
   .case-view .evidence-entity-state {
     font-size: 12px;
+  }
+}
+
+/*
+ * Desktop investigation contract. Common laptop and recording viewports keep
+ * the page fixed while the graph owns the flexible pan/zoom region. This
+ * prevents page scrolling from competing with graph navigation and keeps the
+ * activity timeline visible.
+ */
+@media (min-width: 981px) and (max-height: 1000px) {
+  .platform-shell-case,
+  .platform-shell-case .platform-body,
+  .platform-shell-case .platform-main {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .platform-shell-case {
+    height: 100dvh;
+  }
+
+  .platform-shell-case .platform-body {
+    height: calc(100dvh - var(--platform-header-height));
+  }
+
+  .case-view,
+  .case-view .workbench-grid,
+  .case-view .evidence-map {
+    min-height: 0;
+  }
+
+  .case-view .evidence-stage-frame,
+  .case-view .evidence-stage-frame-without-context {
+    grid-template-rows:
+      var(--context-row-height) minmax(0, 1fr) 0
+      var(--timeline-row-height) !important;
+    height: calc(100dvh - (var(--platform-header-height) + 107px));
+    max-height: calc(
+      100dvh - (var(--platform-header-height) + 107px)
+    ) !important;
+  }
+
+  .case-view .case-context-rail {
+    height: 184px;
+    max-height: 184px;
+    overflow: hidden;
+  }
+
+  .case-view .case-context-rail > .threat-priority-rail,
+  .case-view .case-context-rail > .map-command-dock {
+    max-height: 184px;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* The prepared query is an overlay in the graph row, not rail content. */
+  .case-view .case-context-rail:has(.query-console[open]) {
+    overflow: visible;
+  }
+
+  .case-view .case-context-rail:has(.query-console[open]) > .map-command-dock {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .case-view .evidence-stage-frame > .case-timeline-dock,
+  .case-view
+    .evidence-stage-frame
+    > .case-timeline-dock
+    .investigation-timeline {
+    height: var(--timeline-row-height);
+    max-height: var(--timeline-row-height);
+    min-height: var(--timeline-row-height);
+    overflow: hidden;
+  }
+
+  .case-view .case-timeline-dock .timeline-controls {
+    min-height: calc(var(--timeline-row-height) - 2px);
+  }
+
+  .case-view .case-timeline-dock .timeline-tracks,
+  .case-view .case-timeline-dock .timeline-track-labels {
+    grid-template-rows: calc(var(--timeline-row-height) - 30px) 28px;
+  }
+
+  .case-view .case-timeline-dock .timeline-observed-track,
+  .case-view .case-timeline-dock .timeline-observed-track button {
+    min-height: calc(var(--timeline-row-height) - 30px);
+  }
+
+  .case-view .case-timeline-dock .timeline-query-track button {
+    min-height: 28px;
+  }
+
+  .case-view .evidence-stage-frame > .evidence-map-viewport {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+}
+
+@media (min-width: 981px) and (max-height: 800px) {
+  .case-view .evidence-stage-frame,
+  .case-view .evidence-stage-frame-without-context {
+    --context-row-height: 120px;
+    --timeline-row-height: 72px;
+  }
+
+  .case-view .case-context-rail,
+  .case-view .case-context-rail > .threat-priority-rail,
+  .case-view .case-context-rail > .map-command-dock {
+    height: var(--context-row-height);
+    max-height: var(--context-row-height);
+  }
+
+  /* Analyst gates can include bounded scope and provenance details that are
+   * taller than the compact recording rail. Let the card overlay the graph
+   * instead of clipping its only analyst-owned action behind the canvas. */
+  .case-view .case-context-rail:has(.command-owner-analyst) {
+    overflow: visible;
+    z-index: 50;
+  }
+
+  .case-view
+    .case-context-rail:has(.command-owner-analyst)
+    > .map-command-dock {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/* Persistent case feedback stays in the analyst's sightline. */
+.case-view .workbench-operation-alert,
+.webmcp-first-contact {
+  align-items: center;
+  background: #101817;
+  border: 1px solid rgba(121, 197, 207, 0.54);
+  color: #e4eeee;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin: 10px 0 0;
+  padding: 10px 14px;
+}
+
+.case-view .workbench-operation-alert {
+  border-color: rgba(255, 137, 126, 0.68);
+}
+
+.case-view .workbench-operation-alert > div,
+.webmcp-first-contact > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.case-view .workbench-operation-alert span,
+.webmcp-first-contact span {
+  color: #a8dbe2;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.case-view .workbench-operation-alert {
+  color: #ffd1cc;
+}
+
+.case-view .workbench-operation-alert span {
+  color: #ff9d91;
+}
+
+.case-view .workbench-operation-alert strong,
+.webmcp-first-contact strong {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.webmcp-first-contact p {
+  color: #b7c7c7;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.case-view .workbench-operation-alert button,
+.webmcp-first-contact button {
+  background: transparent;
+  border: 1px solid currentColor;
+  color: #dceff0;
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  min-height: 34px;
+  padding: 0 11px;
+}
+
+.case-reset-dialog {
+  background: #0b1212;
+  border: 1px solid rgba(255, 137, 126, 0.75);
+  box-shadow: 0 24px 74px rgba(0, 0, 0, 0.55);
+  color: #edf1ec;
+  display: grid;
+  gap: 12px;
+  left: 50%;
+  max-height: min(640px, calc(100dvh - 32px));
+  max-width: min(440px, calc(100vw - 32px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 22px;
+  position: fixed;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  z-index: 90;
+}
+
+.case-reset-dialog > p {
+  color: #ff9d91;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.case-reset-dialog h2 {
+  font-size: 20px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.case-reset-dialog > span {
+  color: #b9c7c5;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.case-reset-dialog > div {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.case-reset-dialog button {
+  background: transparent;
+  border: 1px solid rgba(186, 209, 207, 0.46);
+  color: #e4eeee;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.case-reset-dialog .case-reset-confirm {
+  background: rgba(187, 67, 57, 0.18);
+  border-color: rgba(255, 137, 126, 0.76);
+  color: #ffd7d2;
+}
+
+@media (max-width: 620px) {
+  .case-view .workbench-operation-alert,
+  .webmcp-first-contact {
+    align-items: stretch;
+    flex-direction: column;
+    margin: 8px 0 0;
+  }
+
+  .case-view .workbench-operation-alert button,
+  .webmcp-first-contact button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .case-reset-dialog,
+  .case-view .case-investigation-drawer[open] > .investigation-drawer-body {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}
+
+/* Deeper-forensics is a bounded branch, not a dead-end reset prompt. */
+.case-view .deeper-forensics-branch {
+  display: grid;
+  gap: 12px;
+}
+
+.case-view .deeper-forensics-options {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.case-view .deeper-forensics-options article {
+  background: rgba(10, 24, 24, 0.9);
+  border: 1px solid rgba(111, 203, 183, 0.58);
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+}
+
+.case-view .deeper-forensics-options span,
+.case-view .deeper-forensics-boundary {
+  color: #a9d7d0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.045em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.case-view .deeper-forensics-options h3,
+.case-view .deeper-forensics-options p,
+.case-view .deeper-forensics-boundary {
+  margin: 0;
+}
+
+.case-view .deeper-forensics-options h3 {
+  color: #edf4f2;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.case-view .deeper-forensics-options p {
+  color: #bfd0cd;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.case-view .deeper-forensics-options button {
+  background: transparent;
+  border: 1px solid rgba(121, 225, 196, 0.72);
+  color: #e4fff6;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  justify-self: start;
+  margin-top: 3px;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.case-view .deeper-forensics-boundary {
+  color: #b9cbc8;
+  text-transform: none;
+}
+
+/* Lane labels and muted evidence copy must remain readable against the plane. */
+.case-view .evidence-lanes span,
+.case-view .evidence-entity-copy > small,
+.case-view .evidence-entity-copy > span,
+.case-view .evidence-entity-state > small {
+  color: #a9c1c5;
+  opacity: 1;
+}
+
+/* Lanes are analytical orientation, not an implied investigation plan. */
+.case-view .causal-phase-plane > b {
+  color: rgba(169, 205, 211, 0.72);
+  text-shadow: 0 1px 8px rgba(6, 14, 17, 0.82);
+}
+
+@media (max-width: 620px) {
+  .case-view .deeper-forensics-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * A phone is still an investigation surface. Keep the incident title and view
+ * controls in separate rows, then let the evidence plane own a bounded pan
+ * region instead of hiding it or allowing the document to pan sideways.
+ */
+@media (max-width: 700px) {
+  .platform-shell-case,
+  .platform-shell-case .platform-body,
+  .platform-shell-case .platform-main,
+  .case-view,
+  .case-view .workbench-grid,
+  .case-view .evidence-map {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .case-view .case-header {
+    align-items: start;
+    min-height: 0;
+    padding: 9px 12px;
+  }
+
+  .case-view .case-header-main {
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .case-view .case-kicker-row {
+    font-size: 9px;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .case-view .case-header h1 {
+    line-height: 1.22;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .case-view .evidence-map-header {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto auto;
+    min-height: 0;
+    padding: 10px 12px 0;
+  }
+
+  .case-view .case-map-identity {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    min-width: 0;
+  }
+
+  .case-view .case-map-identity h1 {
+    font-size: 17px;
+    line-height: 1.25;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .case-view .evidence-view-switch {
+    border-left: 0;
+    border-top: 1px solid var(--field-rule);
+    display: grid;
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 10px;
+    width: 100%;
+  }
+
+  .case-view .evidence-view-switch button {
+    min-height: 42px;
+    min-width: 0;
+    padding: 7px 8px;
+  }
+
+  .case-view .evidence-view-switch button + button {
+    border-left: 1px solid var(--field-rule);
+  }
+
+  .case-view .trace-camera-tools {
+    border-left: 0;
+    border-top: 1px solid var(--field-rule);
+    grid-column: 1 !important;
+    grid-row: 3 !important;
+    justify-content: end;
+    margin-top: 8px;
+    width: 100%;
+  }
+
+  .case-view .case-context-rail {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .case-view .case-context-rail > .threat-priority-rail {
+    border-bottom: 1px solid rgba(150, 178, 184, 0.25);
+    border-right: 0;
+    max-height: none;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .case-view .case-context-rail > .map-command-dock {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    overflow: visible;
+    padding: 8px 12px 10px;
+    width: 100%;
+  }
+
+  .case-view .evidence-stage-frame,
+  .case-view .evidence-stage-frame-without-context {
+    grid-template-rows: auto clamp(320px, 52dvh, 440px) auto 104px !important;
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  .case-view .evidence-stage-frame > .evidence-map-viewport {
+    display: block !important;
+    grid-column: 1;
+    grid-row: 2;
+    height: clamp(320px, 52dvh, 440px) !important;
+    min-height: 320px !important;
+    min-width: 0;
+    overflow: hidden !important;
+    touch-action: none;
+    width: 100% !important;
+  }
+
+  .case-view .evidence-stage-frame > .case-timeline-dock,
+  .case-view
+    .evidence-stage-frame
+    > .case-timeline-dock
+    .investigation-timeline {
+    height: 104px;
+    min-height: 104px;
+  }
+}
+
+/*
+ * The graph consumes single-pointer touch gestures for deterministic pan.
+ * Keep explicit zoom and fit actions available when a pinch gesture is not.
+ */
+@media (hover: none), (pointer: coarse) {
+  .case-view .trace-camera-tools {
+    align-self: stretch;
+    display: grid !important;
+    grid-auto-flow: column;
+  }
+
+  .case-view .trace-camera-tools > span {
+    display: none !important;
+  }
+
+  .case-view .trace-camera-tools button,
+  .case-view .trace-camera-tools button:not(:last-child),
+  .case-view .trace-camera-tools button:last-child {
+    display: inline-grid !important;
+    min-height: 38px;
+    min-width: 42px;
+    padding: 0 10px;
+  }
+}
+
+/* Trace relationships lead with the analyst-readable action; the join stays
+ * available as compact provenance instead of becoming an opaque primary tag. */
+.case-view .evidence-edge-label:not(.evidence-edge-label-impact) {
+  gap: 6px;
+  max-width: 154px;
+}
+
+.case-view .evidence-edge-label:not(.evidence-edge-label-impact) > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.case-view .evidence-edge-label > small {
+  color: var(--field-muted);
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+}
+
+@media (max-width: 700px) {
+  .case-view .evidence-edge-label:not(.evidence-edge-label-impact) {
+    max-width: 136px;
+  }
+}
+
+/* Evidence lineage stays inside the existing results drawer. */
+.case-view .inspector-provenance-action,
+.case-view .report-evidence-provenance {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--field-cyan);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.35;
+  min-height: 32px;
+  padding: 5px 0;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.case-view .inspector-provenance-action {
+  margin: 4px 0 2px;
+}
+
+.case-view .report-evidence-provenance {
+  color: #27646c;
+  display: inline-block;
+  margin-top: 6px;
+}
+
+.case-view .inspector-provenance-action:hover {
+  color: #a8eef0;
+}
+
+.case-view .report-evidence-provenance:hover {
+  color: #173f46;
+}
+
+.case-view .inspector-provenance-action:focus-visible,
+.case-view .report-evidence-provenance:focus-visible,
+.case-view .provenance-disclosure > summary:focus-visible {
+  outline: 2px solid var(--field-cyan);
+  outline-offset: 3px;
+}
+
+.case-view .provenance-disclosure-body {
+  padding: 12px;
+}
+
+.case-view .provenance-record {
+  display: grid;
+  gap: 14px;
+}
+
+.case-view .provenance-record > header {
+  display: grid;
+  gap: 3px;
+}
+
+.case-view .provenance-record > header span,
+.case-view .provenance-record h3,
+.case-view .provenance-record h4,
+.case-view .provenance-record dt {
+  margin: 0;
+}
+
+.case-view .provenance-record > header span,
+.case-view .provenance-record h4,
+.case-view .provenance-record dt {
+  color: var(--field-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.case-view .provenance-record h3 {
+  color: var(--field-bright);
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.case-view .provenance-record section {
+  display: grid;
+  gap: 8px;
+}
+
+.case-view .provenance-record dl {
+  display: grid;
+  gap: 0 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.case-view .provenance-record dl > div {
+  border-top: 1px solid var(--field-rule);
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 0;
+}
+
+.case-view .provenance-record dd,
+.case-view .provenance-record p,
+.case-view .provenance-record li {
+  color: var(--field-soft);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.case-view .provenance-record code {
+  color: var(--field-bright);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.case-view .provenance-receipt code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.case-view .provenance-record ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.case-view .provenance-query-contract {
+  border-top: 1px solid var(--field-rule);
+}
+
+.case-view .provenance-query-contract > summary {
+  color: var(--field-soft);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 8px 0;
+}
+
+.case-view .provenance-query-contract > dl {
+  margin: 0 0 8px;
+}
+
+.case-view .provenance-query-contract > code {
+  background: rgba(3, 10, 11, 0.65);
+  border-left: 2px solid var(--field-rule-strong);
+  display: block;
+  max-height: 190px;
+  overflow: auto;
+  padding: 9px 10px;
+  white-space: pre-wrap;
+}
+
+.case-view .provenance-empty-state,
+.case-view .provenance-execution-boundary {
+  color: var(--field-soft);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.case-view .provenance-execution-boundary {
+  border-top: 1px solid var(--field-rule);
+  color: var(--field-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding-top: 10px;
+  text-transform: uppercase;
+}
+
+@media (max-width: 700px) {
+  .case-view .provenance-record dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .case-view .evidence-entity,
+  .case-view .evidence-line-modeled,
+  .case-view .evidence-edge-label,
+  .case-view .evidence-edge-label-impact,
+  .case-view .evidence-entity-modeled-only,
+  .case-view .evidence-entity-model-pending,
+  .case-view .evidence-map-canvas,
+  .trace-viewport-focusing .causal-plane {
+    animation: none;
+    transition: none;
   }
 }

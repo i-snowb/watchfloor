@@ -1,5 +1,9 @@
 import type { CaseApiResponse, ToolApiResponse } from "@/domain/api";
 import type { CaseToolName, ToolSurface } from "@/domain/operations";
+import {
+  mutationIntentHeader,
+  mutationIntentValue,
+} from "@/server/request-security";
 
 export async function loadCase(
   caseId: string,
@@ -22,11 +26,16 @@ export async function executeTool(
   requestId = `ui-${crypto.randomUUID()}`,
   signal?: AbortSignal,
 ): Promise<ToolApiResponse> {
-  const url = `/api/cases/${encodeURIComponent(caseId)}/operations`;
+  const channel =
+    reportedSurface === "analyst_control" ? "analyst-operations" : "operations";
+  const url = `/api/cases/${encodeURIComponent(caseId)}/${channel}`;
   const init: RequestInit = {
     method: "POST",
-    body: JSON.stringify({ requestId, toolName, reportedSurface, input }),
-    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ requestId, toolName, input }),
+    headers: {
+      "content-type": "application/json",
+      [mutationIntentHeader]: mutationIntentValue,
+    },
     ...(signal ? { signal } : {}),
   };
 
@@ -40,11 +49,33 @@ export async function executeTool(
   }
 }
 
-export async function resetCase(caseId: string): Promise<CaseApiResponse> {
+export async function resetCase(
+  caseId: string,
+  expectedRevision: number,
+): Promise<CaseApiResponse> {
   return requestJson<CaseApiResponse>(
     `/api/cases/${encodeURIComponent(caseId)}/reset`,
-    { method: "POST" },
+    {
+      method: "POST",
+      body: JSON.stringify({
+        requestId: `reset-${crypto.randomUUID()}`,
+        expectedRevision,
+      }),
+      headers: {
+        "content-type": "application/json",
+        [mutationIntentHeader]: mutationIntentValue,
+      },
+    },
   );
+}
+
+export async function startFreshSandboxSession(): Promise<void> {
+  await requestJson<{ session: { mode: string } }>("/api/session/new", {
+    method: "POST",
+    headers: {
+      [mutationIntentHeader]: mutationIntentValue,
+    },
+  });
 }
 
 async function requestJson<T>(url: string, init: RequestInit): Promise<T> {

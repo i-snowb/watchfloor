@@ -35,10 +35,12 @@ const maxRegistrationAttempts = 2;
 
 const criticalToolNames = new Set<CaseToolName>([
   "get_case_context",
+  "trace_evidence_lineage",
   "list_investigation_skills",
   "prepare_investigation_query",
   "run_investigation_query",
   "attach_discovery_stage",
+  "request_next_observation",
   "calculate_reachability",
   "simulate_control",
   // The public containment operation is intentionally named by its bounded
@@ -101,8 +103,10 @@ function definition(
   handler: WebMcpHandler,
 ): WebMcpToolDefinition {
   const coordinatedDescription = readOnly
-    ? description
-    : `Start with get_case_context, then call this tool only when it is returned as nextAgentAction. Successful writes return the next revision-bound action or analyst gate. ${description}`;
+    ? name === "get_case_context"
+      ? description
+      : `Call get_case_context first unless following its current nextAgentAction. ${description}`
+    : `Start with get_case_context, then call this tool only when it is returned as nextAgentAction or one of its bounded candidateActions. Successful writes return the next revision-bound action, bounded candidate set, or analyst gate. ${description}`;
   return {
     name,
     title,
@@ -132,10 +136,16 @@ export function createCaseToolDefinitions(
     ...fixture.enrichments,
     ...fixture.stream.stages.flatMap((stage) => stage.enrichments),
   ];
-  const availableEnrichmentTools = new Set(
-    caseEnrichments.map((artifact) => artifact.toolName),
-  );
   const availableQueries = fixture.investigationQueries;
+  const queryResultArtifactIds = new Set(
+    availableQueries.map((query) => query.resultArtifactId),
+  );
+  const directCaseEnrichments = caseEnrichments.filter(
+    (artifact) => !queryResultArtifactIds.has(artifact.id),
+  );
+  const availableEnrichmentTools = new Set(
+    directCaseEnrichments.map((artifact) => artifact.toolName),
+  );
   const availablePlans = getInvestigationPlans(fixture);
   const supportsImpactModel =
     fixture.impact.atRiskEntityIds.length > 0 ||
@@ -189,6 +199,12 @@ export function createCaseToolDefinitions(
       "simulate_control",
     ),
     ...includeTools(fixture.stream.stages.length > 0, "attach_discovery_stage"),
+    ...includeTools(
+      fixture.stream.stages.some(
+        (stage) => stage.releaseAuthority === "analyst",
+      ),
+      "request_next_observation",
+    ),
     "inspect_event",
     ...includeTools(
       availableResponseActions.length > 0,
@@ -201,8 +217,8 @@ export function createCaseToolDefinitions(
   return [
     definition(
       "get_case_context",
-      "Read case context",
-      "Always call this first. Return the case revision, Tier 1 observations and unresolved gaps, attached evidence, blockers, and exactly one revision-bound nextAgentAction, analystGate, or completed handoff.",
+      "Start or resume case investigation",
+      "Required first tool when the user asks to investigate, triage, review, resume, or continue this case. Return the case revision, Tier 1 observations and unresolved gaps, attached evidence, blockers, one primary revision-bound nextAgentAction that can include bounded candidateActions, an analystGate, or a completed handoff.",
       {},
       [],
       true,
@@ -247,6 +263,34 @@ export function createCaseToolDefinitions(
       "Return the exact match field, value, source events, endpoints, and limitation for one correlation.",
       { relationshipId: visibleArtifactId },
       ["relationshipId"],
+      true,
+      handler,
+    ),
+    definition(
+      "trace_evidence_lineage",
+      "Trace evidence lineage",
+      "Return the exact released evidence lineage for one typed case target: approved skill and query context, bounded source records, joins, trusted operation receipts, report consumers, and source limitations. This read does not attach evidence, release telemetry, or authorize an action.",
+      {
+        targetType: {
+          type: "string",
+          enum: [
+            "event",
+            "entity",
+            "relationship",
+            "enrichment",
+            "discovery",
+            "report_finding",
+          ],
+          description:
+            "Released case target type. report_finding uses the attached enrichment artifact ID, not a display-row label.",
+        },
+        targetId: {
+          ...visibleArtifactId,
+          description:
+            "Stable ID of a currently released or attached target of targetType.",
+        },
+      },
+      ["targetType", "targetId"],
       true,
       handler,
     ),
@@ -547,13 +591,36 @@ export function createCaseToolDefinitions(
           definition(
             "attach_discovery_stage",
             "Add verified discovery to case",
-            "Add the next provenance-backed entities, relationships, and observations after its required query results are attached. The operation cannot create arbitrary evidence or authorize a response.",
+            "Add the next agent-releasable, provenance-backed discovery after its required query results are attached. A stage marked for analyst release must use request_next_observation instead. This operation cannot create arbitrary evidence or authorize a response.",
             {
               expectedRevision: revision,
               stageId: {
                 ...visibleArtifactId,
                 description:
                   "Discovery ID returned by get_case_context. Only the next ready discovery is accepted.",
+              },
+              rationale: { type: "string", minLength: 8, maxLength: 240 },
+            },
+            ["expectedRevision", "stageId", "rationale"],
+            false,
+            handler,
+          ),
+        ]
+      : []),
+    ...(fixture.stream.stages.some(
+      (stage) => stage.releaseAuthority === "analyst",
+    )
+      ? [
+          definition(
+            "request_next_observation",
+            "Request next telemetry observation",
+            "Request the next bounded telemetry discovery with a case-specific rationale. The analyst must explicitly release it before the page adds the observation.",
+            {
+              expectedRevision: revision,
+              stageId: {
+                ...visibleArtifactId,
+                description:
+                  "Next bounded discovery ID returned by get_case_context.",
               },
               rationale: { type: "string", minLength: 8, maxLength: 240 },
             },
