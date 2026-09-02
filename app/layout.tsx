@@ -16,11 +16,11 @@ export const metadata: Metadata = {
   metadataBase,
   title: "WATCH//FLOOR · Agentic security investigations",
   description:
-    "TRACE investigates bounded case evidence through WebMCP. Analysts review, authorize, and close the case.",
+    "Bring your own WebMCP agent or harness. Investigate bounded evidence while analysts retain every consequential decision.",
   openGraph: {
     title: "WATCH//FLOOR",
     description:
-      "TRACE investigates bounded evidence. Analysts review, authorize, and close the case.",
+      "Bring your own WebMCP agent or harness. Agents investigate; analysts decide.",
     type: "website",
     images: [
       {
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "WATCH//FLOOR",
     description:
-      "TRACE investigates bounded evidence. Analysts review, authorize, and close the case.",
+      "Bring your own WebMCP agent or harness. Agents investigate; analysts decide.",
     images: ["/og.jpg"],
   },
 };

@@ -108,12 +108,14 @@ export function StartAccess({
         <div className={styles.intro}>
           <p className={styles.kicker}>Security operations access</p>
           <h1 id="access-title">
-            Bring your own agent. The page decides what it is allowed to do.
+            Bring your own agent or harness. The page decides what it is allowed
+            to do.
           </h1>
           <p>
-            WATCH//FLOOR keeps observed evidence, modeled impact, and analyst
-            decisions in one visible case record. TRACE can operate only through
-            the page tools registered in this browser.
+            Your chosen model, memory, and personal or team runbooks come with
+            the harness. WATCH//FLOOR keeps case state, approved investigation
+            skills, evidence contracts, and analyst decisions visible. TRACE can
+            operate only through the page tools registered in this browser.
           </p>
           <div className={styles.actions}>
             <button

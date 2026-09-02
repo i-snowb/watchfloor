@@ -4,6 +4,7 @@
 
 - Public release metadata: `https://watchfloor-sandbox.watchfloor-webmcp.workers.dev/api/release`
 - Public URL: `https://watchfloor-sandbox.watchfloor-webmcp.workers.dev`
+- Public source: `https://github.com/i-snowb/watchfloor`
 - Release identity is authoritative only when `/api/release` names the reviewed
   public commit. Re-query it before a recording or submission.
 - Default entry: `/alerts`; optional evaluator entry: `/start`
@@ -26,8 +27,8 @@
   left at `r1`, with no selection and the drawer closed.
 - Repeat hosted smoke, native WebMCP, signed-out access, and browser checks after
   each source-identified deployment.
-- Remaining submission artifacts: public repository and public video until
-  their verified URLs are recorded in [SUBMISSION.md](./SUBMISSION.md).
+- Remaining submission artifact: public video until its verified URL is
+  recorded in [SUBMISSION.md](./SUBMISSION.md).
 
 ## Product truth
 

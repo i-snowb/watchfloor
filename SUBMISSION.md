@@ -9,16 +9,16 @@ Fill only verified values.
 - Worker version: read the live release metadata at submission time; do not
   copy a historical deployment-specific value.
 - Worker release metadata: `https://watchfloor-sandbox.watchfloor-webmcp.workers.dev/api/release`
-- Public remote/source identity: `<NOT_PUBLISHED>`
-- Public repository URL: `<NOT_PUBLISHED>`
+- Public remote/source identity: `https://github.com/i-snowb/watchfloor`
+- Public repository URL: `https://github.com/i-snowb/watchfloor`
 - Public video URL: `<NOT_PUBLISHED>`
-- Final commit: `<NOT_PUBLISHED>`
+- Final commit: read `sourceCommit` from `/api/release` after the final publish
 
 Before the final public deployment, set only verified public metadata and use
 the guarded deploy command:
 
 ```bash
-export WATCHFLOOR_SOURCE_REPOSITORY="https://github.com/OWNER/REPOSITORY"
+export WATCHFLOOR_SOURCE_REPOSITORY="https://github.com/i-snowb/watchfloor"
 export WATCHFLOOR_RELEASE_ID="watchfloor-$(git rev-parse --short=12 HEAD)"
 npm run cloudflare:deploy-public
 ```

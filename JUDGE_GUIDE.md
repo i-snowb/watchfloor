@@ -66,8 +66,9 @@ hosted smoke, lineage checks, gate-bypass denials, and browser checks. That run
 does not attest to later source changes. Treat the current deployment as final
 only when [`/api/release`](https://watchfloor-sandbox.watchfloor-webmcp.workers.dev/api/release)
 identifies the reviewed public commit and the hosted smoke and native WebMCP
-checks have been repeated against that deployment. The public repository and
-video remain submission artifacts until their verified URLs are recorded in
+checks have been repeated against that deployment. The source is public at
+[github.com/i-snowb/watchfloor](https://github.com/i-snowb/watchfloor); the
+public video remains pending until its verified URL is recorded in
 [SUBMISSION.md](./SUBMISSION.md).
 
 For local verification:
