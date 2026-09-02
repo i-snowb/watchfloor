@@ -56,6 +56,50 @@ test("recording view keeps controls out of the graph and preserves the timeline"
   );
   assert.match(
     styles,
+    /@media \(min-width: 701px\) and \(max-width: 1180px\) and \(min-height: 1001px\)/,
+  );
+  assert.doesNotMatch(
+    styles,
+    /@media \(min-width: 701px\) and \(max-width: 1180px\) \{/,
+  );
+  const compactDesktopRules = styles.slice(
+    styles.indexOf("@media (min-width: 981px) and (max-height: 800px)"),
+    styles.indexOf("/* Persistent case feedback"),
+  );
+  assert.match(
+    compactDesktopRules,
+    /\.case-context-rail \{[\s\S]*grid-template-columns: minmax\(180px, 0\.24fr\) minmax\(0, 0\.76fr\);[\s\S]*overflow: hidden;/,
+  );
+  assert.match(
+    compactDesktopRules,
+    /\.case-context-rail:has\(\.command-owner-analyst\) \{[\s\S]*overflow: hidden;[\s\S]*z-index: 5;/,
+  );
+  assert.match(
+    compactDesktopRules,
+    /\.case-context-rail:has\(\.command-owner-analyst\)[\s\S]*> \.map-command-dock \{[\s\S]*max-height: var\(--context-row-height\);[\s\S]*overflow: auto;/,
+  );
+  assert.match(
+    compactDesktopRules,
+    /\.case-command-copy[\s\S]*p \{[\s\S]*display: none;/,
+  );
+  assert.match(
+    compactDesktopRules,
+    /\.case-command-label \{[\s\S]*grid-column: 1;[\s\S]*width: auto;/,
+  );
+  assert.match(
+    compactDesktopRules,
+    /\.case-command-copy \{[\s\S]*grid-column: 2;[\s\S]*width: auto;/,
+  );
+  assert.match(
+    compactDesktopRules,
+    /\.case-command-control \{[\s\S]*grid-column: 3;[\s\S]*width: auto;/,
+  );
+  assert.match(
+    compactDesktopRules,
+    /\.case-command-decision-actions \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/,
+  );
+  assert.match(
+    styles,
     /\.case-timeline-dock \.timeline-controls \{[\s\S]*min-height: calc\(var\(--timeline-row-height\) - 2px\);/,
   );
   assert.match(

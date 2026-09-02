@@ -1063,19 +1063,72 @@
     max-height: var(--context-row-height);
   }
 
-  /* Analyst gates can include bounded scope and provenance details that are
-   * taller than the compact recording rail. Let the card overlay the graph
-   * instead of clipping its only analyst-owned action behind the canvas. */
+  .case-view .case-context-rail {
+    grid-template-columns: minmax(180px, 0.24fr) minmax(0, 0.76fr);
+    overflow: hidden;
+    z-index: 5;
+  }
+
   .case-view .case-context-rail:has(.command-owner-analyst) {
-    overflow: visible;
-    z-index: 50;
+    overflow: hidden;
+    z-index: 5;
   }
 
   .case-view
     .case-context-rail:has(.command-owner-analyst)
     > .map-command-dock {
-    max-height: none;
-    overflow: visible;
+    max-height: var(--context-row-height);
+    overflow: auto;
+  }
+
+  .case-view .case-context-rail:has(.command-owner-analyst) .case-command-next {
+    align-items: center;
+    gap: 8px;
+    grid-template-columns: 118px minmax(0, 1fr) minmax(280px, 320px);
+    min-height: 0;
+    padding: 8px 38px 8px 12px;
+  }
+
+  .case-view
+    .case-context-rail:has(.command-owner-analyst)
+    .case-command-label {
+    grid-column: 1;
+    width: auto;
+  }
+
+  .case-view .case-context-rail:has(.command-owner-analyst) .case-command-copy {
+    grid-column: 2;
+    width: auto;
+  }
+
+  .case-view
+    .case-context-rail:has(.command-owner-analyst)
+    .case-command-control {
+    align-self: center;
+    grid-column: 3;
+    width: auto;
+  }
+
+  .case-view
+    .case-context-rail:has(.command-owner-analyst)
+    .case-command-decision-actions {
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .case-view
+    .case-context-rail:has(.command-owner-analyst)
+    .case-command-decision-actions
+    button {
+    min-height: 42px;
+    padding: 6px 8px;
+  }
+
+  .case-view
+    .case-context-rail:has(.command-owner-analyst)
+    .case-command-copy
+    p {
+    display: none;
   }
 }
 
@@ -1230,10 +1283,9 @@
 }
 
 /*
- * Codex and other split-pane desktop shells expose a short, narrow browser
- * viewport while still matching desktop media queries. Keep operations in
- * document flow, give the graph its own bounded row, and scroll inside long
- * panels instead of allowing them to cover evidence.
+ * Codex and other split-pane desktop shells with tall, narrow viewports can
+ * keep operations in document flow. Short panes are owned by the fixed
+ * desktop contract above so the graph and timeline remain inside the viewport.
  */
 .case-view .case-context-rail-command-only {
   grid-template-columns: minmax(0, 1fr);
@@ -1243,7 +1295,7 @@
   grid-column: 1;
 }
 
-@media (min-width: 701px) and (max-width: 1180px) {
+@media (min-width: 701px) and (max-width: 1180px) and (min-height: 1001px) {
   .platform-shell-case {
     height: 100dvh;
     min-height: 0;
