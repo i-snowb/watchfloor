@@ -58,10 +58,12 @@ The anonymous visitor can use analyst controls in this sandbox. This demonstrate
 
 ## Source facts and hosted verification
 
-The full endpoint lifecycle ends at `r29`. Source verification covers the
-complete test suite and production build. The final release procedure also checks the public
-sandbox profile and refuses to deploy a source revision that is dirty, absent
-from the declared remote, or different from the release metadata.
+The shortest endpoint lifecycle ends at `r29`. The submitted film takes the
+supported evidence-insufficient branch through static and sandbox pivots and
+closes at `r34`. Source verification covers the complete test suite and
+production build. The final release procedure also checks the public sandbox
+profile and refuses to deploy a source revision that is dirty, absent from the
+declared remote, or different from the release metadata.
 
 Treat [`/api/release`](https://watchfloor-sandbox.watchfloor-webmcp.workers.dev/api/release)
 as the authoritative deployed source identity. Final hosted verification covers
