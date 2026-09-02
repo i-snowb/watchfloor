@@ -42,43 +42,29 @@ case URL load without a pre-existing session or identity.
 
 ## Release evidence
 
-- 24 endpoint tools; 18 cloud tools (case-scoped registrations)
-- Complete endpoint lifecycle through `r29`
-- Current source verification passes **175 tests** across **8,569 test lines in
-  29 files**.
-- Released evidence lineage is available through a read-only WebMCP tool and
-  the existing evidence drawer; it exposes bounded skill, KQL, record, receipt,
-  report-consumer, and limitation provenance.
-- Historical hosted WebMCP lifecycle verification on 2026-09-01 passed from `r14` through analyst telemetry
-  release, recovery authorization, and analyst-approved report closure at
-  `r29`.
-- Direct attach before release was rejected at `r19` with
-  `TELEMETRY_RELEASE_REQUIRED`; repeated pending-gate bypass was rejected at
-  `r20`; both left revision unchanged.
-- Historical hosted HTTP smoke passed. `/alerts`, `/start`, and cloud had zero browser
-  errors; cloud `get_case_context` passed.
-- Historical hosted evidence-lineage proof: public `npm run smoke` passed
-  its HTTP lineage and trusted-receipt assertions and reset the case. At
-  1280×720, native page registration included `trace_evidence_lineage`; initial
-  entity lineage opened in the existing scroll-contained drawer. The browser
-  was left at `r1`, with no selection and the drawer closed.
+- The guarded public deploy reruns formatting, lint, strict TypeScript, 175
+  tests, the production build, sandbox-profile validation, and source
+  provenance checks.
+- Hosted smoke passes both deterministic case lifecycles through report closure
+  and final reset, including released evidence lineage, trusted receipts,
+  idempotency, stale state, forged envelopes, and WebMCP/analyst boundaries.
+- Native hosted registration exposes 2 queue tools, 24 endpoint tools, and 18
+  cloud tools. Endpoint `get_case_context` returns the fresh `r1` bounded next
+  action.
+- `/alerts`, `/start`, the endpoint case, and the cloud case load anonymously
+  with the expected browser security headers.
+- At 1280×720, the endpoint body has no horizontal overflow, its three opening
+  graph cards remain contained, and the checked routes have no console errors.
+- `/api/release` is the authoritative link between the deployed Worker and the
+  exact public GitHub commit.
 
 ## Final checks
 
-- [ ] `npm run check` passed on the submitted commit.
-- [ ] `npm run smoke` passed against the submitted local build.
-- [ ] Native hosted WebMCP endpoint lifecycle repeated against the submitted
-      source-identified deployment, including the full analyst-gated path.
-- [x] Historical native hosted WebMCP endpoint lifecycle passed from `r14` to `r29`,
-      including analyst telemetry release, recovery authorization, and report
-      closure.
-- [x] Direct and pending-gate attach bypass attempts were rejected at `r19` and
-      `r20` without revision changes.
-- [ ] Hosted HTTP smoke and browser route checks repeated against the submitted
-      source-identified deployment.
-- [x] Historical hosted HTTP smoke passed; checked `/alerts`, `/start`, and cloud routes
-      had zero browser errors; cloud `get_case_context` passed.
-- [x] Hosted HTTP lineage/receipt assertions passed; native registration and
-      the contained existing-drawer lineage UI passed at 1280×720.
-- [ ] Public source identity and repository URL are published and verified.
+- [x] `npm run check` passes on the public source commit.
+- [x] Guarded Cloudflare deployment identifies the exact public source commit.
+- [x] Hosted lifecycle smoke, release metadata, routes, and headers pass.
+- [x] Native hosted queue, endpoint, and cloud WebMCP registration passes.
+- [x] Endpoint `get_case_context` works through native WebMCP at fresh `r1`.
+- [x] Public source, README, license, and social asset are anonymously reachable.
+- [x] Recording-width containment and checked-route console output pass.
 - [ ] Public narrated video is published and verified.

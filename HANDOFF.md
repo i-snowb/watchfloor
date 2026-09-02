@@ -10,29 +10,25 @@
 - Default entry: `/alerts`; optional evaluator entry: `/start`
 - Tool coverage: case-scoped registrations — 24 endpoint tools and 18 cloud tools
 - Endpoint complete lifecycle: `r29`
-- Current source verification passes **175 tests** across **8,569 test lines in
-  29 files**.
-- Historical hosted native WebMCP proof (2026-09-01): passed from `r14` through analyst telemetry
-  release, recovery authorization, and analyst-approved report closure at
-  `r29`.
-- Direct attach before release was rejected at `r19` with
-  `TELEMETRY_RELEASE_REQUIRED`; repeated pending-gate bypass was rejected at
-  `r20`; both left revision unchanged.
-- Historical hosted smoke passed. `/alerts`, `/start`, and cloud had zero browser errors;
-  cloud `get_case_context` passed.
-- Historical lineage proof: public hosted smoke passed HTTP lineage and
-  trusted-receipt assertions and reset the case. At 1280×720, native page
-  registration included `trace_evidence_lineage`, and initial entity lineage
-  opened in the existing z-index-60 scroll-contained drawer. The browser was
-  left at `r1`, with no selection and the drawer closed.
-- Repeat hosted smoke, native WebMCP, signed-out access, and browser checks after
-  each source-identified deployment.
+- Final source verification passes 175 tests and the production build.
+- Guarded public deployment and `/api/release` bind the Worker to its exact
+  public GitHub commit.
+- Hosted smoke passes both complete lifecycles, lineage, trusted receipts,
+  boundary denials, report closure, and final reset.
+- Native hosted registration passes for the queue, endpoint, and cloud
+  surfaces. Endpoint `get_case_context` returns the fresh `r1` next action.
+- Anonymous routes, security headers, the 1280×720 endpoint layout, and checked
+  browser console output pass.
 - Remaining submission artifact: public video until its verified URL is
   recorded in [SUBMISSION.md](./SUBMISSION.md).
 
 ## Product truth
 
 TRACE works only through registered WebMCP tools. It can investigate bounded evidence, trace released evidence lineage, run exact approved queries, attach ready discoveries, model impact, simulate controls, prepare response packages, and draft reports. It cannot record evidence disposition, release the later observation, approve a response, or approve a report.
+
+The analyst can bring any compatible personal or team harness with its own
+model, memory, workflow skills, and runbooks. WATCH//FLOOR still owns the case
+state, approved operations, evidence contracts, receipts, and authority gates.
 
 Evidence lineage is read-only and accepts only a released visible target. It
 returns the supporting approved skill, canonical KQL, bounded fixture records,

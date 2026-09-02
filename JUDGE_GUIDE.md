@@ -58,15 +58,16 @@ The anonymous visitor can use analyst controls in this sandbox. This demonstrate
 
 ## Source facts and hosted verification
 
-The full endpoint lifecycle ends at `r29`. Current source verification passes
-**175 tests** across **8,569 test lines in 29 files**.
+The full endpoint lifecycle ends at `r29`. Source verification passes 175 tests
+and the production build. The final release procedure also checks the public
+sandbox profile and refuses to deploy a source revision that is dirty, absent
+from the declared remote, or different from the release metadata.
 
-Historical hosted verification on 2026-09-01 passed the native lifecycle,
-hosted smoke, lineage checks, gate-bypass denials, and browser checks. That run
-does not attest to later source changes. Treat the current deployment as final
-only when [`/api/release`](https://watchfloor-sandbox.watchfloor-webmcp.workers.dev/api/release)
-identifies the reviewed public commit and the hosted smoke and native WebMCP
-checks have been repeated against that deployment. The source is public at
+Treat [`/api/release`](https://watchfloor-sandbox.watchfloor-webmcp.workers.dev/api/release)
+as the authoritative deployed source identity. Final hosted verification covers
+both HTTP lifecycles, native queue/endpoint/cloud WebMCP registration, a fresh
+endpoint context read, anonymous routes, browser security headers, and the
+1280×720 recording layout. The source is public at
 [github.com/i-snowb/watchfloor](https://github.com/i-snowb/watchfloor); the
 public video remains pending until its verified URL is recorded in
 [SUBMISSION.md](./SUBMISSION.md).
