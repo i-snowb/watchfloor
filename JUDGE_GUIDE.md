@@ -20,7 +20,7 @@ Use this connected-agent instruction:
 
 1. **Bounded query and raw evidence.** Follow the first returned action to prepare `QRY-ENDPOINT-FILE-01`, show its canonical KQL, run only that exact text, and inspect its returned fixture records.
 2. **Evidence growth and analyst stop.** Continue the returned investigation actions through `QRY-ENDPOINT-IDENTITY-03`. Its bounded result makes the service identity visible and moves the graph from 3 entities / 4 events / 2 joins to 4 / 5 / 2. Attaching `STREAM-LAT-01` then expands the observed and prevented investigation to 7 / 11 / 7. When `analystGate.kind` becomes `evidence_disposition`, TRACE has no next action and must stop for the analyst.
-3. **Approved modeled control and signed report.** After the analyst confirms disposition, let TRACE calculate reachability, simulate the allowed controls, and prepare the recorded containment package. The analyst authorizes it; show the severed modeled paths and the explicit no-external-execution record. Complete the later analyst telemetry release and recovery package, draft the evidence report, add the closure note, and show analyst report approval.
+3. **Approved modeled control and analyst-approved report.** After the analyst confirms disposition, let TRACE calculate reachability, simulate the allowed controls, and prepare the recorded containment package. The analyst authorizes it; show the severed modeled paths and the explicit no-external-execution record. Complete the later analyst telemetry release and recovery package, draft the evidence report, add the closure note, and show analyst report approval.
 
 ## What to verify
 

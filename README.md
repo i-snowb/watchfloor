@@ -38,8 +38,8 @@ workbench. It does not self-start or operate behind the analyst's back.
 2. **Evidence changes the picture.** A validated discovery expands the graph.
    The next analyst gate removes the agent's next action and visibly stops it.
 3. **Authority changes the outcome.** Modeled risk paths are severed only after
-   analyst approval. The case ends with a signed, provenance-backed evidence
-   report—not an agent-authored verdict.
+   analyst approval. The case ends with an analyst-approved, provenance-backed
+   evidence report—not an agent-authored verdict.
 
 ## Why WebMCP matters
 
